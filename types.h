@@ -58,6 +58,7 @@ void operator-=(v2 &l, const r32 &r) { l.x = l.x - r; l.y = l.y - r; }
 void operator*=(v2 &l, const r32 &r) { l.x = l.x * r; l.y = l.y * r; }
 void operator/=(v2 &l, const v2 &r) { l.x = l.x / r.x; l.y = l.y / r.y; }
 void operator/=(v2 &l, const r32 &r) { l.x = l.x / r; l.y = l.y / r; }
+v2 operator-(const v2 &v) { return { -v.x, -v.y }; }
 r32 dot_product(const v2 &l, const v2 &r) { return (l.x * r.x) + (l.y * r.y); }
 r32 length_squared(const v2 &v) { return (v.x * v.x) + (v.y * v.y); }
 void log(const v2 &v) { log("v2: %f, %f", v.x, v.y); }

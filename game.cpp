@@ -21,22 +21,8 @@
 
 struct Vector
 {
-    r32 magitude;
+    r32 magnitude;
     v2 direction;
-};
-
-struct Boat
-{
-    v2 coords;
-    r32 rotation_speed;
-    Vector vector;
-};
-
-struct Game_Data
-{
-    v2 jeff_coords;
-    
-    Boat boat;
 };
 
 function r32
@@ -61,6 +47,37 @@ rotate_vector(Vector *vector, r32 angle)
     vector->direction.y = 1.0f * sinf(new_angle);
 }
 
+function v2
+get_screen_displacement(Vector vector)
+{
+    vector.direction.y = -vector.direction.y;
+    return vector.direction * vector.magnitude;
+}
+
+function void
+log(Vector vector)
+{
+    log("magnitude: %f, direction: %f, %f", vector.magnitude, vector.direction); 
+}
+
+struct Boat
+{
+    v2 coords;
+    r32 rotation_speed;
+    r32 rudder_force;
+    
+    Vector vector;
+    
+    r32 mass;
+    r32 engine_force;
+};
+
+struct Game_Data
+{
+    Boat boat;
+    r32 water_force;
+};
+
 function void*
 init_data(Assets *assets)
 {
@@ -68,9 +85,13 @@ init_data(Assets *assets)
     *data = {};
     
     data->boat.coords = { 200, 200 };
-    data->boat.rotation_speed = 0.01f;
-    data->boat.vector.magitude = 0.01f;
+    data->boat.mass = 100.0f;
+    data->boat.engine_force = 2.0f;
+    data->boat.rudder_force = 2.0f;
+    data->boat.rotation_speed = 0.0f;
     data->boat.vector.direction = { 1, 0 };
+    
+    data->water_force = 0.9f;
     
     return (void*)data;
 }
@@ -86,18 +107,41 @@ update(Application *app)
     
     Boat *boat = &data->boat;
     
-    if (is_down(input->active_controller->left) || is_down(input->active_controller->right)) 
     {
-        r32 deg = boat->rotation_speed;
-        if (is_down(input->active_controller->right)) deg = -deg;
-        r32 rad = deg * DEG2RAD;
-        rotate_vector(&boat->vector, rad);
+        r32 acceleration = boat->rudder_force / boat->mass;
+        r32 water_acceleration = data->water_force / boat->mass;
+        
+        if (boat->vector.magnitude > 0)
+        {
+            if (is_down(input->active_controller->right)) if (boat->rotation_speed > -boat->vector.magnitude/2.0f) boat->rotation_speed -= acceleration * time->frame_time_s;
+            if (is_down(input->active_controller->left)) if (boat->rotation_speed < boat->vector.magnitude/2.0f) boat->rotation_speed += acceleration * time->frame_time_s;
+        }
+        else
+        {
+            if (is_down(input->active_controller->right)) if (boat->rotation_speed < -boat->vector.magnitude/2.0f) boat->rotation_speed -= acceleration * time->frame_time_s;
+            if (is_down(input->active_controller->left)) if (boat->rotation_speed > boat->vector.magnitude/2.0f) boat->rotation_speed += acceleration * time->frame_time_s;
+        }
+        //if (is_down(input->active_controller->right)) boat->rotation_speed = boat->vector.magnitude - (acceleration * time->frame_time_s);
+        //if (is_down(input->active_controller->left))  boat->rotation_speed = boat->vector.magnitude + (acceleration * time->frame_time_s);
+        
+        if (boat->rotation_speed > 0) boat->rotation_speed -= (water_acceleration * time->frame_time_s);
+        if (boat->rotation_speed < 0) boat->rotation_speed += (water_acceleration * time->frame_time_s);
+        
+        rotate_vector(&boat->vector, boat->rotation_speed * DEG2RAD);
     }
-    
-    v2 dir = boat->vector.direction;
-    dir.y = -dir.y;
-    if (is_down(input->active_controller->up))    boat->coords += dir * boat->vector.magitude;
-    if (is_down(input->active_controller->down))  boat->coords += dir * -boat->vector.magitude;
+    {
+        r32 acceleration = boat->engine_force / boat->mass;
+        r32 water_acceleration = data->water_force / boat->mass;
+        
+        if (is_down(input->active_controller->up)) if (boat->vector.magnitude < 0.02f) boat->vector.magnitude += (acceleration * time->frame_time_s);
+        if (is_down(input->active_controller->down)) if (boat->vector.magnitude > -0.02f) boat->vector.magnitude -= (acceleration * time->frame_time_s);
+        
+        if (boat->vector.magnitude > 0) boat->vector.magnitude -= (water_acceleration * time->frame_time_s);
+        if (boat->vector.magnitude < 0) boat->vector.magnitude += (water_acceleration * time->frame_time_s);
+        
+        boat->coords += get_screen_displacement(boat->vector);
+    }
+    //log(boat->vector);
     
     glClear(window->gl_clear_flags);
     
