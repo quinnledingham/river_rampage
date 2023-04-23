@@ -117,16 +117,16 @@ init_window(Window *window)
         SDL_INIT_HAPTIC |
         SDL_INIT_AUDIO;
     
+    SDL_Init(sdl_init_flags);
+    
+    const char *title = "River Rampage";
+    v2s position = { SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED };
+    v2s dim = { 800, 800 };    
     u32 sdl_window_flags =
         SDL_WINDOW_RESIZABLE |
         SDL_WINDOW_OPENGL;
     
-    SDL_Init(sdl_init_flags);
-    
-    window->sdl = SDL_CreateWindow("River Rampage",
-                                   SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                                   800, 800,
-                                   sdl_window_flags);
+    window->sdl = SDL_CreateWindow(title, position.x, position.y, dim.width, dim.height, sdl_window_flags);
     
     init_opengl(window);
 }

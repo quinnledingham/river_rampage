@@ -32,6 +32,8 @@ init_rect_mesh(Mesh *rect)
 function void
 draw_rect(v3 coords, quat rotation, v3 dim, u32 handle, m4x4 projection_matrix, m4x4 view_matrix)
 {
+    coords += dim / 2.0f;
+    
     m4x4 model = create_transform_m4x4(coords, rotation, dim);
     glUniformMatrix4fv(glGetUniformLocation(handle, "model"), (GLsizei)1, false, (float*)&model);
     glUniformMatrix4fv(glGetUniformLocation(handle, "projection"), (GLsizei)1, false, (float*)&projection_matrix);
@@ -57,13 +59,14 @@ draw_rect(v3 coords, quat rotation, v3 dim, v4 color, m4x4 projection_matrix, m4
     }
     
     u32 handle = use_shader(&shader);
+    
     glUniform4fv(glGetUniformLocation(handle, "user_color"), (GLsizei)1, (float*)&color);
+    
     draw_rect(coords, rotation, dim, handle, projection_matrix, view_matrix);
 }
 
 function void
-draw_rect(v3 coords, quat rotation, v3 dim, Bitmap *bitmap,
-          m4x4 projection_matrix, m4x4 view_matrix)
+draw_rect(v3 coords, quat rotation, v3 dim, Bitmap *bitmap, m4x4 projection_matrix, m4x4 view_matrix)
 {
     local_persist Shader shader = {};
     if (!shader.compiled)
@@ -85,19 +88,32 @@ draw_rect(v3 coords, quat rotation, v3 dim, Bitmap *bitmap,
 function void
 draw_rect(v2 coords, r32 rotation, v2 dim, v4 color)
 {
-    coords += dim / 2.0f;
-    draw_rect({ coords.x, coords.y, 0 }, get_rotation(rotation, { 0, 0, 1 }), { dim.x, dim.y, 1 }, color, orthographic_matrix, identity_m4x4());
+    v3 coords_v3 = { coords.x, coords.y, 0 };
+    quat rotation_quat = get_rotation(rotation, { 0, 0, 1 });
+    v3 dim_v3 = { dim.x, dim.y, 1 };
+    draw_rect(coords_v3, rotation_quat, dim_v3, color, orthographic_matrix, identity_m4x4());
 }
 
 function void
 draw_rect(v2 coords, r32 rotation, v2 dim, Bitmap *bitmap)
 {
-    coords += dim / 2.0f;
-    draw_rect({ coords.x, coords.y, 0 }, get_rotation(-rotation, { 0, 0, 1 }), { dim.x, dim.y, 1 }, bitmap, orthographic_matrix, identity_m4x4());
+    v3 coords_v3 = { coords.x, coords.y, 0 };
+    quat rotation_quat = get_rotation(-rotation, { 0, 0, 1 });
+    v3 dim_v3 = { dim.x, dim.y, 1 };
+    draw_rect(coords_v3, rotation_quat, dim_v3, bitmap, orthographic_matrix, identity_m4x4());
 }
 
-function void draw_rect(Rect rect, v4 color) { draw_rect(rect.coords, 0.0f, rect.dim, color); }
-function void draw_rect(Rect rect, Bitmap *bitmap) { draw_rect(rect.coords, 0.0f, rect.dim, bitmap); }
+function void 
+draw_rect(Rect rect, v4 color) 
+{
+    draw_rect(rect.coords, 0.0f, rect.dim, color); 
+}
+
+function void 
+draw_rect(Rect rect, Bitmap *bitmap) 
+{ 
+    draw_rect(rect.coords, 0.0f, rect.dim, bitmap);
+}
 
 function void
 center_on(Rect *rect, v2 coords)

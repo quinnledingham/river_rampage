@@ -27,7 +27,17 @@ typedef r64 f64;
 #define EPSILON 0.00001f
 
 #define ARRAY_COUNT(n) (sizeof(n) / sizeof(n[0]))
-#define ARRAY_MALLOC(t, n) ((t*)malloc(n * sizeof(t)))
+
+function void*
+zero_malloc(u32 n)
+{
+    void *data = malloc(n);
+    memset(data, 0, n);
+    return data;
+}
+
+#define ZERO_MALLOC(t, n) ((t*)zero_malloc(n))
+#define ARRAY_MALLOC(t, n) (ZERO_MALLOC(t, n * sizeof(t)))
 
 union v2
 {
@@ -236,7 +246,7 @@ normalized(const quat &v)
     r32 len_sq = length_squared(v);
     if (len_sq < EPSILON) return { 0, 0, 0, 1 };
     r32 inverse_length = 1.0f / sqrtf(len_sq);
-    return {v.x * inverse_length, v.y * inverse_length, v.z * inverse_length, v.w * inverse_length};
+    return { v.x * inverse_length, v.y * inverse_length, v.z * inverse_length, v.w * inverse_length };
 }
 
 quat get_rotation(r32 angle, const v3& axis)
@@ -260,10 +270,8 @@ from_to(const v3& from, const v3& to)
     else if (f == t * -1.0f)
     {
         v3 ortho = { 1, 0, 0 };
-        if (fabsf(f.y) < fabsf(f.x))
-            ortho = { 0, 1, 0 };
-        if (fabsf(f.z) < fabs(f.y) && fabs(f.z) < fabsf(f.x))
-            ortho = { 0, 0, 1 };
+        if (fabsf(f.y) < fabsf(f.x)) ortho = { 0, 1, 0 };
+        if (fabsf(f.z) < fabs(f.y) && fabs(f.z) < fabsf(f.x)) ortho = { 0, 0, 1 };
         v3 axis = normalized(cross_product(f, ortho));
         return { axis.x, axis.y, axis.z, 0.0f };
     }
@@ -303,17 +311,21 @@ print_m4x4(m4x4 matrix)
         s32 row = i / 4;
         s32 column = i - (row * 4);
         printf("%f ", matrix.E[row][column]);
-        if ((i + 1) % 4 == 0)
-            printf("\n");
+        if ((i + 1) % 4 == 0) printf("\n");
     }
 }
 
 inline m4x4
-get_frustum(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f)
+perspective_projection(r32 fov, r32 aspect_ratio, r32 n, r32 f)
 {
+    r32 y_max = n * tanf(fov * PI / 360.0f);
+    r32 x_max = y_max * aspect_ratio;
+    
+    f32 l = -x_max, r = x_max, b = -y_max, t = y_max;
+    
     if (l == r || t == b || n == f)
     {
-        error("Invalid frustum");
+        error("perspective_projection() Invalid arguments");
         return {};
     }
     
@@ -327,14 +339,6 @@ get_frustum(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f)
 }
 
 inline m4x4
-perspective_projection(r32 fov, r32 aspect_ratio, r32 n, r32 f)
-{
-    r32 y_max = n * tanf(fov * PI / 360.0f);
-    r32 x_max = y_max * aspect_ratio;
-    return get_frustum(-x_max, x_max, -y_max, y_max, n, f);
-}
-
-inline m4x4
 orthographic_projection(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f)
 {
     if (l == r || t == b || n == f)
@@ -342,6 +346,7 @@ orthographic_projection(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f)
         error("orthographic_projection() Invalid arguments");
         return {};
     }
+        
     return
     {
         2.0f / (r - l), 0, 0, 0,
@@ -481,8 +486,7 @@ get_length(const char *string)
 function char*
 chtos(int n, ...)
 {
-    char* s = (char*)malloc(n + 1);
-    memset(s, 0, n + 1);
+    char *s = ZERO_MALLOC(char, n + 1);
     
     va_list ptr;
     va_start(ptr, n);
@@ -497,9 +501,8 @@ chtos(int n, ...)
 function char*
 ftos(f32 f)
 {
-    u32 size = 64;
-    char *buffer = (char*)malloc(size);
-    memset(buffer, 0, size);
+    u32 size = 64;    
+    char *buffer = ZERO_MALLOC(char, size);
     u32 ret = snprintf(buffer, size, "%f", f);
     if (ret < 0)
     {
@@ -515,9 +518,8 @@ function const char*
 copy(const char *string)
 {
     u32 length = get_length(string);
-    if (length == 0)
-        return 0;
-    
+    if (length == 0) return 0;
+   
     char *new_string = (char*)SDL_malloc(length + 1);
     SDL_memset(new_string, 0, length + 1);
     SDL_memcpy(new_string, string, length);

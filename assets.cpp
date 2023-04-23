@@ -22,7 +22,7 @@ read_file(const char *filename)
     {
         error(0, "Cannot open file %s", filename);
     }
-
+    
     return result;
 }
 
@@ -31,9 +31,8 @@ read_file(const char *filename)
 function const char*
 copy_from_file(FILE *input_file, u32 length)
 {
-    char *string = (char*)malloc(length + 1);
-    memset(string, 0, length + 1);
-    
+    char *string = ZERO_MALLOC(char, length + 1);
+        
     for (u32 i = 0; i < length; i++)
     {
         int ch = fgetc(input_file);
@@ -68,7 +67,7 @@ init_bitmap_handle(Bitmap *bitmap)
     GLint internal_format;
     GLenum data_format;
     GLint pixel_unpack_alignment;
-
+    
     switch(bitmap->channels)
     {
         case 3:
@@ -76,14 +75,14 @@ init_bitmap_handle(Bitmap *bitmap)
             data_format = GL_RGB;
             pixel_unpack_alignment = 1;
         break;
-
+        
         case 4:
             internal_format = GL_RGBA;
             data_format = GL_RGBA;
             pixel_unpack_alignment = 0;
         break;
     }
-
+    
     glGenTextures(1, &bitmap->handle);
     glBindTexture(target, bitmap->handle);
     
@@ -94,7 +93,7 @@ init_bitmap_handle(Bitmap *bitmap)
     // Tile
     //glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_REPEAT);
     //glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
+    
     glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     
@@ -372,38 +371,38 @@ load_assets(Assets *assets, const char *filename)
 {
     FILE *file = fopen(filename, "r");
     if (file == 0) error("load_assets(): failed to open file %s", filename);
-
+    
     parse_asset_file(assets, file, count_asset);
     assets->info = ARRAY_MALLOC(Asset_Load_Info, assets->num_of_assets);
     fseek(file, 0, SEEK_SET);
     parse_asset_file(assets, file, add_asset_load_info);    fclose(file);
-
+    
     assets->fonts   = ARRAY_MALLOC(Asset, assets->num_of_fonts);
     assets->bitmaps = ARRAY_MALLOC(Asset, assets->num_of_bitmaps);
     assets->shaders = ARRAY_MALLOC(Asset, assets->num_of_shaders);
-
+    
     for (u32 i = 0; i < assets->num_of_assets; i++)
     {
         Asset_Load_Info *info = &assets->info[i];
         //printf("asset: %d, %s, %s\n", info->type, info->tag, info->filename);
-
+        
         Asset asset = {};
         asset.type = info->type;
         asset.tag = info->tag;
-
+        
         switch(asset.type)
         {
             case ASSET_TYPE_FONT: 
-                {
-                    //asset.font = load_font(info->filename); 
-                    assets->fonts[info->index] = asset;
-                } break;
-
+            {
+                //asset.font = load_font(info->filename); 
+                assets->fonts[info->index] = asset;
+            } break;
+            
             case ASSET_TYPE_BITMAP: 
-                {
-                    asset.bitmap = load_and_init_bitmap(info->filename); 
-                    assets->bitmaps[info->index] = asset;
-                } break;
+            {
+                asset.bitmap = load_and_init_bitmap(info->filename); 
+                assets->bitmaps[info->index] = asset;
+            } break;
         }
     }
 }
