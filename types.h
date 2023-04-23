@@ -550,10 +550,8 @@ u32_to_string(u32 in)
     u32 help = 0;
     for (u32 i = 0; i < digits; i++)
     {
-        if (help == 0)
-            help++;
-        else
-            help *= 10;
+        if (help == 0) help++;
+        else help *= 10;
     }
     
     for (u32 i = 0; i < digits; i++)

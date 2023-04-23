@@ -1,9 +1,7 @@
 function void
 init_rect_indices(u32 *indices, 
-                  u32 top_left, 
-                  u32 top_right,
-                  u32 bottom_left,
-                  u32 bottom_right)
+                  u32 top_left, u32 top_right,
+                  u32 bottom_left, u32 bottom_right)
 {
     indices[0] = top_left;
     indices[1] = bottom_left;

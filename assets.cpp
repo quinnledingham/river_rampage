@@ -18,9 +18,11 @@ read_file(const char *filename)
         fread(result.memory, result.size, 1, in);
         fclose(in);
     }
-    else 
+    else
+    {
         error(0, "Cannot open file %s", filename);
-    
+    }
+
     return result;
 }
 
@@ -61,31 +63,45 @@ load_bitmap(const char *filename)
 function void
 init_bitmap_handle(Bitmap *bitmap)
 {
-    glGenTextures(1, &bitmap->handle);
-    glBindTexture(GL_TEXTURE_2D, bitmap->handle);
+    GLenum target = GL_TEXTURE_2D;
     
-    if (bitmap->channels == 3)
+    GLint internal_format;
+    GLenum data_format;
+    GLint pixel_unpack_alignment;
+
+    switch(bitmap->channels)
     {
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, bitmap->dim.width, bitmap->dim.height, 0, GL_RGB, GL_UNSIGNED_BYTE, bitmap->memory);
+        case 3:
+            internal_format = GL_RGB;
+            data_format = GL_RGB;
+            pixel_unpack_alignment = 1;
+        break;
+
+        case 4:
+            internal_format = GL_RGBA;
+            data_format = GL_RGBA;
+            pixel_unpack_alignment = 0;
+        break;
     }
-    else if (bitmap->channels == 4)
-    {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bitmap->dim.width, bitmap->dim.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, bitmap->memory);
-    }
-    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glGenTextures(1, &bitmap->handle);
+    glBindTexture(target, bitmap->handle);
+    
+    glPixelStorei(GL_UNPACK_ALIGNMENT, pixel_unpack_alignment);
+    glTexImage2D(target, 0, internal_format, bitmap->dim.width, bitmap->dim.height, 0, data_format, GL_UNSIGNED_BYTE, bitmap->memory);
+    glGenerateMipmap(target);
     
     // Tile
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    //glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    //glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+    glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    
-    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindTexture(target, 0);
 }
 
 function Bitmap
@@ -132,18 +148,18 @@ load_shader(Shader *shader)
     }
     
     // Free all files
-    if (shader->vs_file != 0)  free((void*)shader->vs_file);
+    if (shader->vs_file  != 0) free((void*)shader->vs_file);
     if (shader->tcs_file != 0) free((void*)shader->tcs_file);
     if (shader->tes_file != 0) free((void*)shader->tes_file);
-    if (shader->gs_file != 0)  free((void*)shader->gs_file);
-    if (shader->fs_file != 0)  free((void*)shader->fs_file);
+    if (shader->gs_file  != 0) free((void*)shader->gs_file);
+    if (shader->fs_file  != 0) free((void*)shader->fs_file);
     
     // Load files
-    if (shader->vs_filename != 0)  shader->vs_file = load_shader_file(shader->vs_filename);
+    if (shader->vs_filename  != 0) shader->vs_file  = load_shader_file(shader->vs_filename);
     if (shader->tcs_filename != 0) shader->tcs_file = load_shader_file(shader->tcs_filename);
     if (shader->tes_filename != 0) shader->tes_file = load_shader_file(shader->tes_filename);
-    if (shader->gs_filename != 0)  shader->gs_file = load_shader_file(shader->gs_filename);
-    if (shader->fs_filename != 0)  shader->fs_file = load_shader_file(shader->fs_filename);
+    if (shader->gs_filename  != 0) shader->gs_file  = load_shader_file(shader->gs_filename);
+    if (shader->fs_filename  != 0) shader->fs_file  = load_shader_file(shader->fs_filename);
 }
 
 function bool
@@ -154,14 +170,16 @@ compile_shader(u32 handle, const char *file, int type)
     glCompileShader(s);
     
     GLint compiled_s = 0;
-    glGetShaderiv(s, GL_COMPILE_STATUS, &compiled_s);
+    glGetShaderiv(s, GL_COMPILE_STATUS, &compiled_s);  
     if (!compiled_s)
     {
         opengl_debug(GL_SHADER, s);
         error("compile_shader() could not compile %s", glGetString(type));
     }
     else
+    {
         glAttachShader(handle, s);
+    }
     
     glDeleteShader(s);
     
@@ -175,11 +193,11 @@ compile_shader(Shader *shader)
     if (shader->handle != 0) glDeleteProgram(shader->handle);
     shader->handle = glCreateProgram();
     
-    if (shader->vs_file != 0)  compile_shader(shader->handle, shader->vs_file, GL_VERTEX_SHADER);
+    if (shader->vs_file  != 0) compile_shader(shader->handle, shader->vs_file,  GL_VERTEX_SHADER);
     if (shader->tcs_file != 0) compile_shader(shader->handle, shader->tcs_file, GL_TESS_CONTROL_SHADER);
     if (shader->tes_file != 0) compile_shader(shader->handle, shader->tes_file, GL_TESS_EVALUATION_SHADER);
-    if (shader->gs_file != 0)  compile_shader(shader->handle, shader->gs_file, GL_GEOMETRY_SHADER);
-    if (shader->fs_file != 0)  compile_shader(shader->handle, shader->fs_file,GL_FRAGMENT_SHADER);
+    if (shader->gs_file  != 0) compile_shader(shader->handle, shader->gs_file,  GL_GEOMETRY_SHADER);
+    if (shader->fs_file  != 0) compile_shader(shader->handle, shader->fs_file,  GL_FRAGMENT_SHADER);
     
     // Link
     glLinkProgram(shader->handle);
@@ -354,39 +372,38 @@ load_assets(Assets *assets, const char *filename)
 {
     FILE *file = fopen(filename, "r");
     if (file == 0) error("load_assets(): failed to open file %s", filename);
-    
+
     parse_asset_file(assets, file, count_asset);
     assets->info = ARRAY_MALLOC(Asset_Load_Info, assets->num_of_assets);
     fseek(file, 0, SEEK_SET);
-    parse_asset_file(assets, file, add_asset_load_info);
-    fclose(file);
-    
-    assets->fonts = ARRAY_MALLOC(Asset, assets->num_of_fonts);
+    parse_asset_file(assets, file, add_asset_load_info);    fclose(file);
+
+    assets->fonts   = ARRAY_MALLOC(Asset, assets->num_of_fonts);
     assets->bitmaps = ARRAY_MALLOC(Asset, assets->num_of_bitmaps);
     assets->shaders = ARRAY_MALLOC(Asset, assets->num_of_shaders);
-    
+
     for (u32 i = 0; i < assets->num_of_assets; i++)
     {
         Asset_Load_Info *info = &assets->info[i];
         //printf("asset: %d, %s, %s\n", info->type, info->tag, info->filename);
-        
+
         Asset asset = {};
         asset.type = info->type;
         asset.tag = info->tag;
-        
+
         switch(asset.type)
         {
             case ASSET_TYPE_FONT: 
-            {
-                //asset.font = load_font(info->filename); 
-                assets->fonts[info->index] = asset;
-            } break;
-            
+                {
+                    //asset.font = load_font(info->filename); 
+                    assets->fonts[info->index] = asset;
+                } break;
+
             case ASSET_TYPE_BITMAP: 
-            {
-                asset.bitmap = load_and_init_bitmap(info->filename); 
-                assets->bitmaps[info->index] = asset;
-            } break;
+                {
+                    asset.bitmap = load_and_init_bitmap(info->filename); 
+                    assets->bitmaps[info->index] = asset;
+                } break;
         }
     }
 }
