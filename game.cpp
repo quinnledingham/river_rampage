@@ -76,8 +76,6 @@ struct Boat
     v2 direction; // the way the ship is pointing 
     r32 acceleration_magnitude; // always accelerates in the direction of the boat
     r32 water_acceleration_magnitude;
-    
-    
 };
 
 function void
@@ -190,7 +188,7 @@ update(Application *app)
     glClear(window->gl_clear_flags);
     
     draw_rect( { 0, 0 }, 0.0f, cv2(window->dim), { 0.0f, 100.0f, 255.0f, 1.0f } );
-    draw_circle( { 0, 0 }, 0.0f, { 100, 100 }, { 255.0f, 0.0f, 0.0f, 1.0f } );
+    draw_circle( { 0, 0 }, 0.0f, 100.0f, { 255.0f, 0.0f, 0.0f, 1.0f } );
     
     Rect rect = {};
     rect.dim = { 100, 100 };

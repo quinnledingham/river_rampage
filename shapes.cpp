@@ -172,11 +172,11 @@ init_circle_mesh(Mesh *mesh)
 }
 
 function void
-draw_circle(v2 coords, r32 rotation, v2 dim, v4 color)
+draw_circle(v2 coords, r32 rotation, r32 radius, v4 color)
 {
     v3 coords_v3 = { coords.x, coords.y, 0 };
     quat rotation_quat = get_rotation(rotation, { 0, 0, 1 });
-    v3 dim_v3 = { dim.x, dim.y, 1 };
+    v3 dim_v3 = { radius, radius, 1 };
     
     Shape shape = {};
     shape.type = SHAPE_CIRCLE;
