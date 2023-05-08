@@ -12,11 +12,11 @@
 #include "log.h"
 #include "types.h"
 #include "assets.h"
-#include "rect.h"
+#include "shapes.h"
 #include "application.h"
 
 #include "assets.cpp"
-#include "rect.cpp"
+#include "shapes.cpp"
 #include "application.cpp"
 
 function r32
@@ -55,14 +55,14 @@ delta_velocity(v2 acceleration, r32 delta_time)
 function v2 
 delta_position(v2 vector, r32 time_s)
 {
-    vector.y = -vector.y;
+    vector.y = -vector.y; // 2D screen coords +y going down screen
     return (vector * time_s) * 800.0f; // 800 pixels per meter
 }
 
 struct Boat
 {
     v2 coords;
-              
+    
     r32 mass;
     r32 engine_force;
     r32 rudder_force;
@@ -120,8 +120,8 @@ update_boat(Boat *boat, Input *input, r32 delta_time)
         boat->velocity += delta_velocity(acceleration, delta_time);
     
     v2 water_acceleration = -normalized(boat->velocity) * boat->water_acceleration_magnitude;
-    log(boat->velocity);
-    log("%f", boat->speed);
+    //log(boat->velocity);
+    //log("%f", boat->speed);
     if (boat->speed > 0)
         boat->velocity += delta_velocity(water_acceleration, delta_time);
     
@@ -190,6 +190,7 @@ update(Application *app)
     glClear(window->gl_clear_flags);
     
     draw_rect( { 0, 0 }, 0.0f, cv2(window->dim), { 0.0f, 100.0f, 255.0f, 1.0f } );
+    draw_circle( { 0, 0 }, 0.0f, { 100, 100 }, { 255.0f, 0.0f, 0.0f, 1.0f } );
     
     Rect rect = {};
     rect.dim = { 100, 100 };

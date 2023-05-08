@@ -139,6 +139,7 @@ application()
     load_assets(&app.assets, "../ethan.assets");
     app.data = init_data(&app.assets);
     init_controllers(&app.input);
+    init_shapes();
     return main_loop(&app);
 }
 

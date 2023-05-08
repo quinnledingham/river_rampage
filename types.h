@@ -158,6 +158,7 @@ inline bool operator==(const v3 &l, const v3 &r) { if (l.x == r.x && l.y == r.y 
 inline bool operator==(const v3 &v, float f) { if (v.x == f && v.y == f && v.z == f) return true; return false; }
 inline r32 dot_product(const v3 &l, const v3 &r) { return (l.x * r.x) + (l.y * r.y) + (l.z * r.z); }
 inline r32 length_squared(const v3 &v) { return (v.x * v.x) + (v.y * v.y) + (v.z * v.z); }
+void log(const v3 &v) { log("v3: %f, %f, %f", v.x, v.y, v.z); }
 
 inline void
 normalize(v3 &v)
@@ -346,7 +347,7 @@ orthographic_projection(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f)
         error("orthographic_projection() Invalid arguments");
         return {};
     }
-        
+    
     return
     {
         2.0f / (r - l), 0, 0, 0,
@@ -519,7 +520,7 @@ copy(const char *string)
 {
     u32 length = get_length(string);
     if (length == 0) return 0;
-   
+    
     char *new_string = (char*)SDL_malloc(length + 1);
     SDL_memset(new_string, 0, length + 1);
     SDL_memcpy(new_string, string, length);
