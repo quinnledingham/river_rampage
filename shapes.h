@@ -13,7 +13,7 @@ enum Shape_Draw_Types
     SHAPE_TEXTURE,
 };
 
-struct Shape
+struct Shape // container for all the information needed to draw the shape
 {
     u32 type;
     v3 coords;
@@ -25,18 +25,7 @@ struct Shape
     Bitmap *bitmap;
 };
 
-struct Circle
-{
-    v2 coords;
-    r32 radius;
-};
-
-struct Rect
-{
-    v2 coords;
-    v2 dim;
-    r32 rotation; // radians
-};
+function void draw_shape(Shape shape, m4x4 projection_matrix, m4x4 view_matrix);
 
 // update on window resize
 global_variable m4x4 orthographic_matrix = {};
@@ -55,7 +44,23 @@ set_orthographic_matrix(v2s window_dim)
 
 function void draw_rect(v2 coords, r32 rotation, v2 dim, v4 color);
 function void draw_rect(v2 coords, r32 rotation, v2 dim, Bitmap *bitmap);
-function void draw_rect(Rect rect, v4 color);
-function void draw_rect(Rect rect, Bitmap *bitmap);
+
+// Shapes for the game code to use
+struct Circle
+{
+    v2 coords;
+    r32 radius;
+};
+
+struct Rect
+{
+    v2 coords;
+    v2 dim;
+    r32 rotation; // radians
+};
+
+function void draw_rect(Rect rect, v4 color) { draw_rect(rect.coords, 0.0f, rect.dim, color); }
+function void draw_rect(Rect rect, Bitmap *bitmap) { draw_rect(rect.coords, 0.0f, rect.dim, bitmap); }
+function void draw_rect(Rect rect, r32 rotation, Bitmap *bitmap) { draw_rect(rect.coords, rotation, rect.dim, bitmap); }
 
 #endif //SHAPES_H

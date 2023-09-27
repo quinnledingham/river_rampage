@@ -53,6 +53,7 @@ v2 operator*(const v2 &l, const v2  &r) { return { l.x * r.x, l.y * r.y }; }
 v2 operator*(const v2 &l, const r32 &r) { return { l.x * r, l.y * r };     }
 v2 operator/(const v2 &l, const v2  &r) { return { l.x / r.x, l.y / r.y }; }
 v2 operator/(const v2 &l, const r32 &r) { return { l.x / r, l.y / r };     }
+v2 operator-(const v2 &v)               { return { -v.x, -v.y }; }
 
 void operator+=(v2 &l, const v2  &r) { l.x = l.x + r.x; l.y = l.y + r.y; }
 void operator-=(v2 &l, const v2  &r) { l.x = l.x - r.x; l.y = l.y - r.y; }

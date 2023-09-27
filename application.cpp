@@ -1,4 +1,12 @@
 function void
+prepare_controller_for_input(Controller *controller)
+{
+    controller->mouse = {};
+    for (u32 j = 0; j < ARRAY_COUNT(controller->buttons); j++)
+        controller->buttons[j].previous_state = controller->buttons[j].current_state;
+}
+
+function void
 controller_process_input(Controller *controller, s32 id, b32 state)
 {
     for (u32 i = 0; i < ARRAY_COUNT(controller->buttons); i++)
@@ -14,6 +22,8 @@ controller_process_input(Controller *controller, s32 id, b32 state)
 function b32
 process_input(v2s *window_dim, Input *input)
 {
+    for (u32 i = 0; i < input->num_of_controllers; i++) prepare_controller_for_input(&input->controllers[i]);
+    
     SDL_Event event;
     while(SDL_PollEvent(&event))
     {
@@ -35,6 +45,14 @@ process_input(v2s *window_dim, Input *input)
                         glViewport(0, 0, window_dim->width, window_dim->height);
                     } break;
                 }
+            } break;
+            
+            case SDL_MOUSEMOTION:
+            {
+                input->active_controller = &input->controllers[0];
+                SDL_MouseMotionEvent *mouse_motion_event = &event.motion;
+                input->active_controller->mouse.x = mouse_motion_event->xrel;
+                input->active_controller->mouse.y = mouse_motion_event->yrel;
             } break;
             
             // keyboard input
@@ -69,14 +87,26 @@ update_time(Time *time)
     if (time->frame_time_s > 0.0f) time->frames_per_s = 1.0f / time->frame_time_s;
 }
 
+function void
+update_relative_mouse_mode(Flag *flag)
+{
+    if (flag->changed()) 
+    {
+        if (flag->get()) SDL_SetRelativeMouseMode(SDL_TRUE);
+        else             SDL_SetRelativeMouseMode(SDL_FALSE);
+    }
+}
+
 function int
 main_loop(Application *app)
 {
     while(1)
     {
         if (process_input(&app->window.dim, &app->input)) return 0; // quit if process_input returns false
+        set_orthographic_matrix(app->window.dim);
         update_time(&app->time);
-        update(app);
+        if (update(app)) return 0;
+        update_relative_mouse_mode(&app->input.relative_mouse_mode);
         swap_window(&app->window);
     }
 }
@@ -146,6 +176,8 @@ application()
     if (load_assets(&app.assets, "../assets.ethan")) return 1;
     app.data = init_game_data(&app.assets);
     init_controllers(&app.input);
+    app.input.relative_mouse_mode.set(false);
+    init_shapes();
     return main_loop(&app);
 }
 

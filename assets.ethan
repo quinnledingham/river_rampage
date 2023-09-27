@@ -7,3 +7,6 @@ WATER|FRAGMENT, ../assets/shaders/water.fs
 
 BITMAPS:
 JEFF, ../assets/bitmaps/jeff.jpg
+
+FONTS:
+CASLON, ../assets/fonts/LibreCaslonCondensed-Regular.ttf

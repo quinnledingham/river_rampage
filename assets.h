@@ -214,6 +214,29 @@ struct Assets
     Asset_Array types[4]; // 0 = bitmap, 1 = font ...
 };
 
+function Bitmap*
+find_bitmap(Assets *assets, const char *tag)
+{
+    for (u32 i = 0; i < assets->types[ASSET_TYPE_BITMAP].num_of_assets; i++)
+    {
+        if (equal(tag, assets->types[ASSET_TYPE_BITMAP].data[i].tag)) 
+            return &assets->types[ASSET_TYPE_BITMAP].data[i].bitmap;
+    }
+    warning(0, "Could not find bitmap with tag: %s", tag);
+    return 0;
+}
+
+function Font*
+find_font(Assets *assets, const char *tag)
+{
+    for (u32 i = 0; i < assets->types[ASSET_TYPE_FONT].num_of_assets; i++)
+    {
+        if (equal(tag, assets->types[ASSET_TYPE_FONT].data[i].tag)) 
+            return &assets->types[ASSET_TYPE_FONT].data[i].font;
+    }
+    warning(0, "Could not find font with tag: %s", tag);
+    return 0;
+}
 
 function Shader*
 find_shader(Assets *assets, const char *tag)
