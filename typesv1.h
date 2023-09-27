@@ -18,16 +18,26 @@ typedef double r64;
 typedef r32 f32;
 typedef r64 f64;
 
-#define function        static
-#define local_persist   static
+#define function static
+#define local_persist static
 #define global_variable static
 
 #define DEG2RAD 0.0174533f
-#define PI      3.14159265359f
+#define PI 3.14159265359f
 #define EPSILON 0.00001f
 
-#define ARRAY_COUNT(n)     (sizeof(n) / sizeof(n[0]))
-#define ARRAY_MALLOC(t, n) ((t*)malloc(n * sizeof(t)))
+#define ARRAY_COUNT(n) (sizeof(n) / sizeof(n[0]))
+
+function void*
+zero_malloc(u32 n)
+{
+    void *data = malloc(n);
+    memset(data, 0, n);
+    return data;
+}
+
+#define ZERO_MALLOC(t, n) ((t*)zero_malloc(n))
+#define ARRAY_MALLOC(t, n) (ZERO_MALLOC(t, n * sizeof(t)))
 
 union v2
 {
@@ -45,22 +55,20 @@ union v2
     };
     r32 E[2];
 };
-
-v2 operator+(const v2 &l, const v2  &r) { return { l.x + r.x, l.y + r.y }; }
-v2 operator+(const v2 &l, const r32 &r) { return { l.x + r, l.y + r };     }
-v2 operator-(const v2 &l, const v2  &r) { return { l.x - r.x, l.y - r.y }; }
-v2 operator*(const v2 &l, const v2  &r) { return { l.x * r.x, l.y * r.y }; }
-v2 operator*(const v2 &l, const r32 &r) { return { l.x * r, l.y * r };     }
-v2 operator/(const v2 &l, const v2  &r) { return { l.x / r.x, l.y / r.y }; }
-v2 operator/(const v2 &l, const r32 &r) { return { l.x / r, l.y / r };     }
-
-void operator+=(v2 &l, const v2  &r) { l.x = l.x + r.x; l.y = l.y + r.y; }
-void operator-=(v2 &l, const v2  &r) { l.x = l.x - r.x; l.y = l.y - r.y; }
-void operator-=(v2 &l, const r32 &r) { l.x = l.x - r; l.y = l.y - r;     }
-void operator*=(v2 &l, const r32 &r) { l.x = l.x * r; l.y = l.y * r;     }
-void operator/=(v2 &l, const v2  &r) { l.x = l.x / r.x; l.y = l.y / r.y; }
-void operator/=(v2 &l, const r32 &r) { l.x = l.x / r; l.y = l.y / r;     }
-
+v2 operator+(const v2 &l, const v2 &r) { return { l.x + r.x, l.y + r.y }; }
+v2 operator+(const v2 &l, const r32 &r) { return { l.x + r, l.y + r }; }
+v2 operator-(const v2 &l, const v2 &r) { return { l.x - r.x, l.y - r.y }; }
+v2 operator*(const v2 &l, const v2 &r) { return { l.x * r.x, l.y * r.y }; }
+v2 operator*(const v2 &l, const r32 &r) { return { l.x * r, l.y * r }; }
+v2 operator/(const v2 &l, const v2 &r) { return { l.x / r.x, l.y / r.y }; }
+v2 operator/(const v2 &l, const r32 &r) { return { l.x / r, l.y / r }; }
+void operator+=(v2 &l, const v2 &r) { l.x = l.x + r.x; l.y = l.y + r.y; }
+void operator-=(v2 &l, const v2 &r) { l.x = l.x - r.x; l.y = l.y - r.y; }
+void operator-=(v2 &l, const r32 &r) { l.x = l.x - r; l.y = l.y - r; }
+void operator*=(v2 &l, const r32 &r) { l.x = l.x * r; l.y = l.y * r; }
+void operator/=(v2 &l, const v2 &r) { l.x = l.x / r.x; l.y = l.y / r.y; }
+void operator/=(v2 &l, const r32 &r) { l.x = l.x / r; l.y = l.y / r; }
+v2 operator-(const v2 &v) { return { -v.x, -v.y }; }
 r32 dot_product(const v2 &l, const v2 &r) { return (l.x * r.x) + (l.y * r.y); }
 r32 length_squared(const v2 &v) { return (v.x * v.x) + (v.y * v.y); }
 void log(const v2 &v) { log("v2: %f, %f", v.x, v.y); }
@@ -90,19 +98,16 @@ union v2s
     };
     s32 E[2];
 };
-
 v2s operator+(const v2s &l, const v2s &r) { return { l.x + r.x, l.y + r.y }; }
 v2s operator+(const v2s &l, const s32 &r) { return { l.x + r, l.y + r }; }
 v2s operator-(const v2s &l, const v2s &r) { return { l.x - r.x, l.y - r.y }; }
 v2s operator-(const v2s &l, const int &r) { return { l.x - r, l.y - r }; }
-v2s operator*(const v2s &l, const s32 &r) { return { l.x * r, l.y * r }; }
-
 void operator+=(v2s &l, const v2s &r) { l.x = l.x + r.x; l.y = l.y + r.y; }
 void operator+=(v2s &l, const s32 &r) { l.x = l.x + r; l.y = l.y + r; }
+v2s operator*(const v2s &l, const s32 &r) { return { l.x * r, l.y * r }; }
 void operator*=(v2s &l, const s32 &r) { l.x = l.x * r; l.y = l.y * r; }
 bool operator==(const v2s &l, const v2s &r) { if (l.x == r.x && l.y == r.y) return true; return false; }
 bool operator!=(const v2s &l, const v2s &r) { if (l.x != r.x || l.y != r.y) return true; return false; }
-
 v2 cv2(v2s v) { return { (r32)v.x, (r32)v.y }; }
 void log(const v2s &v) { log("v2s: %d, %d", v.x, v.y); }
 
@@ -110,15 +115,19 @@ inline v2s
 normalized(const v2s &v)
 {
     v2s n = {};
+    if (v.x > 0)
+        n.x = 1;
+    else if (v.x == 0)
+        n.x = 0;
+    else if (v.x < 0)
+        n.x = -1;
     
-    if      (v.x > 0)  n.x = 1;
-    else if (v.x == 0) n.x = 0;
-    else if (v.x < 0)  n.x = -1;
-    
-    if      (v.y > 0)  n.y = 1;
-    else if (v.y == 0) n.y = 0;
-    else if (v.y < 0)  n.y = -1;
-    
+    if (v.y > 0)
+        n.y = 1;
+    else if (v.y == 0)
+        n.y = 0;
+    else if (v.y < 0)
+        n.y = -1;
     return n;
 }
 
@@ -134,14 +143,12 @@ union v3
     };
     r32 E[3];
 };
-
-inline v3 operator+(const v3 &l, const v3  &r) { return { l.x + r.x, l.y + r.y, l.z + r.z }; }
-inline v3 operator-(const v3 &l, const v3  &r) { return { l.x - r.x, l.y - r.y, l.z - r.z }; }
-inline v3 operator*(const v3 &l, const v3  &r) { return { l.x * r.x, l.y * r.y, l.z * r.z }; }
-inline v3 operator*(const v3 &l, float      r) { return {l.x * r, l.y * r, l.z * r}; }
-inline v3 operator/(const v3 &l, const v3  &r) { return { l.x / r.x, l.y / r.y, l.z / r.z }; }
+inline v3 operator+(const v3 &l, const v3 &r) { return { l.x + r.x, l.y + r.y, l.z + r.z }; }
+inline v3 operator-(const v3 &l, const v3 &r) { return { l.x - r.x, l.y - r.y, l.z - r.z }; }
+inline v3 operator*(const v3 &l, const v3 &r) { return { l.x * r.x, l.y * r.y, l.z * r.z }; }
+inline v3 operator*(const v3 &v, float f) { return {v.x * f, v.y * f, v.z * f}; }
+inline v3 operator/(const v3 &l, const v3 &r) { return { l.x / r.x, l.y / r.y, l.z / r.z }; }
 inline v3 operator/(const v3 &l, const r32 &r) { return { l.x / r, l.y / r, l.z / r }; }
-
 inline void operator+=(v3 &l, const v3 &r) { l.x = l.x + r.x; l.y = l.y + r.y; l.z = l.z + r.z; }
 inline void operator+=(v3 &l, const r32 &r) { l.x = l.x + r; l.y = l.y + r; l.z = l.z + r; }
 inline void operator-=(v3 &l, const v3 &r) { l.x = l.x - r.x; l.y = l.y - r.y; l.z = l.z - r.z; }
@@ -149,9 +156,9 @@ inline void operator-=(v3 &l, const r32 &r) { l.x = l.x - r; l.y = l.y - r; l.z 
 inline void operator*=(v3 &l, v3 &r) { l.x *= r.x; l.y *= r.y; l.z *= r.z; }
 inline bool operator==(const v3 &l, const v3 &r) { if (l.x == r.x && l.y == r.y && l.z == r.z) return true; return false; }
 inline bool operator==(const v3 &v, float f) { if (v.x == f && v.y == f && v.z == f) return true; return false; }
-
 inline r32 dot_product(const v3 &l, const v3 &r) { return (l.x * r.x) + (l.y * r.y) + (l.z * r.z); }
 inline r32 length_squared(const v3 &v) { return (v.x * v.x) + (v.y * v.y) + (v.z * v.z); }
+void log(const v3 &v) { log("v3: %f, %f, %f", v.x, v.y, v.z); }
 
 inline void
 normalize(v3 &v)
@@ -196,7 +203,6 @@ union v4
     };
     r32 E[4];
 };
-
 inline v4 operator*(const v4 &l, const v4 &r) { return { l.x * r.x, l.y * r.y, l.z * r.z, l.w * r.w }; }
 inline f32 length_squared(const v4 &v) { return v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w; }
 inline bool operator==(const v4 &l, const v4 &r) { if (l.x == r.x && l.y == r.y && l.z == r.z && l.w == r.w) return true; return false; }
@@ -214,7 +220,6 @@ union quat
     };
     r32 E[4];
 };
-
 inline r32 length_squared(const quat &v) { return v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w; }
 
 inline quat 
@@ -242,7 +247,7 @@ normalized(const quat &v)
     r32 len_sq = length_squared(v);
     if (len_sq < EPSILON) return { 0, 0, 0, 1 };
     r32 inverse_length = 1.0f / sqrtf(len_sq);
-    return {v.x * inverse_length, v.y * inverse_length, v.z * inverse_length, v.w * inverse_length};
+    return { v.x * inverse_length, v.y * inverse_length, v.z * inverse_length, v.w * inverse_length };
 }
 
 quat get_rotation(r32 angle, const v3& axis)
@@ -266,10 +271,8 @@ from_to(const v3& from, const v3& to)
     else if (f == t * -1.0f)
     {
         v3 ortho = { 1, 0, 0 };
-        if (fabsf(f.y) < fabsf(f.x))
-            ortho = { 0, 1, 0 };
-        if (fabsf(f.z) < fabs(f.y) && fabs(f.z) < fabsf(f.x))
-            ortho = { 0, 0, 1 };
+        if (fabsf(f.y) < fabsf(f.x)) ortho = { 0, 1, 0 };
+        if (fabsf(f.z) < fabs(f.y) && fabs(f.z) < fabsf(f.x)) ortho = { 0, 0, 1 };
         v3 axis = normalized(cross_product(f, ortho));
         return { axis.x, axis.y, axis.z, 0.0f };
     }
@@ -309,17 +312,21 @@ print_m4x4(m4x4 matrix)
         s32 row = i / 4;
         s32 column = i - (row * 4);
         printf("%f ", matrix.E[row][column]);
-        if ((i + 1) % 4 == 0)
-            printf("\n");
+        if ((i + 1) % 4 == 0) printf("\n");
     }
 }
 
 inline m4x4
-get_frustum(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f)
+perspective_projection(r32 fov, r32 aspect_ratio, r32 n, r32 f)
 {
+    r32 y_max = n * tanf(fov * PI / 360.0f);
+    r32 x_max = y_max * aspect_ratio;
+    
+    f32 l = -x_max, r = x_max, b = -y_max, t = y_max;
+    
     if (l == r || t == b || n == f)
     {
-        error("Invalid frustum");
+        error("perspective_projection() Invalid arguments");
         return {};
     }
     
@@ -333,14 +340,6 @@ get_frustum(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f)
 }
 
 inline m4x4
-perspective_projection(r32 fov, r32 aspect_ratio, r32 n, r32 f)
-{
-    r32 y_max = n * tanf(fov * PI / 360.0f);
-    r32 x_max = y_max * aspect_ratio;
-    return get_frustum(-x_max, x_max, -y_max, y_max, n, f);
-}
-
-inline m4x4
 orthographic_projection(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f)
 {
     if (l == r || t == b || n == f)
@@ -348,6 +347,7 @@ orthographic_projection(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f)
         error("orthographic_projection() Invalid arguments");
         return {};
     }
+    
     return
     {
         2.0f / (r - l), 0, 0, 0,
@@ -416,6 +416,33 @@ create_transform_m4x4(v3 position, quat rotation, v3 scale)
 // End of core math structs
 //
 
+struct Str
+{
+    const char *memory;
+    u32 length;
+    b32 valid_length;
+    
+    Str(const char *string) { memory = string; }
+};
+
+function u32
+get_length(Str &str)
+{
+    if (str.valid_length) return str.length;
+    else if (str.memory == 0) return 0;
+    
+    const char *ptr = str.memory;
+    while(*ptr != 0) ptr++;
+    str.length = ptr - str.memory;
+    return str.length;
+}
+
+struct Flag
+{
+    b32 current_state;
+    b32 previous_state;
+};
+
 //
 // string
 //
@@ -438,6 +465,7 @@ equal(const char* a, const char *b)
     return true;
 }
 
+
 function u32
 get_length(const char *string)
 {
@@ -459,8 +487,7 @@ get_length(const char *string)
 function char*
 chtos(int n, ...)
 {
-    char* s = (char*)malloc(n + 1);
-    memset(s, 0, n + 1);
+    char *s = ZERO_MALLOC(char, n + 1);
     
     va_list ptr;
     va_start(ptr, n);
@@ -470,6 +497,75 @@ chtos(int n, ...)
     }
     
     return s;
+}
+
+function char*
+ftos(f32 f)
+{
+    u32 size = 64;    
+    char *buffer = ZERO_MALLOC(char, size);
+    u32 ret = snprintf(buffer, size, "%f", f);
+    if (ret < 0)
+    {
+        error(0, "ftos(): failed");
+        return 0;
+    }
+    if (ret >= size) warning(0, "ftos(): result was truncated");
+    return buffer;
+}
+
+// copys string into memory
+function const char*
+copy(const char *string)
+{
+    u32 length = get_length(string);
+    if (length == 0) return 0;
+    
+    char *new_string = (char*)SDL_malloc(length + 1);
+    SDL_memset(new_string, 0, length + 1);
+    SDL_memcpy(new_string, string, length);
+    return new_string;
+}
+
+//
+// int
+//
+
+function u32
+get_digits(u32 i)
+{
+    u32 count = 0;
+    u32 t = i;
+    while ((t = t / 10) != 0)
+        count++;
+    count++;
+    return count;
+}
+
+function char*
+u32_to_string(u32 in)
+{
+    char *out;
+    
+    u32 digits = get_digits(in);
+    out = (char*)SDL_malloc(digits + 1);
+    
+    u32 help = 0;
+    for (u32 i = 0; i < digits; i++)
+    {
+        if (help == 0) help++;
+        else help *= 10;
+    }
+    
+    for (u32 i = 0; i < digits; i++)
+    {
+        out[i] = ((char)(in / help) + '0');
+        in = in - ((in / help) * help);
+        help = help / 10;
+    }
+    
+    out[digits] = 0;
+    return out;
 }
 
 #endif //TYPES_H

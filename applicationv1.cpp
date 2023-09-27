@@ -6,7 +6,8 @@ controller_process_input(Controller *controller, s32 id, b32 state)
         // loop through all ids associated with button
         for (u32 j = 0; j < controller->buttons[i].num_of_ids; j++)
         {
-            if (id == controller->buttons[i].ids[j]) controller->buttons[i].current_state = state;
+            if (id == controller->buttons[i].ids[j])
+                controller->buttons[i].current_state = state;
         }
     }
 }
@@ -37,7 +38,6 @@ process_input(v2s *window_dim, Input *input)
                 }
             } break;
             
-            // keyboard input
             case SDL_KEYDOWN:
             case SDL_KEYUP:
             {
@@ -54,31 +54,22 @@ process_input(v2s *window_dim, Input *input)
     return false;
 }
 
-function void
-update_time(Time *time)
-{
-    u32 last_run_time_ms = time->run_time_ms;
-    
-    time->run_time_ms = SDL_GetTicks();
-    time->run_time_s = (f32)time->run_time_ms / 1000.0f;
-    time->frame_time_ms = time->run_time_ms - last_run_time_ms;
-    time->frame_time_s = (f32)time->frame_time_ms / 1000.0f;
-    
-    // get fps
-    time->frames_per_s = 1000.0f;
-    if (time->frame_time_s > 0.0f) time->frames_per_s = 1.0f / time->frame_time_s;
-}
-
-function int
+function s32
 main_loop(Application *app)
 {
     while(1)
     {
-        if (process_input(&app->window.dim, &app->input)) return 0; // quit if process_input returns false
+        if (process_input(&app->window.dim, &app->input)) return 0;
+        
+        set_orthographic_matrix(app->window.dim);
         update_time(&app->time);
-        update(app);
+        
+        if (update(app)) return 0;
+        
         swap_window(&app->window);
     }
+    
+    return 0;
 }
 
 function void
@@ -87,13 +78,13 @@ init_opengl(Window *window)
     SDL_GL_LoadLibrary(NULL);
     
     // Request an OpenGL 4.6 context (should be core)
-    SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL,    1);
+    SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
     
     // Also request a depth buffer
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE,   24);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     
     SDL_GLContext Context = SDL_GL_CreateContext(window->sdl);
     SDL_GL_SetSwapInterval(0);
@@ -105,47 +96,50 @@ init_opengl(Window *window)
     log("Renderer: %s", glGetString(GL_RENDERER));
     log("Version:  %s", glGetString(GL_VERSION));
     
+    window->gl_clear_flags = 
+        GL_COLOR_BUFFER_BIT | 
+        GL_DEPTH_BUFFER_BIT | 
+        GL_STENCIL_BUFFER_BIT;
+    
     SDL_GetWindowSize(window->sdl, &window->dim.width, &window->dim.height);
     glViewport(0, 0, window->dim.width, window->dim.height);
-    
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-    glPatchParameteri(GL_PATCH_VERTICES, 4);
 }
 
 function void
 init_window(Window *window)
 {
-    u32 sdl_init_flags = 
-        SDL_INIT_VIDEO | 
-        SDL_INIT_GAMECONTROLLER | 
+    u32 sdl_init_flags =
+        SDL_INIT_VIDEO |
+        SDL_INIT_GAMECONTROLLER |
+        SDL_INIT_HAPTIC |
         SDL_INIT_AUDIO;
-    
-    u32 sdl_window_flags = 
-        SDL_WINDOW_RESIZABLE | 
-        SDL_WINDOW_OPENGL;
     
     SDL_Init(sdl_init_flags);
     
-    window->sdl = SDL_CreateWindow("River Rampage", 
-                                   SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-                                   900, 800, 
-                                   sdl_window_flags);
+    const char *title = "River Rampage";
+    v2s position = { SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED };
+    v2s dim = { 800, 800 };    
+    u32 sdl_window_flags =
+        SDL_WINDOW_RESIZABLE |
+        SDL_WINDOW_OPENGL;
+    
+    window->sdl = SDL_CreateWindow(title, position.x, position.y, dim.width, dim.height, sdl_window_flags);
+    
     init_opengl(window);
-    SDL_GetWindowSize(window->sdl, &window->dim.width, &window->dim.height);
 }
 
-function int
+function s32
 application()
 {
     Application app = {};
     init_window(&app.window);
-    if (load_assets(&app.assets, "../assets.ethan")) return 1;
-    app.data = init_game_data(&app.assets);
+    load_assets(&app.assets, "../ethan.assets");
+    app.data = init_data(&app.assets);
     init_controllers(&app.input);
+    init_shapes();
     return main_loop(&app);
 }
 

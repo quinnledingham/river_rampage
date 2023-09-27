@@ -1,0 +1,9 @@
+SHADERS:
+WATER|VERTEX, ../assets/shaders/water.vs
+WATER|CONTROL, ../assets/shaders/water.tcs
+WATER|EVALUATION, ../assets/shaders/water.tes
+WATER|GEOMETRY, ../assets/shaders/water.gs
+WATER|FRAGMENT, ../assets/shaders/water.fs
+
+BITMAPS:
+JEFF, ../assets/bitmaps/jeff.jpg

@@ -4,7 +4,6 @@
 #include <stb_image.h>
 #include <stb_image_resize.h>
 #include <stb_truetype.h>
-
 #include <gl.h>
 #include <gl.c>
 #include <SDL.h>
@@ -12,190 +11,210 @@
 #include "log.h"
 #include "types.h"
 #include "assets.h"
-#include "shapes.h"
+#include "game.h"
 #include "application.h"
 
 #include "assets.cpp"
-#include "shapes.cpp"
-#include "application.cpp"
 
-function r32
-v2_to_angle(v2 vector)
+function Mesh
+create_square_mesh(u32 u, u32 v)
 {
-    r32 x = vector.x;
-    r32 y = vector.y;
-    r32 angle = atanf(y / x);
-    if ((x < 0 && y > 0) || (x < 0 && y < 0)) angle += PI;
-    return angle;
+    Mesh result = {};
+    result.vertices_count = (u + 1) * (v + 1);
+    result.vertices = (Vertex*)SDL_malloc(sizeof(Vertex) * result.vertices_count);
+    
+    f32 du = 2.0f / (f32)u;
+    f32 dv = 2.0f / (f32)v;
+    
+    u32 vertex_count = 0;
+    u32 s = 0, t = 0;
+    for (u32 i = 0; i < (u + 1); i++, s += 2)
+    {
+        for (u32 j = 0; j < (v + 1); j++, t += 2)
+        {
+            v3 vertex_pos = { (f32(i) * du) - 1.0f, (f32)-1, (f32(j) * dv) - 1.0f };
+            v2 tex_coords = { (f32)i, (f32)j };
+            Vertex vertex = { vertex_pos, {0, 1, 0}, tex_coords };
+            result.vertices[vertex_count++] = vertex;
+        }
+    }
+    
+    result.indices_count = u * v * 6;
+    result.indices = (u32*)SDL_malloc(sizeof(u32) * result.indices_count);
+    
+    u32 indices_count = 0;
+    for (u32 i = 0; i < u; i++)
+    {
+        u32 p1 = i * (v + 1);
+        u32 p2 = p1 + (v + 1);
+        for (u32 j = 0; j < v; j++, p1++, p2++)
+        {
+            result.indices[indices_count++] = p1;
+            result.indices[indices_count++] = p1 + 1;
+            result.indices[indices_count++] = p2 + 1;
+            
+            result.indices[indices_count++] = p1;
+            result.indices[indices_count++] = p2 + 1;
+            result.indices[indices_count++] = p2;
+        }
+    }
+    //init_mesh(&result);
+    return result;
 }
 
-
-function void 
-rotate_v2(v2 *vector, r32 angle)
+function Mesh
+make_square_mesh_into_patches(Mesh *mesh, u32 u, u32 v)
 {
-    r32 current_angle = v2_to_angle(*vector);
-    r32 new_angle = current_angle + angle;
+    Mesh new_mesh = {};
     
-    vector->x = 1.0f * cosf(new_angle);
-    vector->y = 1.0f * sinf(new_angle);
-}
-
-function r32
-magnitude(v2 vector)
-{
-    return sqrtf((vector.x * vector.x) + (vector.y * vector.y));
-}
-
-function v2
-delta_velocity(v2 acceleration, r32 delta_time)
-{
-    return acceleration * delta_time;
-}
-
-function v2 
-delta_position(v2 vector, r32 time_s)
-{
-    vector.y = -vector.y; // 2D screen coords +y going down screen
-    return (vector * time_s) * 800.0f; // 800 pixels per meter
-}
-
-struct Boat
-{
-    v2 coords;
+    new_mesh.vertices_count = u * v * 4;
+    new_mesh.vertices = (Vertex*)SDL_malloc(sizeof(Vertex) * new_mesh.vertices_count);
     
-    r32 mass;
-    r32 engine_force;
-    r32 rudder_force;
-    r32 water_line_length;
+    u32 vertex_count = 0;
+    for (u32 i = 0; i < u; i++)
+    {
+        u32 p1 = i * (v + 1);
+        u32 p2 = p1 + (v + 1);
+        for (u32 j = 0; j < v; j++, p1++, p2++)
+        {
+            new_mesh.vertices[vertex_count++] = mesh->vertices[p1];
+            new_mesh.vertices[vertex_count++] = mesh->vertices[p1 + 1];
+            new_mesh.vertices[vertex_count++] = mesh->vertices[p2];
+            new_mesh.vertices[vertex_count++] = mesh->vertices[p2 + 1];
+        }
+    }
     
-    r32 speed;
-    r32 maximum_speed;
-    r32 rotation_speed;
-    v2 velocity; // the direciton and mag of movement
-    
-    v2 direction; // the way the ship is pointing 
-    r32 acceleration_magnitude; // always accelerates in the direction of the boat
-    r32 water_acceleration_magnitude;
-};
-
-function void
-init_boat(Boat *boat)
-{
-    boat->coords           = { 100, 100 };
-    
-    boat->mass             = 100.0f; 
-    boat->engine_force     = 15.0f;
-    boat->rudder_force     = 6.0f;
-    boat->water_line_length = 100.0f;
-    
-    boat->direction = { 1, 0 };
-    
-    r32 speed_feet_per_s = 1.34f * sqrtf(boat->water_line_length);
-    boat->maximum_speed  = speed_feet_per_s * 0.3048; // ft to m
-    
-    boat->acceleration_magnitude   = boat->engine_force / boat->mass;
-    boat->water_acceleration_magnitude   = boat->rudder_force / boat->mass;
+    init_mesh(&new_mesh);
+    return new_mesh;
 }
 
 function void
-update_boat(Boat *boat, Input *input, r32 delta_time)
+draw_water(Assets *assets, Mesh mesh, r32 seconds,
+           m4x4 projection_matrix, m4x4 view_matrix, Light_Source light, Camera camera)
 {
-    v2 rotation_direction = {};
-    //if (is_down(input->active_controller->right)) acceleration_direction =  boat->direction;
-    //if (is_down(input->active_controller->left)) acceleration_direction = -boat->direction;
+    u32 active_shader = use_shader(find_shader(assets, "WATER"));
+    v4 color = {30.0f/255.0f, 144.0f/255.0f, 255.0f/255.0f, 0.9};
+    m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {1, 0, 0}), {20, 1, 20});
     
-    if (is_down(input->active_controller->right))
-        rotate_v2(&boat->direction, 0.05f * DEG2RAD);
-    if (is_down(input->active_controller->left))
-        rotate_v2(&boat->direction, -0.05f * DEG2RAD);
+    glUniform4fv(      glGetUniformLocation(active_shader, "objectColor"), (GLsizei)1, (float*)&color);
+    glUniformMatrix4fv(glGetUniformLocation(active_shader, "model"), (GLsizei)1, false, (float*)&model);
+    glUniformMatrix4fv(glGetUniformLocation(active_shader, "projection"), (GLsizei)1, false, (float*)&projection_matrix);
+    glUniformMatrix4fv(glGetUniformLocation(active_shader, "view"), (GLsizei)1, false, (float*)&view_matrix);
+    glUniform1f(       glGetUniformLocation(active_shader, "time"), seconds);
+    glUniform3fv(      glGetUniformLocation(active_shader, "lightPos"), (GLsizei)1, (float*)&light.position);
+    glUniform3fv(      glGetUniformLocation(active_shader, "lightColor"), (GLsizei)1, (float*)&light.color);
+    glUniform3fv(      glGetUniformLocation(active_shader, "cameraPos"), (GLsizei)1, (float*)&camera.position);
     
-    v2 acceleration_direction = {};
-    if (is_down(input->active_controller->up))   acceleration_direction =  boat->direction;
-    if (is_down(input->active_controller->down)) acceleration_direction = -boat->direction;
-    
-    v2 acceleration = acceleration_direction * boat->acceleration_magnitude;
-    if (boat->speed < boat->maximum_speed)
-        boat->velocity += delta_velocity(acceleration, delta_time);
-    
-    v2 water_acceleration = -normalized(boat->velocity) * boat->water_acceleration_magnitude;
-    //log(boat->velocity);
-    //log("%f", boat->speed);
-    if (boat->speed > 0)
-        boat->velocity += delta_velocity(water_acceleration, delta_time);
-    
-    boat->speed = magnitude(boat->velocity);
-    
-    boat->coords += delta_position(boat->velocity, delta_time);
-    
+    glBindVertexArray(mesh.vao);
+    glDrawArrays(GL_PATCHES, 0, mesh.vertices_count);
+    glBindVertexArray(0);
 }
 
-struct Game_Data
+function void
+init_controllers(Input *input)
 {
-    Boat boat;
-    r32 water_force;
-};
+    input->active_controller = &input->controllers[0];
+    
+    Controller *keyboard = &input->controllers[0];
+    set(&keyboard->right,    SDLK_d);
+    set(&keyboard->left,     SDLK_a);
+    set(&keyboard->forward,  SDLK_w);
+    set(&keyboard->backward, SDLK_s);
+    set(&keyboard->up,       SDLK_SPACE);
+    set(&keyboard->down,     SDLK_LSHIFT);
+}
 
 function void*
-init_data(Assets *assets)
+init_game_data(Assets *assets)
 {
     Game_Data *data = (Game_Data*)malloc(sizeof(Game_Data));
     *data = {};
     
-    init_boat(&data->boat);
+    data->camera.position = { 0, 0, 2 };
+    data->camera.up       = { 0, 1, 0 };
+    data->camera.target   = { 0, 0, -2 };
+    data->camera.yaw      = -90.0f;
+    
+    data->light.position = { 0.0f, 5.0f, 0.0f };
+    data->light.color = { 1.0f, 1.0f, 1.0f, 1.0f };
+    
+    Mesh temp_square_mesh = create_square_mesh(10, 10);
+    Mesh temp_patch_mesh = make_square_mesh_into_patches(&temp_square_mesh, 10, 10);
+    data->water = temp_patch_mesh;
     
     return (void*)data;
 }
 
-function b32
+// delta_mouse is a relative mouse movement amount
+// as opposed to the screen coords of the mouse
+function void
+update_camera_with_mouse(Camera *camera, v2s delta_mouse)
+{
+    camera->yaw   += (f32)delta_mouse.x * 0.1f;
+    camera->pitch -= (f32)delta_mouse.y * 0.1f;
+    
+    if (camera->pitch > 89.0f) camera->pitch = 89.0f;
+    if (camera->pitch < -89.0f) camera->pitch = -89.0f;
+    
+    v3 camera_direction = 
+    {
+        cosf(DEG2RAD * camera->yaw) * cosf(DEG2RAD * camera->pitch),
+        sinf(DEG2RAD * camera->pitch),
+        sinf(DEG2RAD * camera->yaw) * cosf(DEG2RAD * camera->pitch)
+    };
+    camera->target = normalized(camera_direction);
+}
+
+function void
+update_camera_with_keys(Camera *camera,
+                        v3 move_vector,
+                        Button forward,
+                        Button backward,
+                        Button left,
+                        Button right,
+                        Button up,
+                        Button down)
+{
+    if (is_down(forward))  camera->position += camera->target * move_vector;
+    if (is_down(backward)) camera->position -= camera->target * move_vector;
+    if (is_down(left))     camera->position -= normalized(cross_product(camera->target, camera->up)) * move_vector;
+    if (is_down(right))    camera->position += normalized(cross_product(camera->target, camera->up)) * move_vector;
+    if (is_down(up))       camera->position.y += move_vector.y;
+    if (is_down(down))     camera->position.y -= move_vector.y;
+}
+
+function void
 update(Application *app)
 {
-    Window    *window = (Window*)    &app->window;
-    Time      *time   = (Time*)      &app->time;
-    Input     *input  = (Input*)     &app->input;
-    Assets    *assets = (Assets*)    &app->assets;
-    Game_Data *data   = (Game_Data*) app->data;
+    Game_Data *data = (Game_Data*)app->data;
+    Controller *controller = app->input.active_controller;
+    f32 m_per_s = 3.0f;
+    f32 move_speed = m_per_s * app->time.frame_time_s;
+    update_camera_with_keys(&data->camera,
+                            {move_speed, move_speed, move_speed},
+                            controller->forward,
+                            controller->backward,
+                            controller->left,
+                            controller->right,
+                            controller->up,
+                            controller->down);
     
-    Boat *boat = &data->boat;
-    update_boat(boat, input, time->frame_time_s);
-    /*
-    {
-        r32 acceleration = boat->rudder_force / boat->mass;
-        r32 water_acceleration = data->water_force / boat->mass;
-        
-        if (boat->vector.magnitude > 0)
-        {
-            if (is_down(input->active_controller->right)) if (boat->rotation_speed > -boat->vector.magnitude) boat->rotation_speed -= acceleration * time->frame_time_s;
-            if (is_down(input->active_controller->left)) if (boat->rotation_speed < boat->vector.magnitude) boat->rotation_speed += acceleration * time->frame_time_s;
-        }
-        else
-        {
-            if (is_down(input->active_controller->right)) if (boat->rotation_speed < -boat->vector.magnitude) boat->rotation_speed -= acceleration * time->frame_time_s;
-            if (is_down(input->active_controller->left)) if (boat->rotation_speed > boat->vector.magnitude) boat->rotation_speed += acceleration * time->frame_time_s;
-        }
-        //if (is_down(input->active_controller->right)) boat->rotation_speed = boat->vector.magnitude - (acceleration * time->frame_time_s);
-        //if (is_down(input->active_controller->left))  boat->rotation_speed = boat->vector.magnitude + (acceleration * time->frame_time_s);
-        
-        if (boat->rotation_speed > 0) boat->rotation_speed -= (water_acceleration * time->frame_time_s);
-        if (boat->rotation_speed < 0) boat->rotation_speed += (water_acceleration * time->frame_time_s);
-        
-        rotate_vector(&boat->vector, boat->rotation_speed * DEG2RAD);
-    }
-    */
+    // DRAW
+    u32 gl_clear_flags = 
+        GL_COLOR_BUFFER_BIT | 
+        GL_DEPTH_BUFFER_BIT | 
+        GL_STENCIL_BUFFER_BIT;
     
-    //log(boat->vector);
-    //log(boat->coords);
+    glClear(gl_clear_flags);
     
-    glClear(window->gl_clear_flags);
+    r32 aspect_ratio = (r32)app->window.dim.width / (r32)app->window.dim.height;
+    m4x4 perspective_matrix = perspective_projection(90.0f, aspect_ratio, 0.01f, 1000.0f);
+    m4x4 orthographic_matrix = orthographic_projection(0.0f, (r32)app->window.dim.width, (r32)app->window.dim.height,
+                                                       0.0f, -3.0f, 3.0f);
+    m4x4 view_matrix = get_view(data->camera);
     
-    draw_rect( { 0, 0 }, 0.0f, cv2(window->dim), { 0.0f, 100.0f, 255.0f, 1.0f } );
-    draw_circle( { 0, 0 }, 0.0f, 100.0f, { 255.0f, 0.0f, 0.0f, 1.0f } );
-    
-    Rect rect = {};
-    rect.dim = { 100, 100 };
-    center_on(&rect, boat->coords);
-    
-    Bitmap *jeff = find_bitmap(assets, "jeff");
-    draw_rect(rect.coords, v2_to_angle(boat->direction), rect.dim, jeff);
-    
-    return false;
+    draw_water(&app->assets, data->water, app->time.run_time_s,
+               perspective_matrix, view_matrix, data->light, data->camera);
 }
+
+#include "application.cpp"
