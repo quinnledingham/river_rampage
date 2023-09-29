@@ -140,8 +140,6 @@ init_opengl(Window *window)
     
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glPatchParameteri(GL_PATCH_VERTICES, 4);
 }

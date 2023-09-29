@@ -260,6 +260,36 @@ init_game_data(Assets *assets)
     return (void*)data;
 }
 
+// return 0 if 
+function s32
+draw_pause_menu(Assets *assets, v2 window_dim, b32 select, s32 active)
+{
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    
+    Menu pause_menu = {};
+    pause_menu.font = find_font(assets, "CASLON");
+    
+    pause_menu.button_style.default_back_color = { 100, 255, 0, 1 };
+    pause_menu.button_style.active_back_color  = { 0, 255, 0, 1 };
+    pause_menu.button_style.default_text_color = { 0, 100, 0, 1 };
+    pause_menu.button_style.active_text_color  = { 0, 100, 0, 1 };
+    
+    u32 index = 0;
+    
+    Rect window_rect = {};
+    window_rect. coords = { 0, 0 };
+    window_rect.dim = window_dim;
+    Rect bounds = get_centered_rect(window_rect, 0.5f, 0.5f);
+    pause_menu.button_style.dim = { bounds.dim.x, bounds.dim.y / 2.0f };
+    draw_rect(bounds.coords, 0, bounds.dim, { 0, 0, 0, 0.2f} );
+    pause_menu.coords = bounds.coords;
+    
+    if (menu_button(&pause_menu, "Unpause", index++, active, select))   return 1;
+    if (menu_button(&pause_menu, "Main Menu", index++, active, select)) return 2;
+    return 0;
+}
+
 // returns true if the application should quit
 function b8
 update(Application *app)
@@ -279,6 +309,14 @@ update(Application *app)
         case IN_GAME_2D:
         {
             update_boat(&data->boat, &app->input, app->time.frame_time_s);
+            
+            if (data->paused)
+            {
+                menu_update_active(&data->active, 0, 1, menu_controller->backward, menu_controller->forward);
+            }
+            
+            if (on_down(controller->pause)) data->paused = !data->paused;
+            
         } break;
         
         case IN_GAME_3D:
@@ -304,6 +342,11 @@ update(Application *app)
                 if (data->paused) app->input.relative_mouse_mode.set(false);
                 else              app->input.relative_mouse_mode.set(true);
             }
+            
+            if (data->paused)
+            {
+                menu_update_active(&data->active, 0, 1, menu_controller->backward, menu_controller->forward);
+            }
         } break;
     }
     
@@ -320,9 +363,6 @@ update(Application *app)
     {
         case MAIN_MENU:
         {
-            glDisable(GL_DEPTH_TEST);
-            glDisable(GL_CULL_FACE);
-            
             Menu main_menu = {};
             main_menu.font = find_font(&app->assets, "CASLON");
             
@@ -345,12 +385,16 @@ update(Application *app)
             if (menu_button(&main_menu, "2D", index++, data->active, select))
             {
                 data->game_mode = IN_GAME_2D;
+                data->active = 0;
             }
             
             if (menu_button(&main_menu, "3D", index++, data->active, select))
             {
                 data->game_mode = IN_GAME_3D;
                 app->input.relative_mouse_mode.set(true);
+                glEnable(GL_DEPTH_TEST);
+                glEnable(GL_CULL_FACE);
+                data->active = 0;
             }
             
             if (menu_button(&main_menu, "Quit", index++, data->active, select))
@@ -370,6 +414,21 @@ update(Application *app)
             
             Bitmap *jeff = find_bitmap(&app->assets, "JEFF");
             draw_rect(rect.coords, v2_to_angle(data->boat.direction), rect.dim, jeff);
+            
+            if (data->paused) 
+            {
+                draw_rect( { 0, 0 }, 0, cv2(app->window.dim), { 0, 0, 0, 0.5f} );
+                
+                s32 pause = draw_pause_menu(&app->assets, cv2(app->window.dim), on_down(menu_controller->select), data->active);
+                if      (pause == 1) 
+                    data->paused = false;
+                else if (pause == 2) { 
+                    data->game_mode = MAIN_MENU; 
+                    data->paused = false; 
+                    data->active = 0; 
+                }
+            }
+            
         } break;
         
         case IN_GAME_3D:
@@ -383,7 +442,22 @@ update(Application *app)
             draw_water(&app->assets, data->water, app->time.run_time_s,
                        perspective_matrix, view_matrix, data->light, data->camera);
             
-            if (data->paused) draw_rect( { 0, 0 }, 0, cv2(app->window.dim), { 0, 0, 0, 0.5f} );
+            if (data->paused) 
+            {
+                draw_rect( { 0, 0 }, 0, cv2(app->window.dim), { 0, 0, 0, 0.5f} );
+                
+                s32 pause = draw_pause_menu(&app->assets, cv2(app->window.dim), on_down(menu_controller->select), data->active);
+                if      (pause == 1) 
+                    data->paused = false;
+                else if (pause == 2) { 
+                    data->game_mode = MAIN_MENU; 
+                    data->paused = false; 
+                    app->input.relative_mouse_mode.set(true);
+                    glDisable(GL_DEPTH_TEST);
+                    glDisable(GL_CULL_FACE);
+                    data->active = 0;
+                }
+            }
         } break;
     }
     
