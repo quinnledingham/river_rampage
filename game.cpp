@@ -200,13 +200,13 @@ draw_water(Assets *assets, Mesh mesh, r32 seconds,
     m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {1, 0, 0}), {20, 1, 20});
     
     glUniform4fv(      glGetUniformLocation(active_shader, "objectColor"), (GLsizei)1, (float*)&color);
-    glUniformMatrix4fv(glGetUniformLocation(active_shader, "model"), (GLsizei)1, false, (float*)&model);
-    glUniformMatrix4fv(glGetUniformLocation(active_shader, "projection"), (GLsizei)1, false, (float*)&projection_matrix);
-    glUniformMatrix4fv(glGetUniformLocation(active_shader, "view"), (GLsizei)1, false, (float*)&view_matrix);
-    glUniform1f(       glGetUniformLocation(active_shader, "time"), seconds);
-    glUniform3fv(      glGetUniformLocation(active_shader, "lightPos"), (GLsizei)1, (float*)&light.position);
-    glUniform3fv(      glGetUniformLocation(active_shader, "lightColor"), (GLsizei)1, (float*)&light.color);
-    glUniform3fv(      glGetUniformLocation(active_shader, "cameraPos"), (GLsizei)1, (float*)&camera.position);
+    glUniformMatrix4fv(glGetUniformLocation(active_shader, "model"      ), (GLsizei)1, false, (float*)&model);
+    glUniformMatrix4fv(glGetUniformLocation(active_shader, "projection" ), (GLsizei)1, false, (float*)&projection_matrix);
+    glUniformMatrix4fv(glGetUniformLocation(active_shader, "view"       ), (GLsizei)1, false, (float*)&view_matrix);
+    glUniform1f(       glGetUniformLocation(active_shader, "time"       ), seconds);
+    glUniform3fv(      glGetUniformLocation(active_shader, "lightPos"   ), (GLsizei)1, (float*)&light.position);
+    glUniform3fv(      glGetUniformLocation(active_shader, "lightColor" ), (GLsizei)1, (float*)&light.color);
+    glUniform3fv(      glGetUniformLocation(active_shader, "cameraPos"  ), (GLsizei)1, (float*)&camera.position);
     
     glBindVertexArray(mesh.vao);
     glDrawArrays(GL_PATCHES, 0, mesh.vertices_count);
@@ -230,7 +230,8 @@ init_controllers(Input *input)
     set(&keyboard->up,       SDLK_SPACE);
     set(&keyboard->down,     SDLK_LSHIFT);
     set(&keyboard->select,   SDLK_RETURN);
-    set(&keyboard->pause,   SDLK_ESCAPE);
+    set(&keyboard->pause,    SDLK_ESCAPE);
+    set(&keyboard->wire_frame,    SDLK_t);
     
     input->num_of_controllers = 1;
 }
@@ -350,6 +351,13 @@ update(Application *app)
         } break;
     }
     
+    if (on_down(controller->wire_frame))
+    {
+        data->wire_frame = !data->wire_frame;
+        if (data->wire_frame) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        else                  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    }
+    
     
     // DRAW
     u32 gl_clear_flags = 
@@ -401,6 +409,8 @@ update(Application *app)
             {
                 return true;
             }
+            
+            draw_circle({ 100, 100 }, 0, 500, {0, 0, 255, 1} );
         } break;
         
         case IN_GAME_2D:

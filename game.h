@@ -61,6 +61,7 @@ struct Game_Data
     u32 game_mode;
     b8 paused;
     s32 active;
+    b8 wire_frame;
 };
 
 #endif //GAME_H

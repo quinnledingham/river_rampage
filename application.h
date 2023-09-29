@@ -99,8 +99,9 @@ struct Controller
             Button down;
             Button select;
             Button pause;
+            Button wire_frame;
         };
-        Button buttons[8];
+        Button buttons[9];
     };
 };
 

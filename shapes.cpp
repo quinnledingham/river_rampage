@@ -97,7 +97,7 @@ init_circle_mesh(Mesh *mesh)
     mesh->vertices_count = 1 + circle_vertices; // +1 for center
     mesh->vertices = ARRAY_MALLOC(Vertex, mesh->vertices_count);
     
-    mesh->indices_count = circle_vertices * 3;
+    mesh->indices_count = circle_vertices * 3 + 6;
     mesh->indices = ARRAY_MALLOC(u32, mesh->indices_count);
     
     // center vertex
@@ -117,7 +117,7 @@ init_circle_mesh(Mesh *mesh)
         texture_coords.x = coords.x;
         texture_coords.y = coords.y;
         
-        mesh->vertices[i] = { coords, normal, texture_coords };
+        mesh->vertices[i + 1] = { coords, normal, texture_coords };
         
         if (i == 0) continue;
         
@@ -126,6 +126,14 @@ init_circle_mesh(Mesh *mesh)
         mesh->indices[indices_index++] = i - 1;
         mesh->indices[indices_index++] = i;
     }
+    
+    mesh->indices[indices_index++] = 0;
+    mesh->indices[indices_index++] = circle_vertices - 1;
+    mesh->indices[indices_index++] = circle_vertices;
+    
+    mesh->indices[indices_index++] = 0;
+    mesh->indices[indices_index++] = 1;
+    mesh->indices[indices_index++] = circle_vertices;
     
     init_mesh(mesh);
 }
