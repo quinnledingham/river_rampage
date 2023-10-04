@@ -258,6 +258,9 @@ init_game_data(Assets *assets)
     
     init_boat(&data->boat);
     
+    data->tree = load_obj("../assets/objs/tree/treev2.obj");
+    //data->tree = load_obj("../assets/objs/test.obj");
+    
     return (void*)data;
 }
 
@@ -451,6 +454,15 @@ update(Application *app)
             
             draw_water(&app->assets, data->water, app->time.run_time_s,
                        perspective_matrix, view_matrix, data->light, data->camera);
+            
+            u32 handle = use_shader(&shape_color_shader);
+            v4 shape_color = {0, 255, 0, 1};
+            glUniform4fv(glGetUniformLocation(handle, "user_color"), (GLsizei)1, (float*)&shape_color);
+            m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {0, 1, 0}), {1, 1, 1});
+            glUniformMatrix4fv(glGetUniformLocation(handle, "model"),      (GLsizei)1, false, (float*)&model);
+            glUniformMatrix4fv(glGetUniformLocation(handle, "projection"), (GLsizei)1, false, (float*)&perspective_matrix);
+            glUniformMatrix4fv(glGetUniformLocation(handle, "view"),       (GLsizei)1, false, (float*)&view_matrix);
+            draw_mesh(&data->tree);
             
             if (data->paused) 
             {

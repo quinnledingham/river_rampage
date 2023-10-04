@@ -555,6 +555,272 @@ mix_audio(Audio_Player *player, r32 frame_time_s)
     }
 }
 
+enum OBJ_Token_Type
+{
+    OBJ_TOKEN_ID,
+    OBJ_TOKEN_FLOAT,
+    OBJ_TOKEN_INT,
+    OBJ_TOKEN_SEPERATOR,
+    OBJ_TOKEN_ERROR,
+    OBJ_TOKEN_EOF
+};
+
+struct OBJ_Token
+{
+    s32 type;
+    const char *lexeme;
+    s32 ch; // char when the token is created. Used for debugging
+};
+
+struct Face_Vertex
+{
+    u32 position_index;
+    u32 uv_index;
+    u32 normal_index;
+    
+    b8 unique;
+    u32 vertex_index; // where in the mesh array this is
+};
+
+struct Obj
+{
+    u32 vertices_count = 0;
+    u32 uvs_count = 0;
+    u32 normals_count = 0;
+    u32 faces_count = 0;
+    
+    u32 vertices_index;
+    u32 uvs_index;
+    u32 normals_index;
+    u32 face_vertices_index;
+    
+    v3 *vertices;
+    v2 *uvs;
+    v3 *normals;
+    Face_Vertex *face_vertices;
+};
+
+function OBJ_Token
+scan_obj(File *file, s32 *line_num)
+{
+    X:
+    
+    s32 ch;
+    while((ch = get_char(file)) != EOF && (ch == 9 || ch == 13)); // remove tabs
+    //log("%c %d", ch, file->size);
+    switch(ch)
+    {
+        case EOF: { return { OBJ_TOKEN_EOF, 0, ch }; } break;
+        
+        case '\n':
+        {
+            (*line_num)++;
+            goto X;
+        } break;
+        
+        case '#':
+        {
+            while((ch = get_char(file)) != EOF && (ch != '\n'));
+            unget_char(file);
+            goto X;
+        } break;
+        
+        case ' ':
+        case '/':
+        {
+            //return { ATT_SEPERATOR, chtos(1, ch) };
+            goto X;
+        } break;
+        
+        default:
+        {
+            if (isalpha(ch) || isdigit(ch) || ch == '-' ||  ch == '.' || ch == '_')
+            {
+                int length = 0;
+                do
+                {
+                    ch = get_char(file);
+                    length++;
+                } while((isalpha(ch) || isdigit(ch) || ch == '-' ||  ch == '.'|| ch == '_') && ch != ' ' && ch != '/');
+                
+                unget_char(file);
+                const char *sequence = copy_last_num_of_chars(file, length);
+                
+                if (isalpha(sequence[0])) return { OBJ_TOKEN_ID, sequence };
+                return { OBJ_TOKEN_FLOAT, sequence };
+            }
+            
+            error(*line_num, "not a valid ch (%d)", ch);
+        } break;
+    }
+    
+    return { OBJ_TOKEN_ERROR, 0, ch };
+}
+
+function void
+parse_count_obj(File *file, Obj *obj)
+{
+    OBJ_Token token = {};
+    s32 line_num = 1;
+    while(token.type != OBJ_TOKEN_EOF)
+    {
+        token = scan_obj(file, &line_num);
+        
+        if (token.type == OBJ_TOKEN_ID)
+        {
+            if      (equal(token.lexeme, "v"))  obj->vertices_count++;
+            else if (equal(token.lexeme, "vt")) obj->uvs_count++;
+            else if (equal(token.lexeme, "vn")) obj->normals_count++;
+            else if (equal(token.lexeme, "f"))  obj->faces_count++;
+        }
+    }
+}
+
+function void
+parse_obj(File *file, Obj *obj)
+{
+    OBJ_Token last_token = {};
+    OBJ_Token token = {};
+    s32 line_num = 1;
+    while(token.type != OBJ_TOKEN_EOF)
+    {
+        last_token = token;
+        token = scan_obj(file, &line_num);
+        //log("%d, %s, %d", token.type, token.lexeme, token.ch);
+        
+        if (token.type == OBJ_TOKEN_ID)
+        {
+            if (equal(token.lexeme, "v"))
+            {
+                v3 position = {};
+                token = scan_obj(file, &line_num);
+                position.x = std::stof(token.lexeme, 0);
+                token = scan_obj(file, &line_num);
+                position.y = std::stof(token.lexeme, 0);
+                token = scan_obj(file, &line_num);
+                position.z = std::stof(token.lexeme, 0);
+                obj->vertices[obj->vertices_index++] = position;
+            }
+            else if (equal(token.lexeme, "vt"))
+            {
+                v2 uv = {};
+                token = scan_obj(file, &line_num);
+                uv.x = std::stof(token.lexeme, 0);
+                token = scan_obj(file, &line_num);
+                uv.y = std::stof(token.lexeme, 0);
+                obj->uvs[obj->uvs_index++] = uv;
+            }
+            else if (equal(token.lexeme, "vn"))
+            {
+                v3 normal = {};
+                token = scan_obj(file, &line_num);
+                normal.x = std::stof(token.lexeme, 0);
+                token = scan_obj(file, &line_num);
+                normal.y = std::stof(token.lexeme, 0);
+                token = scan_obj(file, &line_num);
+                normal.z = std::stof(token.lexeme, 0);
+                obj->normals[obj->normals_index++] = normal;
+            }
+            else if (equal(token.lexeme, "f"))
+            {
+                Face_Vertex face_vertex = {};
+                token = scan_obj(file, &line_num);
+                face_vertex.position_index = std::stoi(token.lexeme);
+                token = scan_obj(file, &line_num);
+                face_vertex.uv_index = std::stoi(token.lexeme);
+                token = scan_obj(file, &line_num);
+                face_vertex.normal_index = std::stoi(token.lexeme);
+                obj->face_vertices[obj->face_vertices_index++] = face_vertex;
+                
+                face_vertex = {};
+                token = scan_obj(file, &line_num);
+                face_vertex.position_index = std::stoi(token.lexeme);
+                token = scan_obj(file, &line_num);
+                face_vertex.uv_index = std::stoi(token.lexeme);
+                token = scan_obj(file, &line_num);
+                face_vertex.normal_index = std::stoi(token.lexeme);
+                obj->face_vertices[obj->face_vertices_index++] = face_vertex;
+                
+                face_vertex = {};
+                token = scan_obj(file, &line_num);
+                face_vertex.position_index = std::stoi(token.lexeme);
+                token = scan_obj(file, &line_num);
+                face_vertex.uv_index = std::stoi(token.lexeme);
+                token = scan_obj(file, &line_num);
+                face_vertex.normal_index = std::stoi(token.lexeme);
+                obj->face_vertices[obj->face_vertices_index++] = face_vertex;
+            }
+        }
+    }
+}
+
+function Mesh
+load_obj(const char *filename)
+{
+    Obj obj = {};
+    Mesh mesh = {};
+    File file = read_file(filename);
+    if (!file.size) { error("load_obj: could not read file"); return mesh; }
+    
+    parse_count_obj(&file, &obj);
+    obj.vertices = ARRAY_MALLOC(v3, obj.vertices_count);
+    obj.uvs      = ARRAY_MALLOC(v2, obj.uvs_count);
+    obj.normals  = ARRAY_MALLOC(v3, obj.normals_count);
+    u32 face_vertices_count = obj.faces_count * 3;
+    obj.face_vertices  = ARRAY_MALLOC(Face_Vertex, face_vertices_count);
+    
+    reset_get_char(&file);
+    parse_obj(&file, &obj);
+    
+    mesh.indices_count = face_vertices_count;
+    mesh.indices = ARRAY_MALLOC(u32, mesh.indices_count);
+    
+    // count unique face vertices = vertices count
+    
+    for (s32 i = 0; i < face_vertices_count; i++)
+    {
+        b8 unique = true;
+        obj.face_vertices[i].vertex_index = mesh.vertices_count;
+        for (s32 j = i - 1; j >= 0; j--)
+        {
+            if (j < 0) continue;
+            if (obj.face_vertices[i].position_index == obj.face_vertices[j].position_index &&
+                obj.face_vertices[i].uv_index == obj.face_vertices[j].uv_index &&
+                obj.face_vertices[i].normal_index == obj.face_vertices[j].normal_index) 
+            {
+                unique = false;
+                obj.face_vertices[i].vertex_index = obj.face_vertices[j].vertex_index;
+            }
+        }
+        if (unique) mesh.vertices_count++;
+        obj.face_vertices[i].unique = unique;
+    }
+    
+    mesh.vertices = ARRAY_MALLOC(Vertex, mesh.vertices_count);
+    u32 vertices_index = 0;
+    for (s32 i = 0; i < face_vertices_count; i++)
+    {
+        if (obj.face_vertices[i].unique) 
+        {
+            Vertex *vertex = &mesh.vertices[vertices_index++];
+            vertex->position = obj.vertices[obj.face_vertices[i].position_index - 1];
+            vertex->normal = obj.normals[obj.face_vertices[i].normal_index - 1];
+            vertex->texture_coordinate = obj.uvs[obj.face_vertices[i].uv_index - 1];
+        }
+    }
+    
+    for (s32 i = 0; i < face_vertices_count; i++)
+    {
+        mesh.indices[i] = obj.face_vertices[i].vertex_index;
+    }
+    
+    for (s32 i = 0; i < mesh.indices_count; i++) log("%d", mesh.indices[i]);
+    
+    init_mesh(&mesh);
+    
+    return mesh;
+}
+
 //
 // Asset File Reading
 //

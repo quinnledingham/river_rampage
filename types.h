@@ -421,6 +421,8 @@ create_transform_m4x4(v3 position, quat rotation, v3 scale)
 // string
 //
 
+#include <string>
+
 function b32
 equal(const char* a, const char *b)
 {
