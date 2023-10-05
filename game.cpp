@@ -197,7 +197,7 @@ draw_water(Assets *assets, Mesh mesh, r32 seconds,
 {
     u32 active_shader = use_shader(find_shader(assets, "WATER"));
     v4 color = {30.0f/255.0f, 144.0f/255.0f, 255.0f/255.0f, 0.9};
-    m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {1, 0, 0}), {20, 1, 20});
+    m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {1, 0, 0}), {50, 1, 50});
     
     glUniform4fv(      glGetUniformLocation(active_shader, "objectColor"), (GLsizei)1, (float*)&color);
     glUniformMatrix4fv(glGetUniformLocation(active_shader, "model"      ), (GLsizei)1, false, (float*)&model);
@@ -246,8 +246,9 @@ init_game_data(Assets *assets)
     data->camera.up       = { 0, 1, 0 };
     data->camera.target   = { 0, 0, -2 };
     data->camera.yaw      = -90.0f;
+    data->camera.fov      = 80.0f;
     
-    data->light.position = { 0.0f, 10.0f, 0.0f };
+    data->light.position = { 10.0f, 10.0f, 10.0f };
     data->light.color = { 1.0f, 1.0f, 1.0f, 1.0f };
     
     Mesh temp_square_mesh = create_square_mesh(10, 10);
@@ -275,7 +276,7 @@ draw_pause_menu(Assets *assets, v2 window_dim, b32 select, s32 active)
     pause_menu.font = find_font(assets, "CASLON");
     
     pause_menu.button_style.default_back_color = { 100, 255, 0, 1 };
-    pause_menu.button_style.active_back_color  = { 0, 255, 0, 1 };
+    pause_menu.button_style.active_back_color  = { 0, 255, 100, 1 };
     pause_menu.button_style.default_text_color = { 0, 100, 0, 1 };
     pause_menu.button_style.active_text_color  = { 0, 100, 0, 1 };
     
@@ -328,7 +329,7 @@ update(Application *app)
             if (!data->paused)
             {
                 update_camera_with_mouse(&data->camera, controller->mouse);
-                f32 m_per_s = 3.0f;
+                f32 m_per_s = 5.0f;
                 f32 move_speed = m_per_s * app->time.frame_time_s;
                 update_camera_with_keys(&data->camera,
                                         {move_speed, move_speed, move_speed},
@@ -378,7 +379,7 @@ update(Application *app)
             main_menu.font = find_font(&app->assets, "CASLON");
             
             main_menu.button_style.default_back_color = { 100, 255, 0, 1 };
-            main_menu.button_style.active_back_color  = { 0, 255, 0, 1 };
+            main_menu.button_style.active_back_color  = { 0, 255, 100, 1 };
             main_menu.button_style.default_text_color = { 0, 100, 0, 1 };
             main_menu.button_style.active_text_color  = { 0, 100, 0, 1 };
             
@@ -449,7 +450,7 @@ update(Application *app)
             glEnable(GL_CULL_FACE);
             
             r32 aspect_ratio = (r32)app->window.dim.width / (r32)app->window.dim.height;
-            m4x4 perspective_matrix = perspective_projection(90.0f, aspect_ratio, 0.01f, 1000.0f);
+            m4x4 perspective_matrix = perspective_projection(data->camera.fov, aspect_ratio, 0.01f, 1000.0f);
             m4x4 orthographic_matrix = orthographic_projection(0.0f, (r32)app->window.dim.width, (r32)app->window.dim.height,
                                                                0.0f, -3.0f, 3.0f);
             m4x4 view_matrix = get_view(data->camera);
