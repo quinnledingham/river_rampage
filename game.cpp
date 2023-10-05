@@ -247,7 +247,7 @@ init_game_data(Assets *assets)
     data->camera.target   = { 0, 0, -2 };
     data->camera.yaw      = -90.0f;
     
-    data->light.position = { 0.0f, 5.0f, 0.0f };
+    data->light.position = { 0.0f, 10.0f, 0.0f };
     data->light.color = { 1.0f, 1.0f, 1.0f, 1.0f };
     
     Mesh temp_square_mesh = create_square_mesh(10, 10);
@@ -258,7 +258,7 @@ init_game_data(Assets *assets)
     
     init_boat(&data->boat);
     
-    data->tree = load_obj("../assets/objs/tree/treev2.obj");
+    data->tree = load_obj("../assets/objs/tree/", "treev2.obj");
     //data->tree = load_obj("../assets/objs/test.obj");
     
     return (void*)data;
@@ -268,8 +268,8 @@ init_game_data(Assets *assets)
 function s32
 draw_pause_menu(Assets *assets, v2 window_dim, b32 select, s32 active)
 {
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_CULL_FACE);
+    //glDisable(GL_DEPTH_TEST);
+    //glDisable(GL_CULL_FACE);
     
     Menu pause_menu = {};
     pause_menu.font = find_font(assets, "CASLON");
@@ -284,7 +284,7 @@ draw_pause_menu(Assets *assets, v2 window_dim, b32 select, s32 active)
     Rect window_rect = {};
     window_rect. coords = { 0, 0 };
     window_rect.dim = window_dim;
-    Rect bounds = get_centered_rect(window_rect, 0.5f, 0.5f);
+    Rect bounds = get_centered_rect(window_rect, 0.9f, 0.5f);
     pause_menu.button_style.dim = { bounds.dim.x, bounds.dim.y / 2.0f };
     draw_rect(bounds.coords, 0, bounds.dim, { 0, 0, 0, 0.2f} );
     pause_menu.coords = bounds.coords;
@@ -413,7 +413,6 @@ update(Application *app)
                 return true;
             }
             
-            draw_circle({ 100, 100 }, 0, 500, {0, 0, 255, 1} );
         } break;
         
         case IN_GAME_2D:
@@ -446,6 +445,9 @@ update(Application *app)
         
         case IN_GAME_3D:
         {
+            glEnable(GL_DEPTH_TEST);
+            glEnable(GL_CULL_FACE);
+            
             r32 aspect_ratio = (r32)app->window.dim.width / (r32)app->window.dim.height;
             m4x4 perspective_matrix = perspective_projection(90.0f, aspect_ratio, 0.01f, 1000.0f);
             m4x4 orthographic_matrix = orthographic_projection(0.0f, (r32)app->window.dim.width, (r32)app->window.dim.height,
@@ -455,17 +457,13 @@ update(Application *app)
             draw_water(&app->assets, data->water, app->time.run_time_s,
                        perspective_matrix, view_matrix, data->light, data->camera);
             
-            u32 handle = use_shader(&shape_color_shader);
-            v4 shape_color = {0, 255, 0, 1};
-            glUniform4fv(glGetUniformLocation(handle, "user_color"), (GLsizei)1, (float*)&shape_color);
-            m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {0, 1, 0}), {1, 1, 1});
-            glUniformMatrix4fv(glGetUniformLocation(handle, "model"),      (GLsizei)1, false, (float*)&model);
-            glUniformMatrix4fv(glGetUniformLocation(handle, "projection"), (GLsizei)1, false, (float*)&perspective_matrix);
-            glUniformMatrix4fv(glGetUniformLocation(handle, "view"),       (GLsizei)1, false, (float*)&view_matrix);
-            draw_mesh(&data->tree);
+            draw_model(&app->assets, &data->tree, data->light, data->camera, perspective_matrix, view_matrix);
             
             if (data->paused) 
             {
+                glDisable(GL_DEPTH_TEST);
+                glDisable(GL_CULL_FACE);
+                
                 draw_rect( { 0, 0 }, 0, cv2(app->window.dim), { 0, 0, 0, 0.5f} );
                 
                 s32 pause = draw_pause_menu(&app->assets, cv2(app->window.dim), on_down(menu_controller->select), data->active);
@@ -475,8 +473,8 @@ update(Application *app)
                     data->game_mode = MAIN_MENU; 
                     data->paused = false; 
                     app->input.relative_mouse_mode.set(true);
-                    glDisable(GL_DEPTH_TEST);
-                    glDisable(GL_CULL_FACE);
+                    //glDisable(GL_DEPTH_TEST);
+                    //glDisable(GL_CULL_FACE);
                     data->active = 0;
                 }
             }

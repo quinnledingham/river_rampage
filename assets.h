@@ -48,6 +48,16 @@ struct Vertex
     v2 texture_coordinate;
 };
 
+struct Material
+{
+    v3 ambient;
+    v3 diffuse;
+    v3 specular;
+    f32 specular_exponent;
+    
+    const char *id;
+};
+
 struct Mesh
 {
     Vertex *vertices;
@@ -59,6 +69,14 @@ struct Mesh
     u32 vao;
     u32 vbo;
     u32 ebo;
+    
+    Material material;
+};
+
+struct Model
+{
+    Mesh *meshes;
+    u32 meshes_count;
 };
 
 struct Font_Scale

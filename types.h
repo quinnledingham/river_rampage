@@ -27,7 +27,7 @@ typedef r64 f64;
 #define EPSILON 0.00001f
 
 #define ARRAY_COUNT(n)     (sizeof(n) / sizeof(n[0]))
-#define ARRAY_MALLOC(t, n) ((t*)malloc(n * sizeof(t)))
+#define ARRAY_MALLOC(t, n) ((t*)SDL_malloc(n * sizeof(t)))
 
 union v2
 {

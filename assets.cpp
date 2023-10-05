@@ -555,6 +555,10 @@ mix_audio(Audio_Player *player, r32 frame_time_s)
     }
 }
 
+//
+// Model
+//
+
 enum OBJ_Token_Type
 {
     OBJ_TOKEN_ID,
@@ -582,6 +586,12 @@ struct Face_Vertex
     u32 vertex_index; // where in the mesh array this is
 };
 
+struct Mtl
+{
+    Material *materials; // loaded from the corresponding material file
+    u32 materials_count;
+};
+
 struct Obj
 {
     u32 vertices_count = 0;
@@ -597,7 +607,14 @@ struct Obj
     v3 *vertices;
     v2 *uvs;
     v3 *normals;
-    Face_Vertex *face_vertices;
+    
+    Face_Vertex *face_vertices; // array of all the faces vertexs
+    
+    u32 *meshes_face_count;
+    u32 meshes_count;
+    
+    
+    const char *material_filename;
 };
 
 function OBJ_Token
@@ -657,6 +674,20 @@ scan_obj(File *file, s32 *line_num)
     return { OBJ_TOKEN_ERROR, 0, ch };
 }
 
+function v3
+parse_v3(File *file, s32 *line_num)
+{
+    v3 result = {};
+    OBJ_Token token = {};
+    token = scan_obj(file, line_num);
+    result.x = std::stof(token.lexeme);
+    token = scan_obj(file, line_num);
+    result.y = std::stof(token.lexeme);
+    token = scan_obj(file, line_num);
+    result.z = std::stof(token.lexeme);
+    return result;
+}
+
 function void
 parse_count_obj(File *file, Obj *obj)
 {
@@ -672,16 +703,23 @@ parse_count_obj(File *file, Obj *obj)
             else if (equal(token.lexeme, "vt")) obj->uvs_count++;
             else if (equal(token.lexeme, "vn")) obj->normals_count++;
             else if (equal(token.lexeme, "f"))  obj->faces_count++;
+            else if (equal(token.lexeme, "usemtl")) obj->meshes_count++;
+            else if (equal(token.lexeme, "mtllib"))
+            {
+                token = scan_obj(file, &line_num);
+                obj->material_filename = token.lexeme;
+            }
         }
     }
 }
 
 function void
-parse_obj(File *file, Obj *obj)
+parse_obj(File *file, Obj *obj, Model *model)
 {
     OBJ_Token last_token = {};
     OBJ_Token token = {};
     s32 line_num = 1;
+    u32 meshes_index = -1;
     while(token.type != OBJ_TOKEN_EOF)
     {
         last_token = token;
@@ -692,14 +730,7 @@ parse_obj(File *file, Obj *obj)
         {
             if (equal(token.lexeme, "v"))
             {
-                v3 position = {};
-                token = scan_obj(file, &line_num);
-                position.x = std::stof(token.lexeme, 0);
-                token = scan_obj(file, &line_num);
-                position.y = std::stof(token.lexeme, 0);
-                token = scan_obj(file, &line_num);
-                position.z = std::stof(token.lexeme, 0);
-                obj->vertices[obj->vertices_index++] = position;
+                obj->vertices[obj->vertices_index++] = parse_v3(file, &line_num);
             }
             else if (equal(token.lexeme, "vt"))
             {
@@ -712,14 +743,7 @@ parse_obj(File *file, Obj *obj)
             }
             else if (equal(token.lexeme, "vn"))
             {
-                v3 normal = {};
-                token = scan_obj(file, &line_num);
-                normal.x = std::stof(token.lexeme, 0);
-                token = scan_obj(file, &line_num);
-                normal.y = std::stof(token.lexeme, 0);
-                token = scan_obj(file, &line_num);
-                normal.z = std::stof(token.lexeme, 0);
-                obj->normals[obj->normals_index++] = normal;
+                obj->normals[obj->normals_index++] = parse_v3(file, &line_num);
             }
             else if (equal(token.lexeme, "f"))
             {
@@ -749,76 +773,245 @@ parse_obj(File *file, Obj *obj)
                 token = scan_obj(file, &line_num);
                 face_vertex.normal_index = std::stoi(token.lexeme);
                 obj->face_vertices[obj->face_vertices_index++] = face_vertex;
+                
+                obj->meshes_face_count[meshes_index]++;
+            }
+            else if (equal(token.lexeme, "usemtl"))
+            {
+                meshes_index++;
+                token = scan_obj(file, &line_num);
+                model->meshes[meshes_index].material.id = token.lexeme;
             }
         }
     }
 }
 
-function Mesh
-load_obj(const char *filename)
+function void
+parse_count_mtl(File *file, Mtl *mtl)
 {
-    Obj obj = {};
-    Mesh mesh = {};
+    OBJ_Token token = {};
+    s32 line_num = 1;
+    while(token.type != OBJ_TOKEN_EOF)
+    {
+        token = scan_obj(file, &line_num);
+        
+        if (token.type == OBJ_TOKEN_ID)
+        {
+            if (equal(token.lexeme, "newmtl")) mtl->materials_count++;
+        }
+    }
+}
+
+function void
+parse_mtl(File *file, Mtl *mtl)
+{
+    Material material = {};
+    u32 materials_index = 0;
+    OBJ_Token token = {};
+    s32 line_num = 1;
+    while(token.type != OBJ_TOKEN_EOF)
+    {
+        token = scan_obj(file, &line_num);
+        
+        if (token.type == OBJ_TOKEN_ID)
+        {
+            if (equal(token.lexeme, "newmtl"))
+            {
+                if (material.id != 0)
+                {
+                    mtl->materials[materials_index++] = material;
+                }
+                
+                material = {};
+                token = scan_obj(file, &line_num);
+                material.id = token.lexeme;
+            }
+            else if (equal(token.lexeme, "Ns"))
+            {
+                token = scan_obj(file, &line_num);
+                material.specular_exponent = std::stof(token.lexeme);
+            }
+            else if (equal(token.lexeme, "Ka"))
+            {
+                material.ambient = parse_v3(file, &line_num);
+            }
+            else if (equal(token.lexeme, "Kd"))
+            {
+                material.diffuse = parse_v3(file, &line_num);
+            }
+            else if (equal(token.lexeme, "Ks"))
+            {
+                material.specular = parse_v3(file, &line_num);
+            }
+        }
+        else
+        {
+            //error(line_num, "Not expected token type %d", token.type);
+        }
+    }
+    
+    if (material.id != 0)
+    {
+        mtl->materials[materials_index++] = material;
+    }
+}
+
+
+function Mtl
+load_mtl(const char *filename)
+{
+    Mtl mtl = {};
     File file = read_file(filename);
-    if (!file.size) { error("load_obj: could not read file"); return mesh; }
+    if (!file.size) { error("load_mtl: could not read material file"); return mtl; }
+    
+    parse_count_mtl(&file, &mtl);
+    mtl.materials = ARRAY_MALLOC(Material, mtl.materials_count);
+    reset_get_char(&file);
+    parse_mtl(&file, &mtl);
+    
+    free_file(&file);
+    
+    return mtl;
+}
+
+function Model
+load_obj(const char *path, const char *filename)
+{
+    Model model = {};
+    Obj obj = {};
+    char filepath[80];
+    
+    memset(filepath, 0, 80);
+    strcat(strcat(filepath, path), filename);
+    File file = read_file(filepath);
+    if (!file.size) { error("load_obj: could not read file"); return model; }
     
     parse_count_obj(&file, &obj);
+    
+    memset(filepath, 0, 80);
+    strcat(strcat(filepath, path), obj.material_filename);
+    
+    Mtl mtl = load_mtl(filepath);
+    
     obj.vertices = ARRAY_MALLOC(v3, obj.vertices_count);
     obj.uvs      = ARRAY_MALLOC(v2, obj.uvs_count);
     obj.normals  = ARRAY_MALLOC(v3, obj.normals_count);
+    
     u32 face_vertices_count = obj.faces_count * 3;
     obj.face_vertices  = ARRAY_MALLOC(Face_Vertex, face_vertices_count);
+    obj.meshes_face_count = ARRAY_MALLOC(u32, obj.meshes_count);
+    memset(obj.meshes_face_count, 0, sizeof(u32) * obj.meshes_count);
+    
+    model.meshes_count = obj.meshes_count;
+    model.meshes = ARRAY_MALLOC(Mesh, model.meshes_count);
     
     reset_get_char(&file);
-    parse_obj(&file, &obj);
+    parse_obj(&file, &obj, &model);
     
-    mesh.indices_count = face_vertices_count;
-    mesh.indices = ARRAY_MALLOC(u32, mesh.indices_count);
-    
-    // count unique face vertices = vertices count
-    
-    for (s32 i = 0; i < face_vertices_count; i++)
+    s32 lower_range = 0;
+    for (s32 mesh_index = 0; mesh_index < model.meshes_count; mesh_index++)
     {
-        b8 unique = true;
-        obj.face_vertices[i].vertex_index = mesh.vertices_count;
-        for (s32 j = i - 1; j >= 0; j--)
+        Mesh *mesh = &model.meshes[mesh_index];
+        mesh->vertices_count = 0;
+        s32 mesh_face_vertices_count = obj.meshes_face_count[mesh_index] * 3;
+        
+        mesh->indices_count = mesh_face_vertices_count;
+        mesh->indices = ARRAY_MALLOC(u32, mesh->indices_count);
+        
+        // find unique vertices in mesh
+        for (s32 i = lower_range; i < lower_range + mesh_face_vertices_count; i++)
         {
-            if (j < 0) continue;
-            if (obj.face_vertices[i].position_index == obj.face_vertices[j].position_index &&
-                obj.face_vertices[i].uv_index == obj.face_vertices[j].uv_index &&
-                obj.face_vertices[i].normal_index == obj.face_vertices[j].normal_index) 
+            b8 unique = true;
+            obj.face_vertices[i].vertex_index = mesh->vertices_count;
+            for (s32 j = i - 1; j >= lower_range; j--)
             {
-                unique = false;
-                obj.face_vertices[i].vertex_index = obj.face_vertices[j].vertex_index;
+                if (j < 0) continue;
+                if (obj.face_vertices[i].position_index == obj.face_vertices[j].position_index &&
+                    obj.face_vertices[i].uv_index       == obj.face_vertices[j].uv_index       &&
+                    obj.face_vertices[i].normal_index   == obj.face_vertices[j].normal_index) 
+                {
+                    unique = false;
+                    obj.face_vertices[i].vertex_index = obj.face_vertices[j].vertex_index;
+                }
+            }
+            if (unique) mesh->vertices_count++;
+            obj.face_vertices[i].unique = unique;
+        }
+        
+        mesh->vertices = ARRAY_MALLOC(Vertex, mesh->vertices_count);
+        u32 vertices_index = 0;
+        for (s32 i = lower_range; i < mesh_face_vertices_count + lower_range; i++)
+        {
+            if (obj.face_vertices[i].unique) 
+            {
+                Vertex *vertex = &mesh->vertices[vertices_index++];
+                vertex->position = obj.vertices[obj.face_vertices[i].position_index - 1];
+                vertex->normal = obj.normals[obj.face_vertices[i].normal_index - 1];
+                vertex->texture_coordinate = obj.uvs[obj.face_vertices[i].uv_index - 1];
             }
         }
-        if (unique) mesh.vertices_count++;
-        obj.face_vertices[i].unique = unique;
-    }
-    
-    mesh.vertices = ARRAY_MALLOC(Vertex, mesh.vertices_count);
-    u32 vertices_index = 0;
-    for (s32 i = 0; i < face_vertices_count; i++)
-    {
-        if (obj.face_vertices[i].unique) 
+        
+        u32 indices_index = 0;
+        for (s32 i = lower_range; i < mesh_face_vertices_count + lower_range; i++)
         {
-            Vertex *vertex = &mesh.vertices[vertices_index++];
-            vertex->position = obj.vertices[obj.face_vertices[i].position_index - 1];
-            vertex->normal = obj.normals[obj.face_vertices[i].normal_index - 1];
-            vertex->texture_coordinate = obj.uvs[obj.face_vertices[i].uv_index - 1];
+            mesh->indices[indices_index++] = obj.face_vertices[i].vertex_index;
         }
+        
+        // assign material
+        for (s32 i = 0; i < mtl.materials_count; i++)
+        {
+            if (equal(mesh->material.id, mtl.materials[i].id))
+            {
+                mesh->material = mtl.materials[i];
+            }
+        }
+        
+        init_mesh(mesh);
+        
+        lower_range += mesh_face_vertices_count;
     }
     
-    for (s32 i = 0; i < face_vertices_count; i++)
+    SDL_free(obj.vertices);
+    SDL_free(obj.uvs);
+    SDL_free(obj.normals);
+    SDL_free(obj.face_vertices);
+    
+    free_file(&file);
+    
+    return model;
+}
+
+function void
+draw_model(Assets *assets, Model *model, Light_Source light, Camera camera, m4x4 projection_matrix, m4x4 view_matrix)
+{
+    u32 handle = use_shader(find_shader(assets, "MATERIAL"));
+    //v4 shape_color = {0, 255, 0, 1};
+    //glUniform4fv(glGetUniformLocation(handle, "user_color"), (GLsizei)1, (float*)&shape_color);
+    m4x4 model_matrix = create_transform_m4x4({0, 0, 0}, get_rotation(0, {0, 1, 0}), {1, 1, 1});
+    glUniformMatrix4fv(glGetUniformLocation(handle, "model"),      (GLsizei)1, false, (float*)&model_matrix);
+    glUniformMatrix4fv(glGetUniformLocation(handle, "projection"), (GLsizei)1, false, (float*)&projection_matrix);
+    glUniformMatrix4fv(glGetUniformLocation(handle, "view"),       (GLsizei)1, false, (float*)&view_matrix);
+    
+    glUniform3fv(glGetUniformLocation(handle, "viewPos"), (GLsizei)1, (float*)&camera.position);
+    
+    v3 light_ambient = { 0.1, 0.1, 0.1 };
+    v3 light_diffuse = { 0.8, 0.8, 0.8 };
+    v3 light_specular = { 1, 1, 1 };
+    
+    for (s32 i = 0; i < model->meshes_count; i++)
     {
-        mesh.indices[i] = obj.face_vertices[i].vertex_index;
+        glUniform3fv(glGetUniformLocation(handle, "material.ambient"), (GLsizei)1, (float*)&model->meshes[i].material.ambient);
+        glUniform3fv(glGetUniformLocation(handle, "material.diffuse"), (GLsizei)1, (float*)&model->meshes[i].material.diffuse);
+        glUniform3fv(glGetUniformLocation(handle, "material.specular"), (GLsizei)1, (float*)&model->meshes[i].material.specular);
+        glUniform1f(glGetUniformLocation(handle, "material.shininess"), model->meshes[i].material.specular_exponent);
+        
+        glUniform3fv(glGetUniformLocation(handle, "light.position"), (GLsizei)1, (float*)&light.position);
+        glUniform3fv(glGetUniformLocation(handle, "light.ambient"), (GLsizei)1, (float*)&light_ambient);
+        glUniform3fv(glGetUniformLocation(handle, "light.diffuse"), (GLsizei)1, (float*)&light_diffuse);
+        glUniform3fv(glGetUniformLocation(handle, "light.specular"), (GLsizei)1, (float*)&light_specular);
+        draw_mesh(&model->meshes[i]);
     }
     
-    for (s32 i = 0; i < mesh.indices_count; i++) log("%d", mesh.indices[i]);
-    
-    init_mesh(&mesh);
-    
-    return mesh;
 }
 
 //
@@ -935,11 +1128,11 @@ parse_asset_file(Assets *assets, File *file, void (action)(void *data, void *arg
                 }
                 else if (equal(last_token.lexeme, "|")) // shader part needs to be grabbed
                 {
-                    if      (equal(tok.lexeme, "VERTEX"))    shader_type = VERTEX_SHADER;
-                    else if (equal(tok.lexeme, "CONTROL"))   shader_type = TESSELLATION_CONTROL_SHADER;
+                    if      (equal(tok.lexeme, "VERTEX"))     shader_type = VERTEX_SHADER;
+                    else if (equal(tok.lexeme, "CONTROL"))    shader_type = TESSELLATION_CONTROL_SHADER;
                     else if (equal(tok.lexeme, "EVALUATION")) shader_type = TESSELLATION_EVALUATION_SHADER;
-                    else if (equal(tok.lexeme, "GEOMETRY"))  shader_type = GEOMETRY_SHADER;
-                    else if (equal(tok.lexeme, "FRAGMENT"))  shader_type = FRAGMENT_SHADER;
+                    else if (equal(tok.lexeme, "GEOMETRY"))   shader_type = GEOMETRY_SHADER;
+                    else if (equal(tok.lexeme, "FRAGMENT"))   shader_type = FRAGMENT_SHADER;
                     
                     // check that comma comes after
                     tok = scan_asset_file(file, &line_num, tok);
@@ -956,7 +1149,12 @@ parse_asset_file(Assets *assets, File *file, void (action)(void *data, void *arg
                     if (shader_tag == 0) shader_tag = info.tag;
                     else if (!equal(shader_tag, info.tag)) 
                     {
+                        const char *new_tag = info.tag;
+                        info.tag = shader_tag;
                         action((void*)assets, (void*)&info);
+                        info = {};
+                        info.type = ASSET_TYPE_SHADER;
+                        info.tag = new_tag;
                         shader_tag = info.tag;
                     }
                     

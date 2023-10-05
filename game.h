@@ -63,7 +63,7 @@ struct Game_Data
     s32 active;
     b8 wire_frame;
     
-    Mesh tree;
+    Model tree;
 };
 
 #endif //GAME_H

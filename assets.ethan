@@ -5,6 +5,9 @@ WATER|EVALUATION, ../assets/shaders/water.tes
 WATER|GEOMETRY, ../assets/shaders/water.gs
 WATER|FRAGMENT, ../assets/shaders/water.fs
 
+MATERIAL|VERTEX, ../assets/shaders/material.vs
+MATERIAL|FRAGMENT, ../assets/shaders/material.fs
+
 BITMAPS:
 JEFF, ../assets/bitmaps/jeff.jpg
 
