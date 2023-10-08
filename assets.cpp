@@ -607,7 +607,19 @@ struct Obj
     const char *material_filename;
 };
 
-// returns words splitting at each ' ' and '\'
+s32 obj_valid_chars[5] = { '-', '.', '_', ':', '\\' };
+
+function b8
+is_valid_char(s32 ch)
+{
+    for (s32 i = 0; i < ARRAY_COUNT(obj_valid_chars); i++)
+    {
+        if (ch == obj_valid_chars[i]) return true;
+    }
+    return false;
+}
+
+// returns words splitting at each ' ' and '/'
 function OBJ_Token
 scan_obj(File *file, s32 *line_num)
 {
@@ -641,14 +653,14 @@ scan_obj(File *file, s32 *line_num)
         
         default:
         {
-            if (isalpha(ch) || isdigit(ch) || ch == '-' ||  ch == '.' || ch == '_')
+            if (isalpha(ch) || isdigit(ch) || is_valid_char(ch))
             {
                 int length = 0;
                 do
                 {
                     ch = get_char(file);
                     length++;
-                } while((isalpha(ch) || isdigit(ch) || ch == '-' ||  ch == '.'|| ch == '_') && ch != ' ' && ch != '/' && ch != EOF);
+                } while((isalpha(ch) || isdigit(ch) || is_valid_char(ch)) && ch != ' ' && ch != '/' && ch != EOF);
                 
                 unget_char(file);
                 const char *sequence = copy_last_num_of_chars(file, length);
@@ -798,6 +810,9 @@ parse_count_mtl(File *file, Mtl *mtl)
     }
 }
 
+#include "mtl.cpp"
+
+
 function void
 parse_mtl(File *file, Mtl *mtl)
 {
@@ -839,9 +854,17 @@ parse_mtl(File *file, Mtl *mtl)
             {
                 material.specular = parse_v3(file, &line_num);
             }
+            else if (equal(token.lexeme, "map_Ka"))
+            {
+                //char filepath[80];
+                //memset(filepath, 0, 80);
+                //strcat(strcat(filepath, path), token.lexeme);
+                //mtl->ambient_map = load_bitmap(filepath);
+            }
         }
         else if (token.type == OBJ_TOKEN_NUMBER)
         {
+            token = scan_obj(file, &line_num);
             
         }
         else
@@ -856,19 +879,63 @@ parse_mtl(File *file, Mtl *mtl)
     }
 }
 
+function void
+count_mtl(s32 level, void *data, void *args)
+{
+    u32 *materials_count = (u32*)args;
+    MTL_Node_Info *info = (MTL_Node_Info*)data;
+    
+    if (level == 0 && info->type == MTL_STRING && equal(info->lexeme, "newmtl")) (*materials_count)++;
+}
+
+function void
+create_materials(s32 level, void *data, void *args)
+{
+    MTL_Node_Info *info = (MTL_Node_Info*)data;
+    MTL_Node_Info *parent = (MTL_Node_Info*)args;
+    if (info->type = MTL_FLOAT)
+    {
+        if (equal(parent->lexeme, "Ka"))
+        {
+            
+        }
+    }
+    
+}
+
+function void
+print_mtl_node_info(s32 level, void *data, void *args)
+{
+    
+    for (s32 i = 0; i < level; i++) printf("  ");
+    
+    MTL_Node_Info* info = (MTL_Node_Info*)data;
+    if      (info->type == MTL_STRING) printf("%s", info->lexeme);
+    else if (info->type == MTL_FLOAT)  printf("%f", info->float_number);
+    else if (info->type == MTL_INT)    printf("%d", info->int_number);
+    
+    printf("\n");
+}
 
 function Mtl
 load_mtl(const char *filename)
 {
     Mtl mtl = {};
-    File file = read_file(filename);
-    if (!file.size) { error("load_mtl: could not read material file"); return mtl; }
     
-    parse_count_mtl(&file, &mtl);
-    mtl.materials = ARRAY_MALLOC(Material, mtl.materials_count);
-    reset_get_char(&file);
-    parse_mtl(&file, &mtl);
-    free_file(&file);
+    Lexer lexer = {};
+    lexer.file = read_file(filename);
+    if (!lexer.file.size) { error("load_mtl: could not read material file"); return mtl; }
+    lexer.scan = &scan_mtl_v2;
+    
+    AST mtl_ast = mtl_parser(&lexer);
+    ast_traverse_left_to_right(0, 0, mtl_ast.head, print_mtl_node_info);
+    
+    u32 materials_count = 0;
+    ast_traverse_left_to_right(0, (void*)&materials_count, mtl_ast.head, count_mtl);
+    mtl.materials = ARRAY_MALLOC(Material, materials_count);
+    ast_traverse_left_to_right(0, mtl.materials, mtl_ast.head, create_materials);
+    
+    free_file(&lexer.file);
     
     return mtl;
 }

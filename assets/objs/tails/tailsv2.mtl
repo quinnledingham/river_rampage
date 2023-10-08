@@ -1,0 +1,42 @@
+# Blender 3.6.4 MTL File: 'None'
+# www.blender.org
+
+newmtl m104d1a3b_dds
+Ns 10.000005
+Ka 1.000000 1.000000 1.000000
+Ks 0.100000 0.100000 0.100000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd C:/Users/quinn/Downloads/tails-obj-free-3d-model/source/cadnav-160914141327/cadnav.com_model/Model_C0812063/104d1a3b.dds
+
+newmtl m86b0af7b_dds
+Ns 10.000005
+Ka 1.000000 1.000000 1.000000
+Ks 0.100000 0.100000 0.100000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd C:/Users/quinn/Downloads/tails-obj-free-3d-model/source/cadnav-160914141327/cadnav.com_model/Model_C0812063/86b0af7b.dds
+
+newmtl e0ef839a_dds
+Ns 10.000005
+Ka 1.000000 1.000000 1.000000
+Ks 0.100000 0.100000 0.100000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd C:/Users/quinn/Downloads/tails-obj-free-3d-model/source/cadnav-160914141327/cadnav.com_model/Model_C0812063/e0ef839a.dds
+
+newmtl ed159b47_dds
+Ns 10.000005
+Ka 1.000000 1.000000 1.000000
+Ks 0.100000 0.100000 0.100000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd C:/Users/quinn/Downloads/tails-obj-free-3d-model/source/cadnav-160914141327/cadnav.com_model/Model_C0812063/ed159b47.dds

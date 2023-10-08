@@ -12,9 +12,11 @@
 #include "types.h"
 #include "assets.h"
 #include "shapes.h"
+#include "data_structures.h"
 #include "game.h"
 #include "application.h"
 
+#include "data_structures.cpp"
 #include "assets.cpp"
 #include "shapes.cpp"
 #include "menu.cpp"
@@ -259,7 +261,7 @@ init_game_data(Assets *assets)
     
     init_boat(&data->boat);
     
-    data->tree = load_obj("../assets/objs/tree/", "treev2.obj");
+    data->tree = load_obj("../assets/objs/tails/", "tailsv2.obj");
     //data->tree = load_obj("../assets/objs/test.obj");
     
     return (void*)data;

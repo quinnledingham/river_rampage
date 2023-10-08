@@ -55,6 +55,9 @@ struct Material
     v3 specular;
     f32 specular_exponent;
     
+    Bitmap ambient_map;
+    Bitmap diffuse_map;
+    
     const char *id;
 };
 
