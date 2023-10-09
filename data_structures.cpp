@@ -23,11 +23,18 @@ ll_add(LL *list, LL_Node *new_node)
     else
     {
         LL_Node *node = list->head;
-        for (u32 i = 0; i < list->size - 1; i++) node = node->next;
+        for (u32 i = 0; i < list->size; i++) node = node->next;
         node->next = new_node;
         new_node->previous = node;
     }
     list->size++;
+}
+
+function void
+print_ll(LL* list)
+{
+    LL_Node *node = list->head;
+    for (u32 i = 0; i < list->size - 1; i++) { printf("%p\n", node->data); node = node->next; }
 }
 
 //
@@ -85,9 +92,7 @@ lex(Lexer *lexer)
     if (lexer->cursor == 0 || lexer->cursor->next == 0) 
     {
         void *token = lexer->scan(&lexer->file, &lexer->line_num);
-        void *tok = SDL_malloc(lexer->token_size);
-        SDL_memcpy(tok, token, lexer->token_size);
-        LL_Node *new_node = create_ll_node(tok);
+        LL_Node *new_node = create_ll_node(token);
         ll_add(&lexer->tokens, new_node);
         lexer->cursor = new_node;
     }
@@ -111,4 +116,23 @@ peek(Lexer *lexer)
     void *token = lex(lexer);
     unlex(lexer);
     return token;
+}
+
+struct MTL_Token
+{
+    s32 type;
+    union
+    {
+        const char *lexeme;
+        float float_num;
+        s32 int_num;
+    };
+    s32 ch;
+};
+
+
+function void
+reset_lex(Lexer *lexer)
+{
+    lexer->cursor = lexer->tokens.head;
 }

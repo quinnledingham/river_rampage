@@ -7,17 +7,6 @@ enum MTL_Token_Type
     MTL_TOKEN_EOF
 };
 
-struct MTL_Token
-{
-    s32 type;
-    union
-    {
-        const char *lexeme;
-        float float_num;
-        s32 int_num;
-    };
-    s32 ch;
-};
 
 static const s32 mtl_valid_chars[5] = { '-', '.', '_', ':', '/' };
 
@@ -31,13 +20,15 @@ is_valid_mtl_char(s32 ch)
     return false;
 }
 
-function void*
-scan_mtl_v2(File *file, s32 *line_num)
+function MTL_Token*
+create_mtl_token(MTL_Token token)
 {
-    return 0;
+    MTL_Token *mtl = (MTL_Token*)SDL_malloc(sizeof(MTL_Token));
+    (*mtl) = token;
+    return mtl;
 }
 
-function MTL_Token
+function void*
 scan_mtl(File *file, s32 *line_num)
 {
     X:
@@ -47,7 +38,7 @@ scan_mtl(File *file, s32 *line_num)
     //log("%c %d", ch, file->size);
     switch(ch)
     {
-        case EOF: { return { MTL_TOKEN_EOF, 0, ch }; } break;
+        case EOF: { return (void*)create_mtl_token({ MTL_TOKEN_EOF, 0, ch }); } break;
         
         case '\n':
         {
@@ -81,190 +72,109 @@ scan_mtl(File *file, s32 *line_num)
                 unget_char(file);
                 const char *sequence = copy_last_num_of_chars(file, length);
                 
-                if (isalpha(sequence[0])) return { OBJ_TOKEN_ID, sequence };
-                return { OBJ_TOKEN_NUMBER, sequence };
+                if (isalpha(sequence[0])) return (void*)create_mtl_token({ OBJ_TOKEN_ID, sequence });
+                return (void*)create_mtl_token({ OBJ_TOKEN_NUMBER, sequence });
             }
             
             error(*line_num, "not a valid ch (%d)", ch);
         } break;
     }
     
-    return { OBJ_TOKEN_ERROR, 0, ch };
+    return (void*)create_mtl_token({ OBJ_TOKEN_ERROR, 0, ch });
 }
 
-
-
-function MTL_Token
-mtl_lex(Lexer *lexer)
+function v3
+parse_v3(Lexer *lexer)
 {
-    if (lexer->cursor == 0 || lexer->cursor->next == 0) 
+    v3 result = {};
+    MTL_Token *token = 0;
+    token = (MTL_Token*)lex(lexer);
+    result.x = std::stof(token->lexeme);
+    token = (MTL_Token*)lex(lexer);
+    result.y = std::stof(token->lexeme);
+    token = (MTL_Token*)lex(lexer);
+    result.z = std::stof(token->lexeme);
+    return result;
+}
+
+function Mtl
+load_mtl(const char *path, const char *filename)
+{
+    Mtl mtl = {};
+    
+    char filepath[80];
+    memset(filepath, 0, 80);
+    strcat(strcat(filepath, path), filename);
+    
+    Lexer lexer = {};
+    lexer.file = read_file(filepath);
+    if (!lexer.file.size) { error("load_mtl: could not read material file"); return mtl; }
+    lexer.scan = &scan_mtl;
+    lexer.token_size = sizeof(MTL_Token);
+    
+    // count new materials
+    MTL_Token *token = (MTL_Token*)lex(&lexer);
+    while (token->type != MTL_TOKEN_EOF)
     {
-        MTL_Token token = scan_mtl(&lexer->file, &lexer->line_num);
-        MTL_Token *tok = (MTL_Token*)SDL_malloc(sizeof(MTL_Token));
-        (*tok) = token;
-        LL_Node *new_node = create_ll_node(tok);
-        ll_add(&lexer->tokens, new_node);
-        lexer->cursor = new_node;
+        if (equal(token->lexeme, "newmtl")) mtl.materials_count++;
+        token = (MTL_Token*)lex(&lexer);
     }
-    else
-    {
-        lexer->cursor = lexer->cursor->next;
-    }
     
-    return *(MTL_Token*)lexer->cursor->data;
-}
-
-function void
-mtl_unlex(Lexer *lexer)
-{
-    lexer->cursor = lexer->cursor->previous;
-}
-
-function MTL_Token
-mtl_peek(Lexer *lexer)
-{
-    MTL_Token token = mtl_lex(lexer);
-    mtl_unlex(lexer);
-    return token;
-}
-
-enum MTL_Type
-{
-    MTL_STRING,
-    MTL_FLOAT,
-    MTL_INT,
-};
-
-struct MTL_Node_Info
-{
-    u32 type;
+    //print_ll(&lexer.tokens);
     
-    union
-    {
-        const char *lexeme;
-        f32 float_number;
-        s32 int_number;
-    };
+    mtl.materials = ARRAY_MALLOC(Material, mtl.materials_count);
+    reset_lex(&lexer);
     
-};
-
-function AST_Node*
-ast_create_mtl_node(MTL_Node_Info mtl_info)
-{
-    MTL_Node_Info *info = (MTL_Node_Info*)SDL_malloc(sizeof(MTL_Node_Info));
-    (*info) = mtl_info;
-    return create_ast_node(info, sizeof(MTL_Node_Info));
-}
-
-
-function AST_Node*
-mtl_parse(Lexer *lexer, AST_Node *head)
-{
-    if (head == 0)
+    u32 material_index = 0;
+    Material material = {};
+    token = 0;
+    do
     {
-        MTL_Node_Info info = {};
-        info.type = MTL_STRING;
-        info.lexeme = "mtl_file";
-        AST_Node *next = ast_create_mtl_node(info);
+        token = (MTL_Token*)lex(&lexer);
         
-        while(equal(mtl_peek(lexer).lexeme, "newmtl"))
+        if (equal(token->lexeme, "newmtl"))
         {
-            ast_add_child(next, mtl_parse(lexer, next));
+            if (material.id != 0)
+            {
+                mtl.materials[material_index++] = material;
+            }
+            
+            material = {};
+            token = (MTL_Token*)lex(&lexer);
+            material.id = token->lexeme;
         }
-        return next;
-    }
+        else if (equal(token->lexeme, "Ns"))
+        {
+            token = (MTL_Token*)lex(&lexer);
+            material.specular_exponent = std::stof(token->lexeme, 0);
+        }
+        else if (equal(token->lexeme, "Ka"))
+        {
+            material.ambient = parse_v3(&lexer);
+        }
+        else if (equal(token->lexeme, "Kd"))
+        {
+            material.diffuse = parse_v3(&lexer);
+        }
+        else if (equal(token->lexeme, "Ks"))
+        {
+            material.specular = parse_v3(&lexer);
+        }
+        else if (equal(token->lexeme, "map_Kd"))
+        {
+            token = (MTL_Token*)lex(&lexer);
+            memset(filepath, 0, 80);
+            strcat(strcat(filepath, path), token->lexeme);
+            material.diffuse_map = load_and_init_bitmap(filepath);
+        }
+    } while(token->type != MTL_TOKEN_EOF);
     
-    MTL_Token token = mtl_lex(lexer);
-    MTL_Node_Info *mtl_head = (MTL_Node_Info*)head->data;
-    
-    if (token.type == OBJ_TOKEN_ID)
+    if (material.id != 0)
     {
-        if (equal(token.lexeme, "newmtl"))
-        {
-            if (equal(mtl_head->lexeme, "newmtl"))
-            {
-                
-            }
-            
-            MTL_Node_Info info = {};
-            info.type = MTL_STRING;
-            info.lexeme = "newmtl";
-            
-            AST_Node *next = ast_create_mtl_node(info);
-            
-            MTL_Token next_token = mtl_lex(lexer);
-            info = {};
-            info.type = MTL_STRING;
-            info.lexeme = next_token.lexeme;
-            AST_Node *file_name = ast_create_mtl_node(info);
-            ast_add_child(next, file_name);
-            
-            while(!equal(mtl_peek(lexer).lexeme, "newmtl") && mtl_peek(lexer).type != MTL_TOKEN_EOF)
-                ast_add_child(next, mtl_parse(lexer, next));
-            
-            return next;
-        }
-        else if (equal(mtl_head->lexeme, "newmtl"))
-        {
-            if (equal(token.lexeme, "Ns") || equal(token.lexeme, "Ni") || 
-                equal(token.lexeme, "d") || equal(token.lexeme, "illum") || equal(token.lexeme, "map_Kd"))
-            {
-                MTL_Node_Info info = {};
-                info.type = MTL_STRING;
-                info.lexeme = token.lexeme;
-                
-                AST_Node *next = ast_create_mtl_node(info);
-                
-                ast_add_child(next, mtl_parse(lexer, next));
-                return next;
-            }
-            else if (equal(token.lexeme, "Ka") || equal(token.lexeme, "Ks") || equal(token.lexeme, "Ke"))
-            {
-                MTL_Node_Info info = {};
-                info.type = MTL_STRING;
-                info.lexeme = token.lexeme;
-                
-                AST_Node *next = ast_create_mtl_node(info);
-                
-                ast_add_child(next, mtl_parse(lexer, next));
-                ast_add_child(next, mtl_parse(lexer, next));
-                ast_add_child(next, mtl_parse(lexer, next));
-                
-                return next;
-            }
-        }
-        else
-        {
-            MTL_Node_Info info = {};
-            info.type = MTL_STRING;
-            info.lexeme = token.lexeme;
-            AST_Node *next = ast_create_mtl_node(info);
-            return next;
-        }
-        
-    }
-    else if (!equal(mtl_head->lexeme, "newmtl") && token.type == OBJ_TOKEN_NUMBER)
-    {
-        MTL_Node_Info info = {};
-        info.type = MTL_FLOAT;
-        info.float_number = std::stof(token.lexeme, 0);
-        AST_Node *next = ast_create_mtl_node(info);
-        return next;
+        mtl.materials[material_index++] = material;
     }
     
-    MTL_Node_Info info = {};
-    info.type = MTL_STRING;
-    info.lexeme = "yo";
-    AST_Node *yo = ast_create_mtl_node(info);
-    ast_add_child(head, yo);
-    log("here");
-    return yo;
-}
-
-function AST
-mtl_parser(Lexer *lexer)
-{
-    AST ast = {};
-    ast.head = mtl_parse(lexer, 0);
-    return ast;
+    free_file(&lexer.file);
+    
+    return mtl;
 }

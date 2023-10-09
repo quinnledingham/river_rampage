@@ -92,6 +92,7 @@ write_file(File *file, const char *filename)
 function Bitmap
 load_bitmap(const char *filename)
 {
+    stbi_set_flip_vertically_on_load(true);
     Bitmap bitmap = {};
     bitmap.memory = stbi_load(filename, &bitmap.dim.width, &bitmap.dim.height, &bitmap.channels, 0);
     if (bitmap.memory == 0) error("load_bitmap() could not load bitmap %s", filename);
@@ -132,11 +133,11 @@ init_bitmap_handle(Bitmap *bitmap)
     glGenerateMipmap(target);
     
     // Tile
-    //glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    //glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_REPEAT);
     
-    glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    //glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    //glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     
     glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
     glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -794,151 +795,7 @@ parse_obj(File *file, Obj *obj, Model *model)
     }
 }
 
-function void
-parse_count_mtl(File *file, Mtl *mtl)
-{
-    OBJ_Token token = {};
-    s32 line_num = 1;
-    while(token.type != OBJ_TOKEN_EOF)
-    {
-        token = scan_obj(file, &line_num);
-        
-        if (token.type == OBJ_TOKEN_ID)
-        {
-            if (equal(token.lexeme, "newmtl")) mtl->materials_count++;
-        }
-    }
-}
-
 #include "mtl.cpp"
-
-
-function void
-parse_mtl(File *file, Mtl *mtl)
-{
-    Material material = {};
-    u32 materials_index = 0;
-    OBJ_Token token = {};
-    s32 line_num = 1;
-    while(token.type != OBJ_TOKEN_EOF)
-    {
-        token = scan_obj(file, &line_num);
-        
-        if (token.type == OBJ_TOKEN_ID)
-        {
-            if (equal(token.lexeme, "newmtl"))
-            {
-                if (material.id != 0)
-                {
-                    mtl->materials[materials_index++] = material;
-                }
-                
-                material = {};
-                token = scan_obj(file, &line_num);
-                material.id = token.lexeme;
-            }
-            else if (equal(token.lexeme, "Ns"))
-            {
-                token = scan_obj(file, &line_num);
-                material.specular_exponent = std::stof(token.lexeme);
-            }
-            else if (equal(token.lexeme, "Ka"))
-            {
-                material.ambient = parse_v3(file, &line_num);
-            }
-            else if (equal(token.lexeme, "Kd"))
-            {
-                material.diffuse = parse_v3(file, &line_num);
-            }
-            else if (equal(token.lexeme, "Ks"))
-            {
-                material.specular = parse_v3(file, &line_num);
-            }
-            else if (equal(token.lexeme, "map_Ka"))
-            {
-                //char filepath[80];
-                //memset(filepath, 0, 80);
-                //strcat(strcat(filepath, path), token.lexeme);
-                //mtl->ambient_map = load_bitmap(filepath);
-            }
-        }
-        else if (token.type == OBJ_TOKEN_NUMBER)
-        {
-            token = scan_obj(file, &line_num);
-            
-        }
-        else
-        {
-            //error(line_num, "Not expected token type %d (ch %d)", token.type, token.ch);
-        }
-    }
-    
-    if (material.id != 0)
-    {
-        mtl->materials[materials_index++] = material;
-    }
-}
-
-function void
-count_mtl(s32 level, void *data, void *args)
-{
-    u32 *materials_count = (u32*)args;
-    MTL_Node_Info *info = (MTL_Node_Info*)data;
-    
-    if (level == 0 && info->type == MTL_STRING && equal(info->lexeme, "newmtl")) (*materials_count)++;
-}
-
-function void
-create_materials(s32 level, void *data, void *args)
-{
-    MTL_Node_Info *info = (MTL_Node_Info*)data;
-    MTL_Node_Info *parent = (MTL_Node_Info*)args;
-    if (info->type = MTL_FLOAT)
-    {
-        if (equal(parent->lexeme, "Ka"))
-        {
-            
-        }
-    }
-    
-}
-
-function void
-print_mtl_node_info(s32 level, void *data, void *args)
-{
-    
-    for (s32 i = 0; i < level; i++) printf("  ");
-    
-    MTL_Node_Info* info = (MTL_Node_Info*)data;
-    if      (info->type == MTL_STRING) printf("%s", info->lexeme);
-    else if (info->type == MTL_FLOAT)  printf("%f", info->float_number);
-    else if (info->type == MTL_INT)    printf("%d", info->int_number);
-    
-    printf("\n");
-}
-
-function Mtl
-load_mtl(const char *filename)
-{
-    Mtl mtl = {};
-    
-    Lexer lexer = {};
-    lexer.file = read_file(filename);
-    if (!lexer.file.size) { error("load_mtl: could not read material file"); return mtl; }
-    lexer.scan = &scan_mtl_v2;
-    
-    AST mtl_ast = mtl_parser(&lexer);
-    ast_traverse_left_to_right(0, 0, mtl_ast.head, print_mtl_node_info);
-    
-    u32 materials_count = 0;
-    ast_traverse_left_to_right(0, (void*)&materials_count, mtl_ast.head, count_mtl);
-    mtl.materials = ARRAY_MALLOC(Material, materials_count);
-    ast_traverse_left_to_right(0, mtl.materials, mtl_ast.head, create_materials);
-    
-    free_file(&lexer.file);
-    
-    return mtl;
-}
 
 function Model
 load_obj(const char *path, const char *filename)
@@ -955,9 +812,7 @@ load_obj(const char *path, const char *filename)
     parse_count_obj(&file, &obj);
     
     // load the material file (found filename in parse_count_obj)
-    memset(filepath, 0, 80);
-    strcat(strcat(filepath, path), obj.material_filename);
-    Mtl mtl = load_mtl(filepath);
+    Mtl mtl = load_mtl(path, obj.material_filename);
     
     u32 face_vertices_count = obj.faces_count * 3;
     obj.vertices          = ARRAY_MALLOC(v3, obj.vertices_count);
@@ -1078,6 +933,13 @@ draw_model(Assets *assets, Model *model, Light_Source light, Camera camera, m4x4
         glUniform3fv(glGetUniformLocation(handle, "light.ambient"), (GLsizei)1, (float*)&light_ambient);
         glUniform3fv(glGetUniformLocation(handle, "light.diffuse"), (GLsizei)1, (float*)&light_diffuse);
         glUniform3fv(glGetUniformLocation(handle, "light.specular"), (GLsizei)1, (float*)&light_specular);
+        
+        if (model->meshes[i].material.diffuse_map.memory != 0)
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, model->meshes[i].material.diffuse_map.handle);
+        }
+        
         draw_mesh(&model->meshes[i]);
     }
     
