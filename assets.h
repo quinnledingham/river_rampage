@@ -50,13 +50,13 @@ struct Vertex
 
 struct Material
 {
-    v3 ambient;
-    v3 diffuse;
-    v3 specular;
-    f32 specular_exponent;
+    v3 ambient; // Ka
+    v3 diffuse; // Kd
+    v3 specular; // Ks
+    f32 specular_exponent; // Ns
     
     Bitmap ambient_map;
-    Bitmap diffuse_map;
+    Bitmap diffuse_map; // map_Kd
     
     const char *id;
 };

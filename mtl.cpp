@@ -1,3 +1,9 @@
+struct Mtl
+{
+    Material *materials; // loaded from the corresponding material file
+    u32 materials_count;
+};
+
 enum MTL_Token_Type
 {
     MTL_TOKEN_KEYWORD,
@@ -72,15 +78,15 @@ scan_mtl(File *file, s32 *line_num)
                 unget_char(file);
                 const char *sequence = copy_last_num_of_chars(file, length);
                 
-                if (isalpha(sequence[0])) return (void*)create_mtl_token({ OBJ_TOKEN_ID, sequence });
-                return (void*)create_mtl_token({ OBJ_TOKEN_NUMBER, sequence });
+                if (isalpha(sequence[0])) return (void*)create_mtl_token({ MTL_TOKEN_KEYWORD, sequence });
+                return (void*)create_mtl_token({ MTL_TOKEN_NUMBER, sequence });
             }
             
             error(*line_num, "not a valid ch (%d)", ch);
         } break;
     }
     
-    return (void*)create_mtl_token({ OBJ_TOKEN_ERROR, 0, ch });
+    return (void*)create_mtl_token({ MTL_TOKEN_ERROR, 0, ch });
 }
 
 function v3

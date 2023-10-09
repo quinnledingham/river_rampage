@@ -585,12 +585,6 @@ struct Face_Vertex
     u32 vertex_index; // where in the mesh array this is
 };
 
-struct Mtl
-{
-    Material *materials; // loaded from the corresponding material file
-    u32 materials_count;
-};
-
 struct Obj
 {
     u32 vertices_count;
@@ -918,8 +912,8 @@ draw_model(Assets *assets, Model *model, Light_Source light, Camera camera, m4x4
     
     glUniform3fv(glGetUniformLocation(handle, "viewPos"), (GLsizei)1, (float*)&camera.position);
     
-    v3 light_ambient = { 0.1, 0.1, 0.1 };
-    v3 light_diffuse = { 0.8, 0.8, 0.8 };
+    v3 light_ambient = { 0.2, 0.2, 0.2 };
+    v3 light_diffuse = { 0.9, 0.9, 0.9 };
     v3 light_specular = { 1, 1, 1 };
     
     for (s32 i = 0; i < model->meshes_count; i++)

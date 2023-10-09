@@ -27,7 +27,7 @@ void main()
 	//vec4 tex = texture(normal_map, uv);
 
 	// ambient
-	float ambientStrength = 0.1f;
+	float ambientStrength = 0.2f;
 	vec3 ambient = ambientStrength * lightColor;
 
 	// diffuse

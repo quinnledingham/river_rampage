@@ -250,7 +250,7 @@ init_game_data(Assets *assets)
     data->camera.yaw      = -90.0f;
     data->camera.fov      = 80.0f;
     
-    data->light.position = { 10.0f, 20.0f, 10.0f };
+    data->light.position = { 5.0f, 5.0f, 10.0f };
     data->light.color = { 1.0f, 1.0f, 1.0f, 1.0f };
     
     Mesh temp_square_mesh = create_square_mesh(10, 10);
