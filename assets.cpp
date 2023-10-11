@@ -560,345 +560,6 @@ mix_audio(Audio_Player *player, r32 frame_time_s)
 // Model
 //
 
-enum OBJ_Token_Type
-{
-    OBJ_TOKEN_ID,
-    OBJ_TOKEN_NUMBER,
-    OBJ_TOKEN_ERROR,
-    OBJ_TOKEN_EOF
-};
-
-struct OBJ_Token
-{
-    s32 type;
-    const char *lexeme;
-    s32 ch; // char when the token is created. Used for debugging
-};
-
-struct Face_Vertex
-{
-    u32 position_index;
-    u32 uv_index;
-    u32 normal_index;
-    
-    b8 first_instance;
-    u32 vertex_index; // where in the mesh array this is
-};
-
-struct Obj
-{
-    u32 vertices_count;
-    u32 uvs_count;
-    u32 normals_count;
-    u32 faces_count;
-    u32 meshes_count;
-    
-    v3 *vertices;
-    v2 *uvs;
-    v3 *normals;
-    Face_Vertex *face_vertices; // array of all the faces vertexs
-    u32 *meshes_face_count; // the amount of faces in each mesh
-    
-    const char *material_filename;
-};
-
-s32 obj_valid_chars[5] = { '-', '.', '_', ':', '\\' };
-
-function b8
-is_valid_char(s32 ch)
-{
-    for (s32 i = 0; i < ARRAY_COUNT(obj_valid_chars); i++)
-    {
-        if (ch == obj_valid_chars[i]) return true;
-    }
-    return false;
-}
-
-// returns words splitting at each ' ' and '/'
-function OBJ_Token
-scan_obj(File *file, s32 *line_num)
-{
-    X:
-    
-    s32 ch;
-    while((ch = get_char(file)) != EOF && (ch == 9 || ch == 13)); // remove tabs
-    //log("%c %d", ch, file->size);
-    switch(ch)
-    {
-        case EOF: { return { OBJ_TOKEN_EOF, 0, ch }; } break;
-        
-        case '\n':
-        {
-            (*line_num)++;
-            goto X;
-        } break;
-        
-        case '#':
-        {
-            while((ch = get_char(file)) != EOF && (ch != '\n'));
-            unget_char(file);
-            goto X;
-        } break;
-        
-        case ' ':
-        case '/':
-        {
-            goto X;
-        } break;
-        
-        default:
-        {
-            if (isalpha(ch) || isdigit(ch) || is_valid_char(ch))
-            {
-                int length = 0;
-                do
-                {
-                    ch = get_char(file);
-                    length++;
-                } while((isalpha(ch) || isdigit(ch) || is_valid_char(ch)) && ch != ' ' && ch != '/' && ch != EOF);
-                
-                unget_char(file);
-                const char *sequence = copy_last_num_of_chars(file, length);
-                
-                if (isalpha(sequence[0])) return { OBJ_TOKEN_ID, sequence };
-                return { OBJ_TOKEN_NUMBER, sequence };
-            }
-            
-            error(*line_num, "not a valid ch (%d)", ch);
-        } break;
-    }
-    
-    return { OBJ_TOKEN_ERROR, 0, ch };
-}
-
-function v3
-parse_v3(File *file, s32 *line_num)
-{
-    v3 result = {};
-    OBJ_Token token = {};
-    token = scan_obj(file, line_num);
-    result.x = std::stof(token.lexeme);
-    token = scan_obj(file, line_num);
-    result.y = std::stof(token.lexeme);
-    token = scan_obj(file, line_num);
-    result.z = std::stof(token.lexeme);
-    return result;
-}
-
-function void
-parse_count_obj(File *file, Obj *obj)
-{
-    OBJ_Token token = {};
-    s32 line_num = 1;
-    while(token.type != OBJ_TOKEN_EOF)
-    {
-        token = scan_obj(file, &line_num);
-        
-        if (token.type == OBJ_TOKEN_ID)
-        {
-            if      (equal(token.lexeme, "v"))  obj->vertices_count++;
-            else if (equal(token.lexeme, "vt")) obj->uvs_count++;
-            else if (equal(token.lexeme, "vn")) obj->normals_count++;
-            else if (equal(token.lexeme, "f"))  obj->faces_count++;
-            else if (equal(token.lexeme, "usemtl")) obj->meshes_count++;
-            else if (equal(token.lexeme, "mtllib")) // collect the filename of the material file
-            {
-                token = scan_obj(file, &line_num);
-                obj->material_filename = token.lexeme;
-            }
-        }
-    }
-}
-
-function void
-parse_obj(File *file, Obj *obj, Model *model)
-{
-    OBJ_Token last_token = {};
-    OBJ_Token token = {};
-    s32 line_num = 1;
-    
-    u32 meshes_index        = -1;
-    u32 vertices_index      = 0;
-    u32 uvs_index           = 0;
-    u32 normals_index       = 0;
-    u32 face_vertices_index = 0;
-    
-    while(token.type != OBJ_TOKEN_EOF)
-    {
-        last_token = token;
-        token = scan_obj(file, &line_num);
-        //log("%d, %s, %d", token.type, token.lexeme, token.ch);
-        
-        if (token.type == OBJ_TOKEN_ID)
-        {
-            if (equal(token.lexeme, "v"))
-            {
-                obj->vertices[vertices_index++] = parse_v3(file, &line_num);
-            }
-            else if (equal(token.lexeme, "vt"))
-            {
-                v2 uv = {};
-                token = scan_obj(file, &line_num);
-                uv.x = std::stof(token.lexeme, 0);
-                token = scan_obj(file, &line_num);
-                uv.y = std::stof(token.lexeme, 0);
-                obj->uvs[uvs_index++] = uv;
-            }
-            else if (equal(token.lexeme, "vn"))
-            {
-                obj->normals[normals_index++] = parse_v3(file, &line_num);
-            }
-            else if (equal(token.lexeme, "f"))
-            {
-                Face_Vertex face_vertex = {};
-                token = scan_obj(file, &line_num);
-                face_vertex.position_index = std::stoi(token.lexeme);
-                token = scan_obj(file, &line_num);
-                face_vertex.uv_index = std::stoi(token.lexeme);
-                token = scan_obj(file, &line_num);
-                face_vertex.normal_index = std::stoi(token.lexeme);
-                obj->face_vertices[face_vertices_index++] = face_vertex;
-                
-                face_vertex = {};
-                token = scan_obj(file, &line_num);
-                face_vertex.position_index = std::stoi(token.lexeme);
-                token = scan_obj(file, &line_num);
-                face_vertex.uv_index = std::stoi(token.lexeme);
-                token = scan_obj(file, &line_num);
-                face_vertex.normal_index = std::stoi(token.lexeme);
-                obj->face_vertices[face_vertices_index++] = face_vertex;
-                
-                face_vertex = {};
-                token = scan_obj(file, &line_num);
-                face_vertex.position_index = std::stoi(token.lexeme);
-                token = scan_obj(file, &line_num);
-                face_vertex.uv_index = std::stoi(token.lexeme);
-                token = scan_obj(file, &line_num);
-                face_vertex.normal_index = std::stoi(token.lexeme);
-                obj->face_vertices[face_vertices_index++] = face_vertex;
-                
-                obj->meshes_face_count[meshes_index]++;
-            }
-            else if (equal(token.lexeme, "usemtl"))
-            {
-                meshes_index++;
-                token = scan_obj(file, &line_num);
-                model->meshes[meshes_index].material.id = token.lexeme;
-            }
-        }
-    }
-}
-
-#include "mtl.cpp"
-
-function Model
-load_obj(const char *path, const char *filename)
-{
-    Model model = {};
-    Obj obj = {};
-    
-    char filepath[80];
-    memset(filepath, 0, 80);
-    strcat(strcat(filepath, path), filename);
-    File file = read_file(filepath);
-    if (!file.size) { error("load_obj: could not read file"); return model; }
-    
-    parse_count_obj(&file, &obj);
-    
-    // load the material file (found filename in parse_count_obj)
-    Mtl mtl = load_mtl(path, obj.material_filename);
-    
-    u32 face_vertices_count = obj.faces_count * 3;
-    obj.vertices          = ARRAY_MALLOC(v3, obj.vertices_count);
-    obj.uvs               = ARRAY_MALLOC(v2, obj.uvs_count);
-    obj.normals           = ARRAY_MALLOC(v3, obj.normals_count);
-    obj.face_vertices     = ARRAY_MALLOC(Face_Vertex, face_vertices_count);
-    obj.meshes_face_count = ARRAY_MALLOC(u32, obj.meshes_count);
-    memset(obj.meshes_face_count, 0, sizeof(u32) * obj.meshes_count); // ++ to count so need it to start at zero
-    
-    model.meshes_count = obj.meshes_count;
-    model.meshes = ARRAY_MALLOC(Mesh, model.meshes_count);
-    
-    reset_get_char(&file);
-    parse_obj(&file, &obj, &model);
-    free_file(&file);
-    
-    s32 lower_range = 0;
-    for (s32 mesh_index = 0; mesh_index < model.meshes_count; mesh_index++)
-    {
-        Mesh *mesh = &model.meshes[mesh_index];
-        mesh->vertices_count = 0;
-        s32 mesh_face_vertices_count = obj.meshes_face_count[mesh_index] * 3;
-        
-        mesh->indices_count = mesh_face_vertices_count;
-        mesh->indices = ARRAY_MALLOC(u32, mesh->indices_count);
-        
-        // find unique vertices in mesh
-        for (s32 i = lower_range; i < lower_range + mesh_face_vertices_count; i++)
-        {
-            obj.face_vertices[i].vertex_index = mesh->vertices_count;
-            for (s32 j = i - 1; j >= lower_range; j--)
-            {
-                if (obj.face_vertices[i].position_index == obj.face_vertices[j].position_index &&
-                    obj.face_vertices[i].uv_index       == obj.face_vertices[j].uv_index       &&
-                    obj.face_vertices[i].normal_index   == obj.face_vertices[j].normal_index) 
-                {
-                    obj.face_vertices[i].vertex_index = obj.face_vertices[j].vertex_index;
-                }
-            }
-            if (obj.face_vertices[i].vertex_index == mesh->vertices_count) 
-            { 
-                mesh->vertices_count++; 
-                obj.face_vertices[i].first_instance = true;
-            }
-        }
-        
-        // put unique face vertices in mesh vertices array
-        mesh->vertices = ARRAY_MALLOC(Vertex, mesh->vertices_count);
-        u32 vertices_index = 0;
-        for (s32 i = lower_range; i < mesh_face_vertices_count + lower_range; i++)
-        {
-            if (obj.face_vertices[i].first_instance) 
-            {
-                Vertex *vertex = &mesh->vertices[vertices_index++];
-                vertex->position = obj.vertices[obj.face_vertices[i].position_index - 1];
-                vertex->normal = obj.normals[obj.face_vertices[i].normal_index - 1];
-                vertex->texture_coordinate = obj.uvs[obj.face_vertices[i].uv_index - 1];
-            }
-        }
-        
-        // assign the vertices
-        u32 indices_index = 0;
-        for (s32 i = lower_range; i < mesh_face_vertices_count + lower_range; i++)
-        {
-            mesh->indices[indices_index++] = obj.face_vertices[i].vertex_index;
-        }
-        
-        // assign material
-        for (s32 i = 0; i < mtl.materials_count; i++)
-        {
-            if (equal(mesh->material.id, mtl.materials[i].id))
-            {
-                mesh->material = mtl.materials[i];
-            }
-        }
-        
-        init_mesh(mesh);
-        
-        lower_range += mesh_face_vertices_count;
-    }
-    
-    SDL_free(mtl.materials);
-    
-    SDL_free(obj.vertices);
-    SDL_free(obj.uvs);
-    SDL_free(obj.normals);
-    SDL_free(obj.face_vertices);
-    SDL_free(obj.meshes_face_count);
-    
-    return model;
-}
-
 function void
 draw_model(Assets *assets, Model *model, Light_Source light, Camera camera, m4x4 projection_matrix, m4x4 view_matrix)
 {
@@ -937,6 +598,355 @@ draw_model(Assets *assets, Model *model, Light_Source light, Camera camera, m4x4
         draw_mesh(&model->meshes[i]);
     }
     
+}
+
+// OBJ
+
+#include "mtl.cpp"
+
+enum OBJ_Token_Type
+{
+    OBJ_TOKEN_ID,
+    OBJ_TOKEN_NUMBER,
+    
+    OBJ_TOKEN_VERTEX,
+    OBJ_TOKEN_NORMAL,
+    OBJ_TOKEN_TEXTURE_COORD,
+    OBJ_TOKEN_FACE,
+    OBJ_TOKEN_USEMTL,
+    OBJ_TOKEN_MTLLIB,
+    
+    OBJ_TOKEN_ERROR,
+    OBJ_TOKEN_EOF
+};
+
+struct OBJ_Token
+{
+    s32 type;
+    const char *lexeme;
+    s32 ch; // char when the token is created. Used for debugging
+};
+
+struct Face_Vertex
+{
+    u32 position_index;
+    u32 uv_index;
+    u32 normal_index;
+};
+
+struct Obj
+{
+    u32 vertices_count;
+    u32 uvs_count;
+    u32 normals_count;
+    u32 faces_count;
+    u32 meshes_count;
+    
+    v3 *vertices;
+    v2 *uvs;
+    v3 *normals;
+    Face_Vertex *face_vertices; // array of all the faces vertexs
+    u32 *meshes_face_count; // the amount of faces in each mesh
+    
+    const char *material_filename;
+};
+
+s32 obj_valid_chars[5] = { '-', '.', '_', ':', '\\' };
+
+function b8
+is_valid_char(s32 ch)
+{
+    for (s32 i = 0; i < ARRAY_COUNT(obj_valid_chars); i++)
+    {
+        if (ch == obj_valid_chars[i]) return true;
+    }
+    return false;
+}
+
+function b8
+scan_is_string(File *file, s32 *ch, const char *str, u32 str_length)
+{
+    b8 is_string = true;
+    for (u32 ch_index = 0; ch_index < str_length; ch_index++)
+    {
+        if (*ch != str[ch_index]) is_string = false;
+        *ch = get_char(file);
+    }
+    
+    return is_string;
+}
+
+// strings = true if you want it to return filenames and numbers
+// doesn't malloc any memory unless strings = true
+function OBJ_Token
+scan_obj(File *file, s32 *line_num, b8 strings)
+{
+    X:
+    
+    s32 ch;
+    while((ch = get_char(file)) != EOF && (ch == 9 || ch == 13)); // remove tabs
+    
+    switch(ch)
+    {
+        case EOF: { return { OBJ_TOKEN_EOF, 0, ch }; } break;
+        
+        case '\n':
+        {
+            (*line_num)++;
+            goto X;
+        } break;
+        
+        case '#':
+        {
+            while((ch = get_char(file)) != EOF && (ch != '\n'));
+            unget_char(file);
+            goto X;
+        } break;
+        
+        case ' ':
+        case '/':
+        {
+            goto X;
+        } break;
+        
+        default:
+        {
+            if (isalpha(ch))
+            {
+                if (ch == 'v')
+                {
+                    ch = get_char(file);
+                    if      (ch == 'n') return { OBJ_TOKEN_NORMAL, "vn", ch };
+                    else if (ch == 't') return { OBJ_TOKEN_TEXTURE_COORD, "vt", ch };
+                    else if (ch == ' ') return { OBJ_TOKEN_VERTEX, "v", ch };
+                }
+                else if (ch == 'f') return { OBJ_TOKEN_FACE, "f", ch };
+                else if (ch == 'm') { if (scan_is_string(file, &ch, "mtllib", 6)) return { OBJ_TOKEN_MTLLIB, "mtllib", ch }; }
+                else if (ch == 'u') { if (scan_is_string(file, &ch, "usemtl", 6)) return { OBJ_TOKEN_USEMTL, "usemtl", ch }; }
+            }
+            
+            if (strings)
+            {
+                int length = 0;
+                do
+                {
+                    ch = get_char(file);
+                    length++;
+                } while((isalpha(ch) || isdigit(ch) || is_valid_char(ch)) && ch != ' ' && ch != '/' && ch != EOF);
+                
+                unget_char(file);
+                const char *sequence = copy_last_num_of_chars(file, length);
+                
+                return { OBJ_TOKEN_ID, sequence, ch };
+            }
+            
+            //error(*line_num, "not a valid ch (%d)", ch);
+            goto X;
+        } break;
+    }
+    
+    return { OBJ_TOKEN_ERROR, "vn", ch };
+}
+
+function v3
+parse_v3_obj(File *file, s32 *line_num)
+{
+    v3 result = {};
+    OBJ_Token token = {};
+    
+    token = scan_obj(file, line_num, true);
+    result.x = std::stof(token.lexeme);
+    SDL_free((void*)token.lexeme);
+    
+    token = scan_obj(file, line_num, true);
+    result.y = std::stof(token.lexeme);
+    SDL_free((void*)token.lexeme);
+    
+    token = scan_obj(file, line_num, true);
+    result.z = std::stof(token.lexeme);
+    SDL_free((void*)token.lexeme);
+    
+    return result;
+}
+
+function Face_Vertex
+parse_face_vertex(File *file, s32 *line_num)
+{
+    Face_Vertex face_vertex = {};
+    OBJ_Token token = {};
+    
+    token = scan_obj(file, line_num, true);
+    face_vertex.position_index = std::stoi(token.lexeme);
+    SDL_free((void*)token.lexeme);
+    
+    token = scan_obj(file, line_num, true);
+    face_vertex.uv_index = std::stoi(token.lexeme);
+    SDL_free((void*)token.lexeme);
+    
+    token = scan_obj(file, line_num, true);
+    face_vertex.normal_index = std::stoi(token.lexeme);
+    SDL_free((void*)token.lexeme);
+    
+    return face_vertex;
+}
+
+function Model
+load_obj(const char *path, const char *filename)
+{
+    Model model = {};
+    Obj obj = {};
+    
+    char filepath[80];
+    memset(filepath, 0, 80);
+    strcat(strcat(filepath, path), filename);
+    
+    File file = read_file(filepath);
+    if (!file.size) { error("load_obj: could not read object file"); return model; }
+    
+    // count components
+    {
+        OBJ_Token token = {};
+        s32 line_num = 1;
+        do
+        {
+            token = scan_obj(&file, &line_num, false);
+            
+            switch(token.type)
+            {
+                case OBJ_TOKEN_VERTEX:        obj.vertices_count++; break;
+                case OBJ_TOKEN_NORMAL:        obj.normals_count++;  break;
+                case OBJ_TOKEN_TEXTURE_COORD: obj.uvs_count++;      break;
+                case OBJ_TOKEN_FACE:          obj.faces_count++;    break;
+                case OBJ_TOKEN_USEMTL:        obj.meshes_count++;   break;
+            }
+            
+        } while(token.type != OBJ_TOKEN_EOF);
+    }
+    
+    // allocate space for the components
+    obj.vertices          = ARRAY_MALLOC(v3, obj.vertices_count);
+    obj.uvs               = ARRAY_MALLOC(v2, obj.uvs_count);
+    obj.normals           = ARRAY_MALLOC(v3, obj.normals_count);
+    obj.face_vertices     = ARRAY_MALLOC(Face_Vertex, obj.faces_count * 3);
+    obj.meshes_face_count = ARRAY_MALLOC(u32, obj.meshes_count);
+    memset(obj.meshes_face_count, 0, sizeof(u32) * obj.meshes_count); // ++ to count so need it to start at zero
+    
+    model.meshes_count = obj.meshes_count;
+    model.meshes = ARRAY_MALLOC(Mesh, model.meshes_count);
+    
+    reset_get_char(&file);
+    
+    // fill in component arrays
+    {
+        OBJ_Token last_token = {};
+        OBJ_Token token = {};
+        s32 line_num = 1;
+        
+        u32 meshes_index        = -1;
+        u32 vertices_index      = 0;
+        u32 uvs_index           = 0;
+        u32 normals_index       = 0;
+        u32 face_vertices_index = 0;
+        
+        do
+        {
+            last_token = token;
+            token = scan_obj(&file, &line_num, false);
+            //log("%d, %s, %d", token.type, token.lexeme, token.ch);
+            
+            if (token.type == OBJ_TOKEN_VERTEX) obj.vertices[vertices_index++] = parse_v3_obj(&file, &line_num);
+            else if (token.type == OBJ_TOKEN_NORMAL) obj.normals[normals_index++] = parse_v3_obj(&file, &line_num);
+            else if (token.type == OBJ_TOKEN_TEXTURE_COORD)
+            {
+                v2 uv = {};
+                
+                token = scan_obj(&file, &line_num, true);
+                uv.x = std::stof(token.lexeme, 0);
+                SDL_free((void*)token.lexeme);
+                
+                token = scan_obj(&file, &line_num, true);
+                uv.y = std::stof(token.lexeme, 0);
+                SDL_free((void*)token.lexeme);
+                
+                obj.uvs[uvs_index++] = uv;
+            }
+            else if (token.type == OBJ_TOKEN_FACE)
+            {
+                obj.face_vertices[face_vertices_index++] = parse_face_vertex(&file, &line_num);
+                obj.face_vertices[face_vertices_index++] = parse_face_vertex(&file, &line_num);
+                obj.face_vertices[face_vertices_index++] = parse_face_vertex(&file, &line_num);
+                
+                obj.meshes_face_count[meshes_index]++;
+            }
+            else if (token.type == OBJ_TOKEN_MTLLIB) // get the material file to load
+            {
+                token = scan_obj(&file, &line_num, true);
+                obj.material_filename = token.lexeme;
+            }
+            else if (token.type == OBJ_TOKEN_USEMTL) // different mesh every time the material is changed
+            {
+                meshes_index++;
+                token = scan_obj(&file, &line_num, true);
+                model.meshes[meshes_index].material.id = token.lexeme;
+            }
+        } while(token.type != OBJ_TOKEN_EOF);
+    }
+    
+    free_file(&file);
+    
+    Mtl mtl = load_mtl(path, obj.material_filename);
+    
+    // creating the model's meshes
+    {
+        s32 lower_range = 0;
+        for (s32 mesh_index = 0; mesh_index < model.meshes_count; mesh_index++)
+        {
+            Mesh *mesh = &model.meshes[mesh_index];
+            mesh->vertices_count = 0;
+            
+            s32 mesh_face_vertices_count = obj.meshes_face_count[mesh_index] * 3;
+            
+            mesh->indices_count = mesh_face_vertices_count;
+            mesh->indices = ARRAY_MALLOC(u32, mesh->indices_count);
+            
+            mesh->vertices_count = mesh_face_vertices_count;
+            mesh->vertices = ARRAY_MALLOC(Vertex, mesh->vertices_count);
+            
+            // put unique face vertices in mesh vertices array
+            u32 vertices_index = 0;
+            u32 indices_index = 0;
+            for (s32 i = lower_range; i < mesh_face_vertices_count + lower_range; i++)
+            {
+                mesh->indices[indices_index++] = vertices_index;
+                
+                Vertex *vertex = &mesh->vertices[vertices_index++];
+                vertex->position           = obj.vertices[obj.face_vertices[i].position_index - 1];
+                vertex->normal             = obj.normals [obj.face_vertices[i].normal_index   - 1];
+                vertex->texture_coordinate = obj.uvs     [obj.face_vertices[i].uv_index       - 1];
+            }
+            
+            // assign material
+            for (s32 i = 0; i < mtl.materials_count; i++)
+            {
+                if (equal(mesh->material.id, mtl.materials[i].id)) 
+                    mesh->material = mtl.materials[i];
+            }
+            
+            init_mesh(mesh);
+            
+            lower_range += mesh_face_vertices_count;
+        }
+    }
+    
+    SDL_free(mtl.materials);
+    
+    SDL_free(obj.vertices);
+    SDL_free(obj.uvs);
+    SDL_free(obj.normals);
+    SDL_free(obj.face_vertices);
+    SDL_free(obj.meshes_face_count);
+    
+    return model;
 }
 
 //

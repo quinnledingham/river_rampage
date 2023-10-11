@@ -8,7 +8,10 @@ uniform mat4 model;
 uniform mat4 projection;
 uniform mat4 view;
 
+out vec2 uv;
+
 void main(void)
 {
+	uv = texture_coords;
 	gl_Position = projection * view * model * vec4(position, 1.0f);
 }

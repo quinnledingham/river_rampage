@@ -138,7 +138,7 @@ create_square_mesh(u32 u, u32 v)
         for (u32 j = 0; j < (v + 1); j++, t += 2)
         {
             v3 vertex_pos = { (f32(i) * du) - 1.0f, (f32)-1, (f32(j) * dv) - 1.0f };
-            v2 tex_coords = { (f32)i, (f32)j };
+            v2 tex_coords = { (f32)i / f32(u), 1.0f - (f32)j / f32(v) };
             Vertex vertex = { vertex_pos, {0, 1, 0}, tex_coords };
             result.vertices[vertex_count++] = vertex;
         }
@@ -189,6 +189,18 @@ make_square_mesh_into_patches(Mesh *mesh, u32 u, u32 v)
         }
     }
     
+    new_mesh.indices_count = u * v * 4;
+    new_mesh.indices = (u32*)SDL_malloc(sizeof(u32) * new_mesh.indices_count);
+    
+    u32 indices_count = 0;
+    for (u32 i = 0; i < u * v * 4; i += 4)
+    {
+        new_mesh.indices[indices_count++] = i;
+        new_mesh.indices[indices_count++] = i + 1;
+        new_mesh.indices[indices_count++] = i + 2;
+        new_mesh.indices[indices_count++] = i + 3;
+    }
+    
     init_mesh(&new_mesh);
     return new_mesh;
 }
@@ -210,9 +222,36 @@ draw_water(Assets *assets, Mesh mesh, r32 seconds,
     glUniform3fv(      glGetUniformLocation(active_shader, "lightColor" ), (GLsizei)1, (float*)&light.color);
     glUniform3fv(      glGetUniformLocation(active_shader, "cameraPos"  ), (GLsizei)1, (float*)&camera.position);
     
+    
+    Bitmap *perlin = find_bitmap(assets, "PERLIN");
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, perlin->handle);
+    
     glBindVertexArray(mesh.vao);
-    glDrawArrays(GL_PATCHES, 0, mesh.vertices_count);
+    glDrawElements(GL_PATCHES, mesh.indices_count, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
+    
+    
+    /*
+    {
+        u32 active_shader = use_shader(find_shader(assets, "TEST"));
+        m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {1, 0, 0}), {10, 1, 10});
+        
+        glUniformMatrix4fv(glGetUniformLocation(active_shader, "model"      ), (GLsizei)1, false, (float*)&model);
+        glUniformMatrix4fv(glGetUniformLocation(active_shader, "projection" ), (GLsizei)1, false, (float*)&projection_matrix);
+        glUniformMatrix4fv(glGetUniformLocation(active_shader, "view"       ), (GLsizei)1, false, (float*)&view_matrix);
+        
+        //glPointSize(5.0f);
+        
+        Bitmap *perlin = find_bitmap(assets, "PERLIN");
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, perlin->handle);
+        
+        glBindVertexArray(mesh.vao);
+        glDrawElements(GL_PATCHES, mesh.indices_count, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+    }
+*/
 }
 
 //
@@ -233,7 +272,9 @@ init_controllers(Input *input)
     set(&keyboard->down,     SDLK_LSHIFT);
     set(&keyboard->select,   SDLK_RETURN);
     set(&keyboard->pause,    SDLK_ESCAPE);
-    set(&keyboard->wire_frame,    SDLK_t);
+    
+    set(&keyboard->wire_frame,     SDLK_t);
+    set(&keyboard->reload_shaders, SDLK_r);
     
     input->num_of_controllers = 1;
 }
@@ -330,8 +371,11 @@ update(Application *app)
         {
             if (!data->paused)
             {
-                update_camera_with_mouse(&data->camera, controller->mouse);
-                f32 m_per_s = 5.0f;
+                f32 mouse_m_per_s = 100.0f;
+                f32 mouse_move_speed = mouse_m_per_s * app->time.frame_time_s;
+                update_camera_with_mouse(&data->camera, controller->mouse, {mouse_move_speed, mouse_move_speed});
+                
+                f32 m_per_s = 5.0f; 
                 f32 move_speed = m_per_s * app->time.frame_time_s;
                 update_camera_with_keys(&data->camera,
                                         {move_speed, move_speed, move_speed},
@@ -362,6 +406,13 @@ update(Application *app)
         data->wire_frame = !data->wire_frame;
         if (data->wire_frame) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         else                  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+    }
+    
+    if (on_down(controller->reload_shaders))
+    {
+        Shader *shader = find_shader(&app->assets, "WATER");
+        load_shader(shader);
+        compile_shader(shader);
     }
     
     
@@ -462,11 +513,14 @@ update(Application *app)
             
             draw_model(&app->assets, &data->tree, data->light, data->camera, perspective_matrix, view_matrix);
             
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_CULL_FACE);
+            
+            Font *caslon = find_font(&app->assets, "CASLON");
+            draw_string(caslon, ftos(app->time.frames_per_s), { 100, 100 }, 50, { 255, 150, 0, 1 });
+            
             if (data->paused) 
             {
-                glDisable(GL_DEPTH_TEST);
-                glDisable(GL_CULL_FACE);
-                
                 draw_rect( { 0, 0 }, 0, cv2(app->window.dim), { 0, 0, 0, 0.5f} );
                 
                 s32 pause = draw_pause_menu(&app->assets, cv2(app->window.dim), on_down(menu_controller->select), data->active);

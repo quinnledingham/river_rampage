@@ -5,18 +5,19 @@ layout(vertices=4) out;
 uniform mat4 model;
 uniform mat4 view;
 
-in vec2 tex_coord[];
+in vec2 tex_coords[];
+
 out vec2 texture_coord[];
 
 void main()
 {
 	gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
-    texture_coord[gl_InvocationID] = tex_coord[gl_InvocationID];
+    texture_coord[gl_InvocationID] = tex_coords[gl_InvocationID];
 
     if(gl_InvocationID == 0)
     {
-        const int MIN_TESS_LEVEL = 16;
-        const int MAX_TESS_LEVEL = 64;
+        const int MIN_TESS_LEVEL = 32;
+        const int MAX_TESS_LEVEL = 128;
         const float MIN_DISTANCE = 20;
         const float MAX_DISTANCE = 40;
 

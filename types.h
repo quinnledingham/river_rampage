@@ -475,4 +475,21 @@ chtos(int n, ...)
     return s;
 }
 
+function char*
+ftos(f32 f)
+{
+    u32 size = 64;
+    char *buffer = (char*)malloc(size);
+    memset(buffer, 0, size);
+    u32 ret = snprintf(buffer, size, "%f", f);
+    if (ret < 0)
+    {
+        error(0, "ftos(): failed");
+        return 0;
+    }
+    if (ret >= size) warning(0, "ftos(): result was truncated");
+    return buffer;
+}
+
+
 #endif //TYPES_H

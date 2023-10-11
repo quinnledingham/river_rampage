@@ -9,5 +9,5 @@ void main()
 {
 	vec4 tex = texture(tex0, uv);
 
-	FragColor = tex;
+	FragColor = vec4(tex.rgb, 1.0);
 }

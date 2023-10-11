@@ -11,7 +11,7 @@ function void swap_window(Window *window) { SDL_GL_SwapWindow(window->sdl); }
 
 struct Time
 {
-    u32 run_time_ms;
+    u64 run_time_ms;
     r32 run_time_s;
     u32 frame_time_ms;
     r32 frame_time_s;
@@ -52,10 +52,12 @@ b32 on_down(Button button)
 // delta_mouse is a relative mouse movement amount
 // as opposed to the screen coords of the mouse
 function void
-update_camera_with_mouse(Camera *camera, v2s delta_mouse)
+update_camera_with_mouse(Camera *camera, v2s delta_mouse, v2 move_speed)
 {
-    camera->yaw   += (f32)delta_mouse.x * 0.1f;
-    camera->pitch -= (f32)delta_mouse.y * 0.1f;
+    //printf("delta %f, move %f\n", (f32)delta_mouse.x, move_speed.x);
+    
+    camera->yaw   += (f32)delta_mouse.x * move_speed.x;
+    camera->pitch -= (f32)delta_mouse.y * move_speed.y;
     
     if (camera->pitch > 89.0f) camera->pitch = 89.0f;
     if (camera->pitch < -89.0f) camera->pitch = -89.0f;
@@ -99,9 +101,11 @@ struct Controller
             Button down;
             Button select;
             Button pause;
+            
             Button wire_frame;
+            Button reload_shaders;
         };
-        Button buttons[9];
+        Button buttons[10];
     };
 };
 

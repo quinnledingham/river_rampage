@@ -77,10 +77,12 @@ update_time(Time *time)
 {
     u32 last_run_time_ms = time->run_time_ms;
     
-    time->run_time_ms = SDL_GetTicks();
+    time->run_time_ms = SDL_GetTicks64();
     time->run_time_s = (f32)time->run_time_ms / 1000.0f;
     time->frame_time_ms = time->run_time_ms - last_run_time_ms;
     time->frame_time_s = (f32)time->frame_time_ms / 1000.0f;
+    
+    if (time->frame_time_s == 0.0f) time->frame_time_s = 0.0001f;
     
     // get fps
     time->frames_per_s = 1000.0f;
@@ -171,8 +173,15 @@ application()
 {
     Application app = {};
     init_window(&app.window);
+    
+    update_time(&app.time);
+    
     if (load_assets(&app.assets, "../assets.ethan")) return 1;
     app.data = init_game_data(&app.assets);
+    
+    update_time(&app.time);
+    log("time after loading assets %f", app.time.run_time_s);
+    
     init_controllers(&app.input);
     app.input.relative_mouse_mode.set(false);
     init_shapes();

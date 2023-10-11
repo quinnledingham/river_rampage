@@ -8,8 +8,12 @@ WATER|FRAGMENT, ../assets/shaders/water.fs
 MATERIAL|VERTEX, ../assets/shaders/material.vs
 MATERIAL|FRAGMENT, ../assets/shaders/material.fs
 
+TEST|VERTEX, ../assets/shaders/color3D.vs
+TEST|FRAGMENT, ../assets/shaders/tex.fs
+
 BITMAPS:
 JEFF, ../assets/bitmaps/jeff.jpg
+PERLIN, ../assets/bitmaps/noiseTexture.png
 
 FONTS:
 CASLON, ../assets/fonts/LibreCaslonCondensed-Regular.ttf
