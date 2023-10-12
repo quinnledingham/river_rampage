@@ -156,6 +156,58 @@ draw_circle(v2 coords, r32 rotation, r32 radius, v4 color)
 }
 
 //
+// Cube
+//
+
+function Mesh
+get_cube_mesh()
+{
+    Mesh mesh = {};
+    
+    mesh.vertices_count = 8;
+    mesh.vertices = ARRAY_MALLOC(Vertex, mesh.vertices_count);
+    
+    mesh.vertices[0] = { {-0.5, -0.5, -0.5}, {0, 0, 1}, {0, 0} }; // bottom left
+    mesh.vertices[1] = { {-0.5,  0.5, -0.5}, {0, 0, 1}, {0, 1} }; // top left
+    mesh.vertices[2] = { { 0.5, -0.5, -0.5}, {0, 0, 1}, {1, 0} }; // bottom right
+    mesh.vertices[3] = { { 0.5,  0.5, -0.5}, {0, 0, 1}, {1, 1} }; // top right
+    
+    mesh.vertices[4] = { {-0.5, -0.5, 0.5}, {0, 0, 1}, {0, 0} }; // bottom left
+    mesh.vertices[5] = { {-0.5,  0.5, 0.5}, {0, 0, 1}, {0, 1} }; // top left
+    mesh.vertices[6] = { { 0.5, -0.5, 0.5}, {0, 0, 1}, {1, 0} }; // bottom right
+    mesh.vertices[7] = { { 0.5,  0.5, 0.5}, {0, 0, 1}, {1, 1} }; // top right
+    
+    mesh.indices_count = 6 * 6; // 6 indices per side (rects), 6 sides
+    mesh.indices = ARRAY_MALLOC(u32, mesh.indices_count);
+    
+    init_rect_indices(mesh.indices + 0,  3, 1, 2, 0); // back
+    init_rect_indices(mesh.indices + 6,  5, 7, 4, 6); // front
+    init_rect_indices(mesh.indices + 12, 1, 3, 5, 7); // top
+    init_rect_indices(mesh.indices + 18, 4, 6, 0, 2); // bottom
+    init_rect_indices(mesh.indices + 24, 1, 5, 0, 4); // left
+    init_rect_indices(mesh.indices + 30, 7, 3, 6, 2); // right
+    
+    init_mesh(&mesh);
+    
+    return mesh;
+}
+
+function void
+draw_cube(m4x4 perspective_matrix, m4x4 view_matrix, v3 coords, r32 rotation, v3 dim, v4 color)
+{
+    quat rotation_quat = get_rotation(rotation, { 0, 0, 1 });
+    
+    Shape shape = {};
+    shape.type = SHAPE_CUBE;
+    shape.coords = coords;
+    shape.rotation = rotation_quat;
+    shape.dim = dim;
+    shape.draw_type = SHAPE_COLOR;
+    shape.color = color;
+    draw_shape(shape, perspective_matrix, view_matrix);
+}
+
+//
 // shapes
 //
 
@@ -164,6 +216,7 @@ init_shapes()
 {
     init_rect_mesh(&shape_rect);
     init_circle_mesh(&shape_circle);
+    shape_cube = get_cube_mesh();
     
     shape_color_shader.vs_file = basic_vs;
     shape_color_shader.fs_file = color_fs;
@@ -209,6 +262,7 @@ draw_shape(Shape shape, m4x4 projection_matrix, m4x4 view_matrix)
     {
         case SHAPE_RECT:   draw_mesh(&shape_rect);   break;
         case SHAPE_CIRCLE: draw_mesh(&shape_circle); break;
+        case SHAPE_CUBE:   draw_mesh(&shape_cube); break;
         default: error("draw_shape(): Not valid shape type");
     }
 }

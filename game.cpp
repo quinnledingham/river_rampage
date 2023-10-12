@@ -299,6 +299,7 @@ init_game_data(Assets *assets)
     data->water = temp_patch_mesh;
     
     data->game_mode = MAIN_MENU;
+    data->cube = get_cube_mesh();
     
     init_boat(&data->boat);
     
@@ -512,6 +513,8 @@ update(Application *app)
                        perspective_matrix, view_matrix, data->light, data->camera);
             
             draw_model(&app->assets, &data->tree, data->light, data->camera, perspective_matrix, view_matrix);
+            
+            draw_cube(perspective_matrix, view_matrix, data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
             
             glDisable(GL_DEPTH_TEST);
             glDisable(GL_CULL_FACE);

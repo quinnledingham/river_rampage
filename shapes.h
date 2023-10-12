@@ -5,6 +5,7 @@ enum Shape_Types
 {
     SHAPE_RECT,
     SHAPE_CIRCLE,
+    SHAPE_CUBE,
 };
 
 enum Shape_Draw_Types
@@ -35,6 +36,7 @@ global_variable Shader shape_color_shader = {};
 global_variable Shader shape_texture_shader = {};
 global_variable Mesh shape_rect = {};
 global_variable Mesh shape_circle = {};
+global_variable Mesh shape_cube = {};
 
 function void
 set_orthographic_matrix(v2s window_dim)

@@ -199,6 +199,7 @@ union v4
 };
 
 inline v4 operator*(const v4 &l, const v4 &r) { return { l.x * r.x, l.y * r.y, l.z * r.z, l.w * r.w }; }
+inline v4 operator*(const v4 &l, float     r) { return { l.x * r, l.y * r, l.z * r, l.w * r }; }
 inline f32 length_squared(const v4 &v) { return v.x * v.x + v.y * v.y + v.z * v.z + v.w * v.w; }
 inline bool operator==(const v4 &l, const v4 &r) { if (l.x == r.x && l.y == r.y && l.z == r.z && l.w == r.w) return true; return false; }
 

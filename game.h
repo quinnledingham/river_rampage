@@ -53,6 +53,7 @@ struct Game_Data
     Light_Source light;
     Camera camera;
     Mesh water;
+    Mesh cube;
     
     // 2D
     Boat boat;
