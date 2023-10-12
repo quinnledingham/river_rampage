@@ -81,7 +81,7 @@ init_boat(Boat *boat)
     boat->maximum_speed  = speed_feet_per_s * 0.3048; // ft to m
     
     boat->acceleration_magnitude   = boat->engine_force / boat->mass;
-    boat->water_acceleration_magnitude   = boat->rudder_force / boat->mass;
+    boat->water_acceleration_magnitude = boat->rudder_force / boat->mass;
 }
 
 function void
@@ -91,29 +91,37 @@ update_boat(Boat *boat, Input *input, r32 delta_time)
     //if (is_down(input->active_controller->right)) acceleration_direction =  boat->direction;
     //if (is_down(input->active_controller->left)) acceleration_direction = -boat->direction;
     
-    if (is_down(input->active_controller->right))
-        rotate_v2(&boat->direction, 0.05f * DEG2RAD);
-    if (is_down(input->active_controller->left))
-        rotate_v2(&boat->direction, -0.05f * DEG2RAD);
+    if (is_down(input->active_controller->left))  rotate_v2(&boat->direction,  0.05f * DEG2RAD);
+    if (is_down(input->active_controller->right)) rotate_v2(&boat->direction, -0.05f * DEG2RAD);
     
     v2 acceleration_direction = {};
     if (is_down(input->active_controller->up))   acceleration_direction =  boat->direction;
-    if (is_down(input->active_controller->down)) acceleration_direction = -boat->direction;
+    //if (is_down(input->active_controller->down)) acceleration_direction = -boat->direction;
     
     v2 acceleration = acceleration_direction * boat->acceleration_magnitude;
     if (boat->speed < boat->maximum_speed)
         boat->velocity += delta_velocity(acceleration, delta_time);
     
-    v2 water_acceleration = -normalized(boat->velocity) * boat->water_acceleration_magnitude;
-    //log(boat->velocity);
-    //log("%f", boat->speed);
-    if (boat->speed > 0)
+    v2 resistance_forward = -boat->direction;
+    v2 resistance_side = 
+    { 
+        boat->direction.y * -1.0f,
+        boat->direction.x * 1.0f,
+    };
+    
+    v2 resistance = projection_onto_line(resistance_forward, boat->velocity);
+    resistance += projection_onto_line(resistance_side, boat->velocity);
+    
+    v2 water_acceleration = resistance;
+    log(boat->velocity);
+    log(resistance);
+    log("%f", boat->speed);
+    if (boat->velocity > 0.0f)
         boat->velocity += delta_velocity(water_acceleration, delta_time);
     
     boat->speed = magnitude(boat->velocity);
     
     boat->coords += delta_position(boat->velocity, delta_time);
-    
 }
 
 
@@ -211,7 +219,7 @@ draw_water(Assets *assets, Mesh mesh, r32 seconds,
 {
     u32 active_shader = use_shader(find_shader(assets, "WATER"));
     v4 color = {30.0f/255.0f, 144.0f/255.0f, 255.0f/255.0f, 0.9};
-    m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {1, 0, 0}), {50, 1, 50});
+    m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {1, 0, 0}), {10, 1, 10});
     
     glUniform4fv(      glGetUniformLocation(active_shader, "objectColor"), (GLsizei)1, (float*)&color);
     glUniformMatrix4fv(glGetUniformLocation(active_shader, "model"      ), (GLsizei)1, false, (float*)&model);
@@ -223,7 +231,7 @@ draw_water(Assets *assets, Mesh mesh, r32 seconds,
     glUniform3fv(      glGetUniformLocation(active_shader, "cameraPos"  ), (GLsizei)1, (float*)&camera.position);
     
     
-    Bitmap *perlin = find_bitmap(assets, "PERLIN");
+    Bitmap *perlin = find_bitmap(assets, "NORMAL");
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, perlin->handle);
     
@@ -479,8 +487,8 @@ update(Application *app)
             rect.dim = { 100, 100 };
             center_on(&rect, data->boat.coords);
             
-            Bitmap *jeff = find_bitmap(&app->assets, "JEFF");
-            draw_rect(rect.coords, v2_to_angle(data->boat.direction), rect.dim, jeff);
+            Bitmap *boat = find_bitmap(&app->assets, "BOAT");
+            draw_rect(rect.coords, v2_to_angle(data->boat.direction), rect.dim, boat);
             
             if (data->paused) 
             {

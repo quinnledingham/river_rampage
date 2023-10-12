@@ -12,8 +12,9 @@ TEST|VERTEX, ../assets/shaders/color3D.vs
 TEST|FRAGMENT, ../assets/shaders/tex.fs
 
 BITMAPS:
-JEFF, ../assets/bitmaps/jeff.jpg
+BOAT, ../assets/bitmaps/boat.png
 PERLIN, ../assets/bitmaps/noiseTexture.png
+NORMAL, ../assets/bitmaps/normal.jpg
 
 FONTS:
 CASLON, ../assets/fonts/LibreCaslonCondensed-Regular.ttf

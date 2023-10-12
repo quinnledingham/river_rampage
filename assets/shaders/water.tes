@@ -77,7 +77,7 @@ void main()
 	
 	vec4 pos = model * p;
 
-	vec4 tex = texture(normal_map, texCoord);
+	//vec4 tex = texture(normal_map, texCoord);
 	//pos.y += tex.y * 1;
 
 	//pos.xyz += vec3(d.x * (a * cos(f)), a * sin(f), d.y * (a * cos(f)));

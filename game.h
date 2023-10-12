@@ -37,7 +37,8 @@ struct Boat
     
     v2 direction; // the way the ship is pointing 
     r32 acceleration_magnitude; // always accelerates in the direction of the boat
-    r32 water_acceleration_magnitude;
+    f32 water_acceleration_magnitude;
+    
 };
 
 enum Game_Modes

@@ -75,6 +75,12 @@ normalized(const v2 &v)
     return { v.x * inverse_length, v.y * inverse_length };
 }
 
+inline v2
+projection_onto_line(v2 v, v2 line)
+{
+    return line * (dot_product(v, line) / dot_product(line, line));
+}
+
 union v2s
 {
     struct

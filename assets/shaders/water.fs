@@ -83,8 +83,8 @@ void main()
 	vec4 tex = texture(normal_map, uv_coords);
 	mat3 TBN = transpose(mat3(frag_tangent, frag_bitangent, frag_normal));
 
-	//vec3 normal = texture(normal_map, uv).rgb;
 	vec3 normal = frag_normal;
+	//normal = tex.rgb;
 
 	// ambient
 	float ambientStrength = 0.3f;
