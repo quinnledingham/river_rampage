@@ -35,6 +35,7 @@ struct Shader
     u32 file_sizes[5]; // includes the file terminator
     
     b32 compiled;
+    b32 uniform_buffer_objects_generated;
     u32 handle;
 };
 const char *basic_vs = "#version 330 core\n layout (location = 0) in vec3 position; layout (location = 1) in vec3 normal; layout (location = 2) in vec2 texture_coords; uniform mat4 model; uniform mat4 projection; uniform mat4 view; out vec2 uv; void main(void) { gl_Position = projection * view * model * vec4(position, 1.0f); uv = texture_coords;}";

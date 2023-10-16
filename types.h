@@ -65,6 +65,12 @@ void operator/=(v2 &l, const r32 &r) { l.x = l.x / r; l.y = l.y / r;     }
 r32 dot_product(const v2 &l, const v2 &r) { return (l.x * r.x) + (l.y * r.y); }
 r32 length_squared(const v2 &v) { return (v.x * v.x) + (v.y * v.y); }
 void log(const v2 &v) { log("v2: %f, %f", v.x, v.y); }
+v2 pow(const v2 &v, u32 exponent)
+{
+    v2 result = v;
+    for (u32 i = 1; i < exponent; i++) { result.x *= v.x; result.y *= v.y; }
+    return result;
+}
 
 inline v2
 normalized(const v2 &v)

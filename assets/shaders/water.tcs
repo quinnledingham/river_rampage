@@ -1,9 +1,14 @@
-#version 410 core
+#version 420 core
 
 layout(vertices=4) out;
 
+layout (std140) uniform Matrices
+{
+	mat4 projection;
+	mat4 view;
+};
+
 uniform mat4 model;
-uniform mat4 view;
 
 in vec2 tex_coords[];
 

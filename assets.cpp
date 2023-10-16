@@ -232,17 +232,18 @@ compile_shader(u32 handle, const char *file, int type)
 function void
 compile_shader(Shader *shader)
 {
+    shader->uniform_buffer_objects_generated = false;
     shader->compiled = false;
     if (shader->handle != 0) glDeleteProgram(shader->handle);
     shader->handle = glCreateProgram();
     
     if (shader->vs_file == 0) error("vertex shader required");
     
-    if (shader->vs_file  != 0) compile_shader(shader->handle, shader->vs_file,  GL_VERTEX_SHADER);
-    if (shader->tcs_file != 0) compile_shader(shader->handle, shader->tcs_file, GL_TESS_CONTROL_SHADER);
-    if (shader->tes_file != 0) compile_shader(shader->handle, shader->tes_file, GL_TESS_EVALUATION_SHADER);
-    if (shader->gs_file  != 0) compile_shader(shader->handle, shader->gs_file,  GL_GEOMETRY_SHADER);
-    if (shader->fs_file  != 0) compile_shader(shader->handle, shader->fs_file,  GL_FRAGMENT_SHADER);
+    if (shader->vs_file  != 0) { if (!compile_shader(shader->handle, shader->vs_file,  GL_VERTEX_SHADER))          return; }
+    if (shader->tcs_file != 0) { if (!compile_shader(shader->handle, shader->tcs_file, GL_TESS_CONTROL_SHADER))    return; }
+    if (shader->tes_file != 0) { if (!compile_shader(shader->handle, shader->tes_file, GL_TESS_EVALUATION_SHADER)) return; }
+    if (shader->gs_file  != 0) { if (!compile_shader(shader->handle, shader->gs_file,  GL_GEOMETRY_SHADER))        return; }
+    if (shader->fs_file  != 0) { if (!compile_shader(shader->handle, shader->fs_file,  GL_FRAGMENT_SHADER))        return; }
     
     // Link
     glLinkProgram(shader->handle);
@@ -256,6 +257,7 @@ compile_shader(Shader *shader)
     }
     
     shader->compiled = true;
+    log("loaded shader with vs file %s", shader->vs_filename);
 }
 
 function u32
@@ -561,15 +563,13 @@ mix_audio(Audio_Player *player, r32 frame_time_s)
 //
 
 function void
-draw_model(Assets *assets, Model *model, Light_Source light, Camera camera, m4x4 projection_matrix, m4x4 view_matrix)
+draw_model(Assets *assets, Model *model, Light_Source light, Camera camera)
 {
     u32 handle = use_shader(find_shader(assets, "MATERIAL"));
     //v4 shape_color = {0, 255, 0, 1};
     //glUniform4fv(glGetUniformLocation(handle, "user_color"), (GLsizei)1, (float*)&shape_color);
     m4x4 model_matrix = create_transform_m4x4({0, 0, 0}, get_rotation(0, {0, 1, 0}), {1, 1, 1});
     glUniformMatrix4fv(glGetUniformLocation(handle, "model"),      (GLsizei)1, false, (float*)&model_matrix);
-    glUniformMatrix4fv(glGetUniformLocation(handle, "projection"), (GLsizei)1, false, (float*)&projection_matrix);
-    glUniformMatrix4fv(glGetUniformLocation(handle, "view"),       (GLsizei)1, false, (float*)&view_matrix);
     
     glUniform3fv(glGetUniformLocation(handle, "viewPos"), (GLsizei)1, (float*)&camera.position);
     

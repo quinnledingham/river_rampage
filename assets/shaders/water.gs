@@ -1,9 +1,12 @@
-#version 330 core
+#version 420 core
 layout(triangles) in;
 layout(triangle_strip, max_vertices=3) out;
 
-uniform mat4 projection;
-uniform mat4 view;
+layout (std140) uniform Matrices
+{
+	mat4 projection;
+	mat4 view;
+};
 
 in vec2 uv[];
 
@@ -23,11 +26,6 @@ void main(void)
     {
 		uv_coords = uv[i];
 		vec4 pos = gl_in[i].gl_Position;
-
-		//vec4 tex = texture(normal_map, uv_coords);
-		//pos.y += tex.y;
-
-		//pos.y += 1;
 
 		frag_position = pos.xyz;
         frag_normal = -N;

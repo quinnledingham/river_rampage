@@ -21,6 +21,34 @@ function inline m4x4 get_view(Camera camera)
     return look_at(camera.position, camera.position + camera.target, camera.up); 
 }
 
+struct Wave
+{
+    v2 direction;
+    f32 wave_length;
+    f32 steepness;
+    
+    //f32 k;
+    //f32 c;
+    //v2 d;
+    //f32 a;
+};
+
+function Wave
+get_wave(v2 direction, f32 wave_length, f32 steepness)
+{
+    Wave wave = {};
+    wave.direction = direction;
+    wave.wave_length = wave_length;
+    wave.steepness = steepness;
+    
+    //wave.k = 2.0f * PI / wave_length;
+    //wave.c = sqrt(9.8f / wave.k);
+    //wave.d = normalized(wave.direction);
+    //wave.a = wave.steepness / wave.k;
+    return wave;
+}
+
+
 struct Boat
 {
     v2 coords;
@@ -55,6 +83,10 @@ struct Game_Data
     Camera camera;
     Mesh water;
     Mesh cube;
+    Wave waves[5];
+    
+    u32 uniform_buffer_object;
+    u32 wave_ubo; // uniform buffer object
     
     // 2D
     Boat boat;

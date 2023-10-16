@@ -84,6 +84,15 @@ init_boat(Boat *boat)
     boat->water_acceleration_magnitude = boat->rudder_force / boat->mass;
 }
 
+function v2
+remove_direction(const v2 v)
+{
+    v2 result = v;
+    if (v.x < 0.0f) result.x = -v.x;
+    if (v.y < 0.0f) result.y = -v.y;
+    return result;
+}
+
 function void
 update_boat(Boat *boat, Input *input, r32 delta_time)
 {
@@ -102,28 +111,45 @@ update_boat(Boat *boat, Input *input, r32 delta_time)
     if (boat->speed < boat->maximum_speed)
         boat->velocity += delta_velocity(acceleration, delta_time);
     
-    v2 resistance_forward = -boat->direction;
+    v2 resistance_forward = boat->direction;
     v2 resistance_side = 
     { 
         boat->direction.y * -1.0f,
         boat->direction.x * 1.0f,
     };
     
-    v2 resistance = projection_onto_line(resistance_forward, boat->velocity);
-    resistance += projection_onto_line(resistance_side, boat->velocity);
+    v2 resistance_for = projection_onto_line(resistance_forward, boat->velocity);
+    v2 resistance_sid = projection_onto_line(resistance_side, boat->velocity);
     
-    v2 water_acceleration = resistance;
+    v2 drag_force      = -normalized(boat->velocity) * (pow(boat->velocity, 2) * remove_direction(resistance_for) * 5.0f);
+    v2 drag_force_side = -normalized(boat->velocity) * (pow(boat->velocity, 2) * remove_direction(resistance_sid) * 20.0f);
+    
+    /*
+    log("start");
     log(boat->velocity);
-    log(resistance);
-    log("%f", boat->speed);
-    if (boat->velocity > 0.0f)
-        boat->velocity += delta_velocity(water_acceleration, delta_time);
+    log(resistance_for);
+    log(resistance_sid);
+    log(drag_force);
+    log(drag_force_side);
+*/
+    if (boat->speed > 0.0f)
+    {
+        boat->velocity += delta_velocity(drag_force, delta_time);
+        boat->velocity += delta_velocity(drag_force_side, delta_time);
+    }
     
     boat->speed = magnitude(boat->velocity);
     
     boat->coords += delta_position(boat->velocity, delta_time);
 }
 
+
+function v2
+game_to_screen_coords_2D(const v2 game_center, const v2 screen_center, const v2 game_coords)
+{
+    v2 diff = screen_center - game_center;
+    return game_coords + diff;
+}
 
 //
 // 3D
@@ -214,22 +240,20 @@ make_square_mesh_into_patches(Mesh *mesh, u32 u, u32 v)
 }
 
 function void
-draw_water(Assets *assets, Mesh mesh, r32 seconds,
-           m4x4 projection_matrix, m4x4 view_matrix, Light_Source light, Camera camera)
+draw_water(Assets *assets, Mesh mesh, r32 seconds, Wave *waves, u32 waves_count, Light_Source light, Camera camera)
 {
     u32 active_shader = use_shader(find_shader(assets, "WATER"));
+    
     v4 color = {30.0f/255.0f, 144.0f/255.0f, 255.0f/255.0f, 0.9};
     m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {1, 0, 0}), {10, 1, 10});
     
-    glUniform4fv(      glGetUniformLocation(active_shader, "objectColor"), (GLsizei)1, (float*)&color);
     glUniformMatrix4fv(glGetUniformLocation(active_shader, "model"      ), (GLsizei)1, false, (float*)&model);
-    glUniformMatrix4fv(glGetUniformLocation(active_shader, "projection" ), (GLsizei)1, false, (float*)&projection_matrix);
-    glUniformMatrix4fv(glGetUniformLocation(active_shader, "view"       ), (GLsizei)1, false, (float*)&view_matrix);
     glUniform1f(       glGetUniformLocation(active_shader, "time"       ), seconds);
+    
     glUniform3fv(      glGetUniformLocation(active_shader, "lightPos"   ), (GLsizei)1, (float*)&light.position);
     glUniform3fv(      glGetUniformLocation(active_shader, "lightColor" ), (GLsizei)1, (float*)&light.color);
     glUniform3fv(      glGetUniformLocation(active_shader, "cameraPos"  ), (GLsizei)1, (float*)&camera.position);
-    
+    glUniform4fv(      glGetUniformLocation(active_shader, "objectColor"), (GLsizei)1, (float*)&color);
     
     Bitmap *perlin = find_bitmap(assets, "NORMAL");
     glActiveTexture(GL_TEXTURE0);
@@ -238,7 +262,6 @@ draw_water(Assets *assets, Mesh mesh, r32 seconds,
     glBindVertexArray(mesh.vao);
     glDrawElements(GL_PATCHES, mesh.indices_count, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
-    
     
     /*
     {
@@ -287,12 +310,29 @@ init_controllers(Input *input)
     input->num_of_controllers = 1;
 }
 
+// block index is from glUniformBlockBinding or binding == #
+function u32
+init_uniform_buffer_object(u32 block_size, u32 block_index)
+{
+    u32 uniform_buffer_object;
+    glGenBuffers(1, &uniform_buffer_object);
+    
+    glBindBuffer(GL_UNIFORM_BUFFER, uniform_buffer_object);
+    glBufferData(GL_UNIFORM_BUFFER, block_size, NULL, GL_STATIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    
+    glBindBufferBase(GL_UNIFORM_BUFFER, block_index, uniform_buffer_object);
+    
+    return uniform_buffer_object;
+}
+
 function void*
 init_game_data(Assets *assets)
 {
     Game_Data *data = (Game_Data*)malloc(sizeof(Game_Data));
     *data = {};
     
+    // 3D
     data->camera.position = { 0, 0, 2 };
     data->camera.up       = { 0, 1, 0 };
     data->camera.target   = { 0, 0, -2 };
@@ -309,9 +349,33 @@ init_game_data(Assets *assets)
     data->game_mode = MAIN_MENU;
     data->cube = get_cube_mesh();
     
-    init_boat(&data->boat);
-    
     data->tree = load_obj("../assets/objs/tails/", "tails.obj");
+    
+    Shader *shader = find_shader(assets, "MATERIAL");
+    u32 matrices_uniform_block_index = glGetUniformBlockIndex(shader->handle, "Matrices");
+    glUniformBlockBinding(shader->handle, matrices_uniform_block_index, 0);
+    
+    shader = find_shader(assets, "WATER");
+    matrices_uniform_block_index = glGetUniformBlockIndex(shader->handle, "Matrices");
+    glUniformBlockBinding(shader->handle, matrices_uniform_block_index, 0);
+    u32 waves_uniform_block_index = glGetUniformBlockIndex(shader->handle, "Wav");
+    glUniformBlockBinding(shader->handle, waves_uniform_block_index, 1);
+    
+    data->uniform_buffer_object = init_uniform_buffer_object(2 * sizeof(m4x4), 0);
+    data->wave_ubo = init_uniform_buffer_object(5 * sizeof(Wave), 1);
+    
+    data->waves[0] = get_wave({ 1.0, 0.0 }, 20.0f, 0.2f);
+    data->waves[1] = get_wave({ 1, 1 }, 1.0f, 0.15f);
+    data->waves[2] = get_wave({ 0.1, 0.1 }, 2.0f, 0.1f);
+    data->waves[3] = get_wave({ 0.7, 0.9 }, 9.0f, 0.05f);
+    data->waves[4] = get_wave({ 1.0, 1.0 }, 10.0f, 0.25f);
+    
+    glBindBuffer(GL_UNIFORM_BUFFER, data->wave_ubo);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Wave) * 5, (void*)&data->waves);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    
+    // 2D
+    init_boat(&data->boat);
     //data->tree = load_obj("../assets/objs/test.obj");
     
     return (void*)data;
@@ -422,6 +486,11 @@ update(Application *app)
         Shader *shader = find_shader(&app->assets, "WATER");
         load_shader(shader);
         compile_shader(shader);
+        
+        u32 matrices_uniform_block_index = glGetUniformBlockIndex(shader->handle, "Matrices");
+        glUniformBlockBinding(shader->handle, matrices_uniform_block_index, 0);
+        u32 waves_uniform_block_index = glGetUniformBlockIndex(shader->handle, "Wav");
+        glUniformBlockBinding(shader->handle, waves_uniform_block_index, 1);
     }
     
     
@@ -480,12 +549,13 @@ update(Application *app)
         
         case IN_GAME_2D:
         {
-            draw_rect( { 0, 0 }, 0.0f, cv2(app->window.dim), { 0.0f, 100.0f, 255.0f, 1.0f } );
-            draw_circle( { 0, 0 }, 0.0f, 100.0f, { 255.0f, 0.0f, 0.0f, 1.0f } );
-            
             Rect rect = {};
             rect.dim = { 100, 100 };
-            center_on(&rect, data->boat.coords);
+            v2 center = (cv2(app->window.dim) / 2.0f);
+            center_on(&rect, center);
+            
+            draw_rect( { 0, 0 }, 0.0f, cv2(app->window.dim), { 0.0f, 100.0f, 255.0f, 1.0f } );
+            draw_circle( game_to_screen_coords_2D(data->boat.coords, center, { 0, 0 } ), 0.0f, 100.0f, { 255.0f, 0.0f, 0.0f, 1.0f } );
             
             Bitmap *boat = find_bitmap(&app->assets, "BOAT");
             draw_rect(rect.coords, v2_to_angle(data->boat.direction), rect.dim, boat);
@@ -517,10 +587,14 @@ update(Application *app)
                                                                0.0f, -3.0f, 3.0f);
             m4x4 view_matrix = get_view(data->camera);
             
-            draw_water(&app->assets, data->water, app->time.run_time_s,
-                       perspective_matrix, view_matrix, data->light, data->camera);
+            glBindBuffer(GL_UNIFORM_BUFFER, data->uniform_buffer_object);
+            glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(m4x4), (void*)&perspective_matrix);
+            glBufferSubData(GL_UNIFORM_BUFFER, sizeof(m4x4), sizeof(m4x4), (void*)&view_matrix);
+            glBindBuffer(GL_UNIFORM_BUFFER, 0);
             
-            draw_model(&app->assets, &data->tree, data->light, data->camera, perspective_matrix, view_matrix);
+            draw_water(&app->assets, data->water, app->time.run_time_s, data->waves, 5, data->light, data->camera);
+            
+            draw_model(&app->assets, &data->tree, data->light, data->camera);
             
             draw_cube(perspective_matrix, view_matrix, data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
             

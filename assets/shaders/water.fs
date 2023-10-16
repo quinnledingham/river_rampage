@@ -1,4 +1,4 @@
-#version 410 core
+#version 420 core
 
 uniform vec3 lightPos;
 uniform vec3 lightColor;
