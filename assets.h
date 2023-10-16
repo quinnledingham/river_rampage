@@ -5,7 +5,8 @@ struct File
 {
     u32 size;
     void *memory;
-    char *ch;
+    
+    char *ch; // for functions like get_char(File *file);
 };
 
 struct Bitmap
@@ -32,7 +33,7 @@ struct Shader
     const char *gs_file;
     const char *fs_file;
     
-    u32 file_sizes[5]; // includes the file terminator
+    u32 file_sizes[5]; // includes the file terminator. this is for saving it to a asset file
     
     b32 compiled;
     b32 uniform_buffer_objects_generated;

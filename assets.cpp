@@ -181,6 +181,7 @@ load_shader_file(const char* filename, u32 *file_size)
     return shader_file;
 }
 
+// loads the files
 function void
 load_shader(Shader *shader)
 {
@@ -217,7 +218,6 @@ compile_shader(u32 handle, const char *file, int type)
     if (!compiled_s)
     {
         opengl_debug(GL_SHADER, s);
-        error("compile_shader() could not compile %s", glGetString(type));
     }
     else
     {
@@ -229,6 +229,7 @@ compile_shader(u32 handle, const char *file, int type)
     return compiled_s;
 }
 
+// compiles the files
 function void
 compile_shader(Shader *shader)
 {
@@ -239,11 +240,11 @@ compile_shader(Shader *shader)
     
     if (shader->vs_file == 0) error("vertex shader required");
     
-    if (shader->vs_file  != 0) { if (!compile_shader(shader->handle, shader->vs_file,  GL_VERTEX_SHADER))          return; }
-    if (shader->tcs_file != 0) { if (!compile_shader(shader->handle, shader->tcs_file, GL_TESS_CONTROL_SHADER))    return; }
-    if (shader->tes_file != 0) { if (!compile_shader(shader->handle, shader->tes_file, GL_TESS_EVALUATION_SHADER)) return; }
-    if (shader->gs_file  != 0) { if (!compile_shader(shader->handle, shader->gs_file,  GL_GEOMETRY_SHADER))        return; }
-    if (shader->fs_file  != 0) { if (!compile_shader(shader->handle, shader->fs_file,  GL_FRAGMENT_SHADER))        return; }
+    if (shader->vs_file  != 0) if (!compile_shader(shader->handle, shader->vs_file,  GL_VERTEX_SHADER))          { error("compile_shader() could not compile vertex shader");          return; }
+    if (shader->tcs_file != 0) if (!compile_shader(shader->handle, shader->tcs_file, GL_TESS_CONTROL_SHADER))    { error("compile_shader() could not compile tess controll shader");   return; }
+    if (shader->tes_file != 0) if (!compile_shader(shader->handle, shader->tes_file, GL_TESS_EVALUATION_SHADER)) { error("compile_shader() could not compile tess evaluation shader"); return; }
+    if (shader->gs_file  != 0) if (!compile_shader(shader->handle, shader->gs_file,  GL_GEOMETRY_SHADER))        { error("compile_shader() could not compile geometry shader");        return; }
+    if (shader->fs_file  != 0) if (!compile_shader(shader->handle, shader->fs_file,  GL_FRAGMENT_SHADER))        { error("compile_shader() could not compile fragment shader");        return; }
     
     // Link
     glLinkProgram(shader->handle);
@@ -257,7 +258,7 @@ compile_shader(Shader *shader)
     }
     
     shader->compiled = true;
-    log("loaded shader with vs file %s", shader->vs_filename);
+    log("compiled shader with vs file %s", shader->vs_filename);
 }
 
 function u32
