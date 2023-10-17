@@ -46,12 +46,6 @@ rotate_v2(v2 *vector, r32 angle)
     vector->y = 1.0f * sinf(new_angle);
 }
 
-function r32
-magnitude(v2 vector)
-{
-    return sqrtf((vector.x * vector.x) + (vector.y * vector.y));
-}
-
 function v2
 delta_velocity(v2 acceleration, r32 delta_time)
 {
@@ -97,8 +91,6 @@ function void
 update_boat(Boat *boat, Input *input, r32 delta_time)
 {
     v2 rotation_direction = {};
-    //if (is_down(input->active_controller->right)) acceleration_direction =  boat->direction;
-    //if (is_down(input->active_controller->left)) acceleration_direction = -boat->direction;
     
     if (is_down(input->active_controller->left))  rotate_v2(&boat->direction,  0.05f * DEG2RAD);
     if (is_down(input->active_controller->right)) rotate_v2(&boat->direction, -0.05f * DEG2RAD);
@@ -111,34 +103,13 @@ update_boat(Boat *boat, Input *input, r32 delta_time)
     if (boat->speed < boat->maximum_speed)
         boat->velocity += delta_velocity(acceleration, delta_time);
     
-    v2 resistance_forward = boat->direction;
-    v2 resistance_side = 
-    { 
-        boat->direction.y * -1.0f,
-        boat->direction.x * 1.0f,
-    };
-    
-    v2 resistance_for = projection_onto_line(resistance_forward, boat->velocity);
-    v2 resistance_sid = projection_onto_line(resistance_side, boat->velocity);
-    
-    v2 drag_force      = -normalized(boat->velocity) * (pow(boat->velocity, 2) * remove_direction(resistance_for) * 5.0f);
-    v2 drag_force_side = -normalized(boat->velocity) * (pow(boat->velocity, 2) * remove_direction(resistance_sid) * 20.0f);
-    
-    /*
-    log("start");
-    log(boat->velocity);
-    log(resistance_for);
-    log(resistance_sid);
-    log(drag_force);
-    log(drag_force_side);
-*/
+    boat->speed = magnitude(boat->velocity);
     if (boat->speed > 0.0f)
     {
+        f32 angle_dir_to_velocity = angle_between(boat->direction, boat->velocity);
+        v2 drag_force = -normalized(boat->velocity) * (pow(boat->velocity, 2)) * angle_dir_to_velocity * 10.0f;
         boat->velocity += delta_velocity(drag_force, delta_time);
-        boat->velocity += delta_velocity(drag_force_side, delta_time);
     }
-    
-    boat->speed = magnitude(boat->velocity);
     
     boat->coords += delta_position(boat->velocity, delta_time);
 }
@@ -285,6 +256,34 @@ draw_water(Assets *assets, Mesh mesh, r32 seconds, Wave *waves, u32 waves_count,
 */
 }
 
+function v3
+apply_wave(Wave wave, v3 position, f32 time)
+{
+    f32 k = 2.0f * PI / wave.wave_length;
+    f32 c = sqrt(9.8f / k);
+    v2 d = normalized(wave.direction);
+    f32 f = k * (dot_product(d, { position.x, position.z }) - c * time);
+    f32 a = wave.steepness / k;
+    
+    return v3{ 
+        d.x * (a * cosf(f)),
+        a * sinf(f),
+        d.y * (a * cosf(f))
+    };
+}
+
+function v3
+update_boat_3D(Boat3D *boat, Wave *waves, u32 waves_count, f32 time)
+{
+    v3 result = boat->coords;
+    const v3 position = boat->coords;
+    for (u32 wave_index = 0; wave_index < waves_count; wave_index++)
+    {
+        result += apply_wave(waves[wave_index], position, time / 5.0);
+    }
+    return result;
+}
+
 //
 // General
 //
@@ -374,6 +373,8 @@ init_game_data(Assets *assets)
     glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(Wave) * 5, (void*)&data->waves);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     
+    data->boat3D.coords = { 0, -1.5f, 0 };
+    
     // 2D
     init_boat(&data->boat);
     //data->tree = load_obj("../assets/objs/test.obj");
@@ -385,9 +386,6 @@ init_game_data(Assets *assets)
 function s32
 draw_pause_menu(Assets *assets, v2 window_dim, b32 select, s32 active)
 {
-    //glDisable(GL_DEPTH_TEST);
-    //glDisable(GL_CULL_FACE);
-    
     Menu pause_menu = {};
     pause_menu.font = find_font(assets, "CASLON");
     
@@ -458,6 +456,8 @@ update(Application *app)
                                         controller->right,
                                         controller->up,
                                         controller->down);
+                
+                //update_boat_3D(&data->boat3D, data->waves, 5, app->time.run_time_s);
             }
             
             if (on_down(controller->pause)) 
@@ -597,6 +597,8 @@ update(Application *app)
             draw_model(&app->assets, &data->tree, data->light, data->camera);
             
             draw_cube(perspective_matrix, view_matrix, data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
+            
+            draw_cube(perspective_matrix, view_matrix, update_boat_3D(&data->boat3D, data->waves, 5, app->time.run_time_s), 0, { 1, 1, 1 }, { 255, 0, 255, 255 });
             
             glDisable(GL_DEPTH_TEST);
             glDisable(GL_CULL_FACE);

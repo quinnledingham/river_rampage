@@ -87,6 +87,27 @@ projection_onto_line(v2 v, v2 line)
     return line * (dot_product(v, line) / dot_product(line, line));
 }
 
+inline f32
+magnitude(const v2 &v)
+{
+    f32 len_sq = length_squared(v);
+    if (len_sq < EPSILON) return 1;
+    return sqrt(len_sq);
+}
+
+inline f32
+angle_between(const v2 &a, const v2 &b)
+{
+    f32 dot = (dot_product(a, b));
+    f32 cos_theta = dot / (magnitude(a) * magnitude(b));
+    
+    if      (cos_theta >  1.0) cos_theta =  1.0;
+    else if (cos_theta < -1.0) cos_theta = -1.0;
+    
+    f32 result = acosf(cos_theta);
+    return result;
+}
+
 union v2s
 {
     struct
@@ -195,6 +216,19 @@ cross_product(const v3 &l, const v3 &r)
         (l.z * r.x - l.x * r.z),
         (l.x * r.y - l.y * r.x)
     };
+}
+
+inline f32
+magnitude(const v3 &v)
+{
+    f32 len_sq = length_squared(v);
+    return sqrt(len_sq);
+}
+
+inline f32
+angle_between(const v3 &a, const v3 &b)
+{
+    return acosf((dot_product(a, b)) / (magnitude(a) * magnitude(b)));
 }
 
 union v4

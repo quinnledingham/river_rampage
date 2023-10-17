@@ -8,6 +8,12 @@ struct Menu_Button_Style
     v4 active_text_color;
 };
 
+struct Menu_Component
+{
+    v2 coords;
+    v2 dim;
+};
+
 struct Menu
 {
     Menu_Button_Style button_style;

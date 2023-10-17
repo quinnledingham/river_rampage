@@ -69,6 +69,12 @@ struct Boat
     
 };
 
+struct Boat3D
+{
+    v3 coords;
+    
+};
+
 enum Game_Modes
 {
     MAIN_MENU,
@@ -87,6 +93,8 @@ struct Game_Data
     
     u32 uniform_buffer_object;
     u32 wave_ubo; // uniform buffer object
+    
+    Boat3D boat3D;
     
     // 2D
     Boat boat;
