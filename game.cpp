@@ -21,6 +21,8 @@
 #include "shapes.cpp"
 #include "menu.cpp"
 
+#include "2D.cpp"
+
 //
 // 2D
 // 
@@ -233,27 +235,6 @@ draw_water(Assets *assets, Mesh mesh, r32 seconds, Wave *waves, u32 waves_count,
     glBindVertexArray(mesh.vao);
     glDrawElements(GL_PATCHES, mesh.indices_count, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
-    
-    /*
-    {
-        u32 active_shader = use_shader(find_shader(assets, "TEST"));
-        m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {1, 0, 0}), {10, 1, 10});
-        
-        glUniformMatrix4fv(glGetUniformLocation(active_shader, "model"      ), (GLsizei)1, false, (float*)&model);
-        glUniformMatrix4fv(glGetUniformLocation(active_shader, "projection" ), (GLsizei)1, false, (float*)&projection_matrix);
-        glUniformMatrix4fv(glGetUniformLocation(active_shader, "view"       ), (GLsizei)1, false, (float*)&view_matrix);
-        
-        //glPointSize(5.0f);
-        
-        Bitmap *perlin = find_bitmap(assets, "PERLIN");
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, perlin->handle);
-        
-        glBindVertexArray(mesh.vao);
-        glDrawElements(GL_PATCHES, mesh.indices_count, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
-    }
-*/
 }
 
 function v3
@@ -360,7 +341,7 @@ init_game_data(Assets *assets)
     u32 waves_uniform_block_index = glGetUniformBlockIndex(shader->handle, "Wav");
     glUniformBlockBinding(shader->handle, waves_uniform_block_index, 1);
     
-    data->uniform_buffer_object = init_uniform_buffer_object(2 * sizeof(m4x4), 0);
+    data->matrices_ubo = init_uniform_buffer_object(2 * sizeof(m4x4), 0);
     data->wave_ubo = init_uniform_buffer_object(5 * sizeof(Wave), 1);
     
     data->waves[0] = get_wave({ 1.0, 0.0 }, 20.0f, 0.2f);
@@ -380,6 +361,51 @@ init_game_data(Assets *assets)
     //data->tree = load_obj("../assets/objs/test.obj");
     
     return (void*)data;
+}
+
+// returns game mode
+function s32
+draw_main_menu(Assets *assets, v2 window_dim, b32 select, s32 active)
+{
+    /*
+    Menu main_menu = {};
+    main_menu.font = find_font(assets, "CASLON");
+    
+    main_menu.button_style.default_back_color = { 100, 255, 0, 1 };
+    main_menu.button_style.active_back_color  = { 0, 255, 100, 1 };
+    main_menu.button_style.default_text_color = { 0, 100, 0, 1 };
+    main_menu.button_style.active_text_color  = { 0, 100, 0, 1 };
+    
+    u32 index = 0;
+    
+    Rect window_rect = {};
+    window_rect. coords = { 0, 0 };
+    window_rect.dim = cv2(app->window.dim);
+    Rect bounds = get_centered_rect(window_rect, 0.5f, 0.5f);
+    main_menu.button_style.dim = { bounds.dim.x, bounds.dim.y / 3.0f };
+    draw_rect(bounds.coords, 0, bounds.dim, { 0, 0, 0, 0.2f} );
+    main_menu.coords = bounds.coords;
+    
+    if (menu_button(&main_menu, "2D", index++, active, select))
+    {
+        data->game_mode = IN_GAME_2D;
+        data->active = 0;
+    }
+    
+    if (menu_button(&main_menu, "3D", index++, active, select))
+    {
+        data->game_mode = IN_GAME_3D;
+        app->input.relative_mouse_mode.set(true);
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_CULL_FACE);
+        data->active = 0;
+    }
+    
+    if (menu_button(&main_menu, "Quit", index++, active, select))
+    {
+        return true;
+    }
+*/
 }
 
 // return 0 if 
@@ -409,6 +435,7 @@ draw_pause_menu(Assets *assets, v2 window_dim, b32 select, s32 active)
     return 0;
 }
 
+
 // returns true if the application should quit
 function b8
 update(Application *app)
@@ -416,6 +443,13 @@ update(Application *app)
     Game_Data *data = (Game_Data*)app->data;
     Controller *controller = app->input.active_controller;
     Controller *menu_controller = app->input.active_controller;
+    
+    if (app->window.update_matrices)
+    {
+        app->matrices.perspective_matrix = perspective_projection(data->camera.fov, app->window.aspect_ratio, 0.01f, 1000.0f);
+        app->matrices.orthographic_matrix = orthographic_projection(0.0f, (r32)app->window.dim.width, (r32)app->window.dim.height, 0.0f, -3.0f, 3.0f);
+        app->window.update_matrices = false;
+    }
     
     //Update
     switch (data->game_mode)
@@ -506,6 +540,8 @@ update(Application *app)
     {
         case MAIN_MENU:
         {
+            orthographic(data->matrices_ubo, &app->matrices);
+            
             Menu main_menu = {};
             main_menu.font = find_font(&app->assets, "CASLON");
             
@@ -549,6 +585,8 @@ update(Application *app)
         
         case IN_GAME_2D:
         {
+            orthographic(data->matrices_ubo, &app->matrices);
+            
             Rect rect = {};
             rect.dim = { 100, 100 };
             v2 center = (cv2(app->window.dim) / 2.0f);
@@ -578,30 +616,21 @@ update(Application *app)
         
         case IN_GAME_3D:
         {
+            app->matrices.view_matrix = get_view(data->camera);
+            perspective(data->matrices_ubo, &app->matrices);
+            
             glEnable(GL_DEPTH_TEST);
             glEnable(GL_CULL_FACE);
             
-            r32 aspect_ratio = (r32)app->window.dim.width / (r32)app->window.dim.height;
-            m4x4 perspective_matrix = perspective_projection(data->camera.fov, aspect_ratio, 0.01f, 1000.0f);
-            m4x4 orthographic_matrix = orthographic_projection(0.0f, (r32)app->window.dim.width, (r32)app->window.dim.height,
-                                                               0.0f, -3.0f, 3.0f);
-            m4x4 view_matrix = get_view(data->camera);
-            
-            glBindBuffer(GL_UNIFORM_BUFFER, data->uniform_buffer_object);
-            glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(m4x4), (void*)&perspective_matrix);
-            glBufferSubData(GL_UNIFORM_BUFFER, sizeof(m4x4), sizeof(m4x4), (void*)&view_matrix);
-            glBindBuffer(GL_UNIFORM_BUFFER, 0);
-            
             draw_water(&app->assets, data->water, app->time.run_time_s, data->waves, 5, data->light, data->camera);
-            
             draw_model(&app->assets, &data->tree, data->light, data->camera);
-            
-            draw_cube(perspective_matrix, view_matrix, data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
-            
-            draw_cube(perspective_matrix, view_matrix, update_boat_3D(&data->boat3D, data->waves, 5, app->time.run_time_s), 0, { 1, 1, 1 }, { 255, 0, 255, 255 });
+            draw_cube(data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
+            draw_cube(update_boat_3D(&data->boat3D, data->waves, 5, app->time.run_time_s), 0, { 1, 1, 1 }, { 255, 0, 255, 255 });
             
             glDisable(GL_DEPTH_TEST);
             glDisable(GL_CULL_FACE);
+            
+            orthographic(data->matrices_ubo, &app->matrices);
             
             Font *caslon = find_font(&app->assets, "CASLON");
             draw_string(caslon, ftos(app->time.frames_per_s), { 100, 100 }, 50, { 255, 150, 0, 1 });
@@ -618,7 +647,6 @@ update(Application *app)
                     data->paused = false; 
                     app->input.relative_mouse_mode.set(true);
                     //glDisable(GL_DEPTH_TEST);
-                    //glDisable(GL_CULL_FACE);
                     data->active = 0;
                 }
             }

@@ -19,8 +19,16 @@ controller_process_input(Controller *controller, s32 id, b32 state)
     }
 }
 
+function void
+update_window(Window *window)
+{
+    glViewport(0, 0, window->dim.width, window->dim.height);
+    window->aspect_ratio = (r32)window->dim.width / (r32)window->dim.height;
+    window->update_matrices = true;
+}
+
 function b32
-process_input(v2s *window_dim, Input *input)
+process_input(Window *window, Input *input)
 {
     for (u32 i = 0; i < input->num_of_controllers; i++) prepare_controller_for_input(&input->controllers[i]);
     
@@ -40,9 +48,10 @@ process_input(v2s *window_dim, Input *input)
                     case SDL_WINDOWEVENT_RESIZED:
                     case SDL_WINDOWEVENT_SIZE_CHANGED:
                     {
-                        window_dim->width = window_event->data1;
-                        window_dim->height = window_event->data2;
-                        glViewport(0, 0, window_dim->width, window_dim->height);
+                        window->dim.width  = window_event->data1;
+                        window->dim.height = window_event->data2;
+                        
+                        update_window(window);
                     } break;
                 }
             } break;
@@ -104,8 +113,8 @@ main_loop(Application *app)
 {
     while(1)
     {
-        if (process_input(&app->window.dim, &app->input)) return 0; // quit if process_input returns false
-        set_orthographic_matrix(app->window.dim);
+        if (process_input(&app->window, &app->input)) return 0; // quit if process_input returns false
+        //set_orthographic_matrix(app->window.dim);
         update_time(&app->time);
         if (update(app)) return 0;
         update_relative_mouse_mode(&app->input.relative_mouse_mode);
@@ -138,7 +147,8 @@ init_opengl(Window *window)
     log("Version:  %s", glGetString(GL_VERSION));
     
     SDL_GetWindowSize(window->sdl, &window->dim.width, &window->dim.height);
-    glViewport(0, 0, window->dim.width, window->dim.height);
+    
+    update_window(window);
     
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
@@ -184,7 +194,7 @@ application()
     
     init_controllers(&app.input);
     app.input.relative_mouse_mode.set(false);
-    init_shapes();
+    init_shapes(find_shader(&app.assets, "COLOR"), find_shader(&app.assets, "TEX"));
     return main_loop(&app);
 }
 

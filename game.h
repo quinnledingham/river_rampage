@@ -91,8 +91,8 @@ struct Game_Data
     Mesh cube;
     Wave waves[5];
     
-    u32 uniform_buffer_object;
-    u32 wave_ubo; // uniform buffer object
+    u32 matrices_ubo; // uniform buffer object
+    u32 wave_ubo; 
     
     Boat3D boat3D;
     

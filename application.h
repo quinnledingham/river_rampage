@@ -5,9 +5,37 @@ struct Window
 {
     SDL_Window *sdl;
     v2s dim;
+    r32 aspect_ratio; // update with dim change
+    
+    b32 update_matrices;
 };
 
 function void swap_window(Window *window) { SDL_GL_SwapWindow(window->sdl); }
+
+struct Matrices // for rendering
+{
+    m4x4 perspective_matrix;
+    m4x4 orthographic_matrix;
+    m4x4 view_matrix;
+};
+
+// functions to set matrices in uniform buffer
+function void
+orthographic(u32 ubo, Matrices *matrices)
+{
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0,            sizeof(m4x4), (void*)&matrices->orthographic_matrix);
+    glBufferSubData(GL_UNIFORM_BUFFER, sizeof(m4x4), sizeof(m4x4), (void*)&identity_m4x4());
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+}
+function void
+perspective(u32 ubo, Matrices *matrices)
+{
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0,            sizeof(m4x4), (void*)&matrices->perspective_matrix);
+    glBufferSubData(GL_UNIFORM_BUFFER, sizeof(m4x4), sizeof(m4x4), (void*)&matrices->view_matrix);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+}
 
 struct Time
 {
@@ -136,6 +164,7 @@ struct Input
 struct Application
 {
     Window window;
+    Matrices matrices;
     Time time;
     Input input;
     Assets assets;

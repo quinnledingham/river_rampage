@@ -11,6 +11,12 @@ MATERIAL|FRAGMENT, ../assets/shaders/material.fs
 TEST|VERTEX, ../assets/shaders/color3D.vs
 TEST|FRAGMENT, ../assets/shaders/tex.fs
 
+COLOR|VERTEX, ../assets/shaders/basic.vs
+COLOR|FRAGMENT, ../assets/shaders/color.fs
+
+TEX|VERTEX, ../assets/shaders/basic.vs
+TEX|FRAGMENT, ../assets/shaders/tex.fs
+
 BITMAPS:
 BOAT, ../assets/bitmaps/boat.png
 PERLIN, ../assets/bitmaps/noiseTexture.png

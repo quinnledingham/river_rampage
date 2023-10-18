@@ -51,7 +51,7 @@ draw_rect(v2 coords, r32 rotation, v2 dim, v4 color)
     shape.dim = dim_v3;
     shape.draw_type = SHAPE_COLOR;
     shape.color = color;
-    draw_shape(shape, orthographic_matrix, identity_m4x4());
+    draw_shape(shape);
 }
 
 function void
@@ -68,7 +68,7 @@ draw_rect(v2 coords, r32 rotation, v2 dim, Bitmap *bitmap)
     shape.dim = dim_v3;
     shape.draw_type = SHAPE_TEXTURE;
     shape.bitmap = bitmap;
-    draw_shape(shape, orthographic_matrix, identity_m4x4());
+    draw_shape(shape);
 }
 
 //
@@ -152,7 +152,7 @@ draw_circle(v2 coords, r32 rotation, r32 radius, v4 color)
     shape.dim = dim_v3;
     shape.draw_type = SHAPE_COLOR;
     shape.color = color;
-    draw_shape(shape, orthographic_matrix, identity_m4x4());
+    draw_shape(shape);
 }
 
 //
@@ -193,7 +193,7 @@ get_cube_mesh()
 }
 
 function void
-draw_cube(m4x4 perspective_matrix, m4x4 view_matrix, v3 coords, r32 rotation, v3 dim, v4 color)
+draw_cube(v3 coords, r32 rotation, v3 dim, v4 color)
 {
     quat rotation_quat = get_rotation(rotation, { 0, 0, 1 });
     
@@ -204,7 +204,7 @@ draw_cube(m4x4 perspective_matrix, m4x4 view_matrix, v3 coords, r32 rotation, v3
     shape.dim = dim;
     shape.draw_type = SHAPE_COLOR;
     shape.color = color;
-    draw_shape(shape, perspective_matrix, view_matrix);
+    draw_shape(shape);
 }
 
 //
@@ -212,12 +212,16 @@ draw_cube(m4x4 perspective_matrix, m4x4 view_matrix, v3 coords, r32 rotation, v3
 //
 
 function void
-init_shapes()
+init_shapes(Shader *color, Shader *texture)
 {
     init_rect_mesh(&shape_rect);
     init_circle_mesh(&shape_circle);
     shape_cube = get_cube_mesh();
     
+    shape_color_shader   = color;
+    shape_texture_shader = texture;
+    
+    /*
     shape_color_shader.vs_file = basic_vs;
     shape_color_shader.fs_file = color_fs;
     compile_shader(&shape_color_shader);
@@ -225,10 +229,11 @@ init_shapes()
     shape_texture_shader.vs_file = basic_vs;
     shape_texture_shader.fs_file = tex_fs;
     compile_shader(&shape_texture_shader);
+*/
 }
 
 function void
-draw_shape(Shape shape, m4x4 projection_matrix, m4x4 view_matrix)
+draw_shape(Shape shape)
 {
     u32 handle = 0;
     
@@ -236,13 +241,13 @@ draw_shape(Shape shape, m4x4 projection_matrix, m4x4 view_matrix)
     {
         case SHAPE_COLOR:
         {
-            handle = use_shader(&shape_color_shader);
+            handle = use_shader(shape_color_shader);
             glUniform4fv(glGetUniformLocation(handle, "user_color"), (GLsizei)1, (float*)&shape.color);
         } break;
         
         case SHAPE_TEXTURE:
         {
-            handle = use_shader(&shape_texture_shader);
+            handle = use_shader(shape_texture_shader);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, shape.bitmap->handle);
             glUniform1i(glGetUniformLocation(handle, "tex0"), 0);
@@ -255,8 +260,6 @@ draw_shape(Shape shape, m4x4 projection_matrix, m4x4 view_matrix)
     
     m4x4 model = create_transform_m4x4(shape.coords, shape.rotation, shape.dim);
     glUniformMatrix4fv(glGetUniformLocation(handle, "model"),      (GLsizei)1, false, (float*)&model);
-    glUniformMatrix4fv(glGetUniformLocation(handle, "projection"), (GLsizei)1, false, (float*)&projection_matrix);
-    glUniformMatrix4fv(glGetUniformLocation(handle, "view"),       (GLsizei)1, false, (float*)&view_matrix);
     
     switch(shape.type)
     {
