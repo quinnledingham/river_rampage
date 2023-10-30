@@ -39,9 +39,13 @@ struct Shader
     b32 uniform_buffer_objects_generated;
     u32 handle;
 };
-const char *basic_vs = "#version 330 core\n layout (location = 0) in vec3 position; layout (location = 1) in vec3 normal; layout (location = 2) in vec2 texture_coords; uniform mat4 model; uniform mat4 projection; uniform mat4 view; out vec2 uv; void main(void) { gl_Position = projection * view * model * vec4(position, 1.0f); uv = texture_coords;}";
-const char *color_fs = "#version 330 core\n in vec2 uv; uniform vec4 user_color; out vec4 FragColor; void main() { FragColor  = vec4(user_color.x/255, user_color.y/255, user_color.z/255, user_color.w);}";
-const char *tex_fs = "#version 330 core\n uniform sampler2D tex0; in vec2 uv; out vec4 FragColor; void main() { vec4 tex = texture(tex0, uv); FragColor = tex;}";
+global const char *basic_vs = "#version 330 core\n layout (location = 0) in vec3 position; layout (location = 1) in vec3 normal; layout (location = 2) in vec2 texture_coords; uniform mat4 model; uniform mat4 projection; uniform mat4 view; out vec2 uv; void main(void) { gl_Position = projection * view * model * vec4(position, 1.0f); uv = texture_coords;}";
+global const char *color_fs = "#version 330 core\n in vec2 uv; uniform vec4 user_color; out vec4 FragColor; void main() { FragColor  = vec4(user_color.x/255, user_color.y/255, user_color.z/255, user_color.w);}";
+global const char *tex_fs = "#version 330 core\n uniform sampler2D tex0; in vec2 uv; out vec4 FragColor; void main() { vec4 tex = texture(tex0, uv); FragColor = tex;}";
+
+u32 use_shader(Shader *shader); // returns the handle of a shader
+void load_shader(Shader *shader);
+void compile_shader(Shader *shader);
 
 struct Vertex
 {
@@ -78,11 +82,38 @@ struct Mesh
     Material material;
 };
 
+void init_mesh(Mesh *mesh);
+void draw_mesh(Mesh *mesh);
+void draw_mesh_patches(Mesh *mesh);
+
+struct Light_Source
+{
+    v3 position;
+    v4 color;
+};
+
+struct Camera
+{
+    v3 position;
+    v3 target;
+    v3 up;
+    r32 fov;
+    r32 yaw;
+    r32 pitch;
+};
+function inline m4x4 get_view(Camera camera) 
+{ 
+    return look_at(camera.position, camera.position + camera.target, camera.up); 
+}
+
 struct Model
 {
     Mesh *meshes;
     u32 meshes_count;
 };
+
+Model load_obj(const char *path, const char *filename);
+void draw_model(Shader *shader, Model *model, Light_Source light, Camera camera);
 
 struct Font_Scale
 {
@@ -123,7 +154,7 @@ struct Font_String
 struct Font
 {
     File file;
-    stbtt_fontinfo info;
+    void *info; // stbtt_fontinfo
     
     s32 font_scales_cached;
     s32 font_chars_cached;
@@ -133,9 +164,11 @@ struct Font
     Font_String font_strings[10];
 };
 
+v2 get_string_dim(Font *font, const char *string, f32 pixel_height, v4 color);
+
 struct Audio
 {
-    SDL_AudioSpec spec;
+    //SDL_AudioSpec spec;
     u8 *buffer;
     u32 length;
 };
@@ -162,9 +195,6 @@ struct Audio_Player
     u8 *buffer; // points to one byte
     u32 length; // in bytes largest amount copied
     u32 max_length; // in bytes amount available
-    
-    SDL_AudioStream *audio_stream;
-    SDL_AudioDeviceID device_id;
     
     r32 music_volume;
     r32 sound_volume;
@@ -349,7 +379,7 @@ struct Asset_Token
     const char *lexeme;
 };
 
-const char *asset_keywords[4] = { "FONTS", "BITMAPS", "SHADERS", "AUDIOS" };
+global const char *asset_keywords[4] = { "FONTS", "BITMAPS", "SHADERS", "AUDIOS" };
 
 function b32
 is_asset_keyword(const char *word)

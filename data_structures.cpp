@@ -5,7 +5,7 @@
 function LL_Node*
 create_ll_node(void *data)
 {
-    LL_Node *node = (LL_Node*)SDL_malloc(sizeof(LL_Node));
+    LL_Node *node = (LL_Node*)platform_malloc(sizeof(LL_Node));
     *node = {};
     node->data = data;
     return node;
@@ -44,7 +44,7 @@ print_ll(LL* list)
 function AST_Node*
 create_ast_node(void *data, u32 data_size)
 {
-    AST_Node *node = (AST_Node*)SDL_malloc(sizeof(AST_Node));
+    AST_Node *node = (AST_Node*)platform_malloc(sizeof(AST_Node));
     *node = {};
     node->data = data;
     node->data_size = data_size;
@@ -60,7 +60,7 @@ ast_add_child(AST_Node *node, AST_Node *child)
     if (node->num_of_children != 0)
     {
         memcpy(new_children, node->children, sizeof(AST_Node*) * node->num_of_children);
-        SDL_free(node->children);
+        platform_free(node->children);
     }
     
     node->children = new_children;
@@ -117,19 +117,6 @@ peek(Lexer *lexer)
     unlex(lexer);
     return token;
 }
-
-struct MTL_Token
-{
-    s32 type;
-    union
-    {
-        const char *lexeme;
-        float float_num;
-        s32 int_num;
-    };
-    s32 ch;
-};
-
 
 function void
 reset_lex(Lexer *lexer)

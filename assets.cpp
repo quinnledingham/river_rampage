@@ -182,8 +182,7 @@ load_shader_file(const char* filename, u32 *file_size)
 }
 
 // loads the files
-function void
-load_shader(Shader *shader)
+void load_shader(Shader *shader)
 {
     if (shader->vs_filename == 0)
     {
@@ -206,8 +205,7 @@ load_shader(Shader *shader)
     if (shader->fs_filename  != 0) shader->fs_file  = load_shader_file(shader->fs_filename,  &shader->file_sizes[4]);
 }
 
-function bool
-compile_shader(u32 handle, const char *file, int type)
+bool compile_shader(u32 handle, const char *file, int type)
 {
     u32 s =  glCreateShader((GLenum)type);
     glShaderSource(s, 1, &file, NULL);
@@ -230,8 +228,7 @@ compile_shader(u32 handle, const char *file, int type)
 }
 
 // compiles the files
-function void
-compile_shader(Shader *shader)
+void compile_shader(Shader *shader)
 {
     shader->uniform_buffer_objects_generated = false;
     shader->compiled = false;
@@ -261,8 +258,7 @@ compile_shader(Shader *shader)
     log("compiled shader with vs file %s", shader->vs_filename);
 }
 
-function u32
-use_shader(Shader *shader)
+u32 use_shader(Shader *shader)
 {
     glUseProgram(shader->handle);
     return shader->handle;
@@ -272,8 +268,7 @@ use_shader(Shader *shader)
 // Mesh
 //
 
-function void
-init_mesh(Mesh *mesh)
+void init_mesh(Mesh *mesh)
 {
     glGenVertexArrays(1, &mesh->vao);
     glGenBuffers(1, &mesh->vbo);
@@ -295,16 +290,21 @@ init_mesh(Mesh *mesh)
     glBindVertexArray(0);
 }
 
-function void
-draw_mesh(Mesh *mesh)
+void draw_mesh(Mesh *mesh)
 {
     glBindVertexArray(mesh->vao);
     glDrawElements(GL_TRIANGLES, mesh->indices_count, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 }
 
-function void
-draw_mesh_instanced(Mesh *mesh)
+void draw_mesh_patches(Mesh *mesh)
+{
+    glBindVertexArray(mesh->vao);
+    glDrawElements(GL_PATCHES, mesh->indices_count, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+}
+
+void draw_mesh_instanced(Mesh *mesh)
 {
     glBindVertexArray(mesh->vao);
     glDrawElementsInstanced(GL_TRIANGLES, mesh->indices_count, GL_UNSIGNED_INT, 0, 10);
@@ -323,13 +323,20 @@ load_font(const char *filename)
     SDL_memset(font.font_chars,   0, sizeof(Font_Char)   * ARRAY_COUNT(font.font_chars));
     SDL_memset(font.font_strings, 0, sizeof(Font_String) * ARRAY_COUNT(font.font_strings));
     font.file = read_file(filename);
-    stbtt_InitFont(&font.info, (u8*)font.file.memory, stbtt_GetFontOffsetForIndex((u8*)font.file.memory, 0));
+    
+    font.info = SDL_malloc(sizeof(stbtt_fontinfo));
+    stbtt_fontinfo *info = (stbtt_fontinfo*)font.info;
+    *info = {};
+    
+    stbtt_InitFont(info, (u8*)font.file.memory, stbtt_GetFontOffsetForIndex((u8*)font.file.memory, 0));
     return font;
 }
 
 function Font_Char*
 load_font_char(Font *font, u32 codepoint, f32 scale, v4 color)
 {
+    stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
+
     // search cache for font char
     for (s32 i = 0; i < font->font_chars_cached; i++)
     {
@@ -351,13 +358,13 @@ load_font_char(Font *font, u32 codepoint, f32 scale, v4 color)
     font_char->color = color;
     
     // how wide is this character
-    stbtt_GetCodepointHMetrics(&font->info, font_char->codepoint, &font_char->ax, &font_char->lsb);
+    stbtt_GetCodepointHMetrics(info, font_char->codepoint, &font_char->ax, &font_char->lsb);
     
     // get bounding box for character (may be offset to account for chars that dip above or below the line
-    stbtt_GetCodepointBitmapBox(&font->info, font_char->codepoint, font_char->scale, font_char->scale, 
+    stbtt_GetCodepointBitmapBox(info, font_char->codepoint, font_char->scale, font_char->scale, 
                                 &font_char->c_x1, &font_char->c_y1, &font_char->c_x2, &font_char->c_y2);
     
-    u8 *mono_bitmap = stbtt_GetCodepointBitmap(&font->info, 0, scale, codepoint, 
+    u8 *mono_bitmap = stbtt_GetCodepointBitmap(info, 0, scale, codepoint, 
                                                &font_char->bitmap.dim.width, &font_char->bitmap.dim.height,
                                                0, 0);
     font_char->bitmap.channels = 4;
@@ -382,11 +389,12 @@ load_font_char(Font *font, u32 codepoint, f32 scale, v4 color)
     return font_char;
 }
 
-function v2
-get_string_dim(Font *font, const char *string, f32 pixel_height, v4 color)
+v2 get_string_dim(Font *font, const char *string, f32 pixel_height, v4 color)
 {
+    stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
+
     v2 dim = {};
-    f32 scale = stbtt_ScaleForPixelHeight(&font->info, pixel_height);
+    f32 scale = stbtt_ScaleForPixelHeight(info, pixel_height);
     
     u32 i = 0;
     while (string[i] != 0)
@@ -396,7 +404,7 @@ get_string_dim(Font *font, const char *string, f32 pixel_height, v4 color)
         f32 y = -1.0f * (r32)font_char->c_y1;
         if (dim.y < y) dim.y = y;
         
-        int kern = stbtt_GetCodepointKernAdvance(&font->info, string[i], string[i + 1]);
+        int kern = stbtt_GetCodepointKernAdvance(info, string[i], string[i + 1]);
         dim.x += ((kern + font_char->ax) * scale);
         
         i++;
@@ -413,7 +421,7 @@ function void
 print_audio_spec(SDL_AudioSpec *audio_spec)
 {
     log("freq %d",     audio_spec->freq);
-    log("format %d %d",   SDL_AUDIO_BITSIZE(audio_spec->format), SDL_AUDIO_ISSIGNED(audio_spec->format));
+    log("format %d %d", SDL_AUDIO_BITSIZE(audio_spec->format), SDL_AUDIO_ISSIGNED(audio_spec->format));
     log("channels %d", audio_spec->channels);
     log("silence %d",  audio_spec->silence);
     log("samples %d",  audio_spec->samples);
@@ -428,7 +436,7 @@ print_audio_device_status(SDL_AudioDeviceID dev)
     {
         case SDL_AUDIO_STOPPED: printf("stopped\n"); break;
         case SDL_AUDIO_PLAYING: printf("playing\n"); break;
-        case SDL_AUDIO_PAUSED: printf("paused\n"); break;
+        case SDL_AUDIO_PAUSED:  printf("paused\n");  break;
         default: printf("???"); break;
     }
 }
@@ -456,15 +464,15 @@ init_audio_player(Audio_Player *player)
     SDL_AudioSpec spec;
     char *device_name = 0;
     SDL_GetDefaultAudioInfo(&device_name, &spec, 0);
-    player->device_id = SDL_OpenAudioDevice(device_name, 0, &desired, &obtained, 0);
+    SDL_AudioDeviceID device_id = SDL_OpenAudioDevice(device_name, 0, &desired, &obtained, 0);
     if (device_name) log("Audio device selected = %s.", device_name);
     else             log("Audio device not selected.");
     log("device audio spec:");
     print_audio_spec(&spec);
 #elif LINUX
-    player->device_id = SDL_OpenAudioDevice(NULL, 0, &desired, &obtained, 0);
+    SDL_AudioDeviceID device_id = SDL_OpenAudioDevice(NULL, 0, &desired, &obtained, 0);
 #endif
-    SDL_PauseAudioDevice(player->device_id, 0);
+    SDL_PauseAudioDevice(device_id, 0);
     
     log("obtained spec:");
     print_audio_spec(&obtained);
@@ -472,7 +480,6 @@ init_audio_player(Audio_Player *player)
     player->max_length = 10000;
     player->buffer = (u8*)SDL_malloc(player->max_length);
     SDL_memset(player->buffer, 0, player->max_length);
-    //player->audio_stream = SDL_NewAudioStream();
     
     player->audios_count = 10;
     player->sound_volume = 0.5f;
@@ -483,7 +490,8 @@ function Audio
 load_audio(const char *filename)
 {
     Audio audio = {};
-    SDL_LoadWAV(filename, &audio.spec, &audio.buffer, &audio.length);
+    SDL_AudioSpec spec = {};
+    SDL_LoadWAV(filename, &spec, &audio.buffer, &audio.length);
     //print_audio_spec(&audio.spec);
     return audio;
 }
@@ -563,10 +571,9 @@ mix_audio(Audio_Player *player, r32 frame_time_s)
 // Model
 //
 
-function void
-draw_model(Assets *assets, Model *model, Light_Source light, Camera camera)
+void draw_model(Shader *shader, Model *model, Light_Source light, Camera camera)
 {
-    u32 handle = use_shader(find_shader(assets, "MATERIAL"));
+    u32 handle = use_shader(shader);
     //v4 shape_color = {0, 255, 0, 1};
     //glUniform4fv(glGetUniformLocation(handle, "user_color"), (GLsizei)1, (float*)&shape_color);
     m4x4 model_matrix = create_transform_m4x4({0, 0, 0}, get_rotation(0, {0, 1, 0}), {1, 1, 1});
@@ -602,6 +609,19 @@ draw_model(Assets *assets, Model *model, Light_Source light, Camera camera)
 }
 
 // OBJ
+
+struct MTL_Token
+{
+    s32 type;
+    union
+    {
+        const char *lexeme;
+        float float_num;
+        s32 int_num;
+    };
+    s32 ch;
+};
+
 
 #include "mtl.cpp"
 
@@ -791,8 +811,7 @@ parse_face_vertex(File *file, s32 *line_num)
     return face_vertex;
 }
 
-function Model
-load_obj(const char *path, const char *filename)
+Model load_obj(const char *path, const char *filename)
 {
     Model model = {};
     Obj obj = {};
@@ -1283,7 +1302,12 @@ load_saved_assets(Assets *assets, const char *filename) // returns 0 on success
                 asset.font = all_asset->font;
                 asset.font.file.memory = SDL_malloc(asset.font.file.size);
                 fread(asset.font.file.memory, asset.font.file.size, 1, file);
-                stbtt_InitFont(&asset.font.info, (u8*)asset.font.file.memory, stbtt_GetFontOffsetForIndex((u8*)asset.font.file.memory, 0));
+
+                asset.font.info = SDL_malloc(sizeof(stbtt_fontinfo));
+                stbtt_fontinfo *info = (stbtt_fontinfo*)&asset.font.info;
+                *info = {};
+
+                stbtt_InitFont(info, (u8*)asset.font.file.memory, stbtt_GetFontOffsetForIndex((u8*)asset.font.file.memory, 0));
                 assets->types[ASSET_TYPE_FONT].data[fonts_index++] = asset;
             } break;
             

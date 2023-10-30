@@ -1,6 +1,12 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#include <stdio.h>
+#include <stdarg.h>
+#include <cstdint>
+#include <math.h>
+#include <string>
+
 typedef int8_t s8;
 typedef int16_t s16;
 typedef int32_t s32;
@@ -18,16 +24,17 @@ typedef double r64;
 typedef r32 f32;
 typedef r64 f64;
 
-#define function        static
-#define local_persist   static
-#define global_variable static
+#define function      static
+#define internal      static
+#define local_persist static
+#define global        static
 
 #define DEG2RAD 0.0174533f
 #define PI      3.14159265359f
 #define EPSILON 0.00001f
 
 #define ARRAY_COUNT(n)     (sizeof(n) / sizeof(n[0]))
-#define ARRAY_MALLOC(t, n) ((t*)SDL_malloc(n * sizeof(t)))
+#define ARRAY_MALLOC(t, n) ((t*)platform_malloc(n * sizeof(t)))
 
 union v2
 {
@@ -46,26 +53,26 @@ union v2
     r32 E[2];
 };
 
-v2 operator+(const v2 &l, const v2  &r) { return { l.x + r.x, l.y + r.y }; }
-v2 operator+(const v2 &l, const r32 &r) { return { l.x + r, l.y + r };     }
-v2 operator-(const v2 &l, const v2  &r) { return { l.x - r.x, l.y - r.y }; }
-v2 operator*(const v2 &l, const v2  &r) { return { l.x * r.x, l.y * r.y }; }
-v2 operator*(const v2 &l, const r32 &r) { return { l.x * r, l.y * r };     }
-v2 operator/(const v2 &l, const v2  &r) { return { l.x / r.x, l.y / r.y }; }
-v2 operator/(const v2 &l, const r32 &r) { return { l.x / r, l.y / r };     }
-v2 operator-(const v2 &v)               { return { -v.x, -v.y }; }
+inline v2 operator+(const v2 &l, const v2  &r) { return { l.x + r.x, l.y + r.y }; }
+inline v2 operator+(const v2 &l, const r32 &r) { return { l.x + r, l.y + r };     }
+inline v2 operator-(const v2 &l, const v2  &r) { return { l.x - r.x, l.y - r.y }; }
+inline v2 operator*(const v2 &l, const v2  &r) { return { l.x * r.x, l.y * r.y }; }
+inline v2 operator*(const v2 &l, const r32 &r) { return { l.x * r, l.y * r };     }
+inline v2 operator/(const v2 &l, const v2  &r) { return { l.x / r.x, l.y / r.y }; }
+inline v2 operator/(const v2 &l, const r32 &r) { return { l.x / r, l.y / r };     }
+inline v2 operator-(const v2 &v)               { return { -v.x, -v.y }; }
 
-void operator+=(v2 &l, const v2  &r) { l.x = l.x + r.x; l.y = l.y + r.y; }
-void operator-=(v2 &l, const v2  &r) { l.x = l.x - r.x; l.y = l.y - r.y; }
-void operator-=(v2 &l, const r32 &r) { l.x = l.x - r; l.y = l.y - r;     }
-void operator*=(v2 &l, const r32 &r) { l.x = l.x * r; l.y = l.y * r;     }
-void operator/=(v2 &l, const v2  &r) { l.x = l.x / r.x; l.y = l.y / r.y; }
-void operator/=(v2 &l, const r32 &r) { l.x = l.x / r; l.y = l.y / r;     }
+inline void operator+=(v2 &l, const v2  &r) { l.x = l.x + r.x; l.y = l.y + r.y; }
+inline void operator-=(v2 &l, const v2  &r) { l.x = l.x - r.x; l.y = l.y - r.y; }
+inline void operator-=(v2 &l, const r32 &r) { l.x = l.x - r; l.y = l.y - r;     }
+inline void operator*=(v2 &l, const r32 &r) { l.x = l.x * r; l.y = l.y * r;     }
+inline void operator/=(v2 &l, const v2  &r) { l.x = l.x / r.x; l.y = l.y / r.y; }
+inline void operator/=(v2 &l, const r32 &r) { l.x = l.x / r; l.y = l.y / r;     }
 
-r32 dot_product(const v2 &l, const v2 &r) { return (l.x * r.x) + (l.y * r.y); }
-r32 length_squared(const v2 &v) { return (v.x * v.x) + (v.y * v.y); }
-void log(const v2 &v) { log("v2: %f, %f", v.x, v.y); }
-v2 pow(const v2 &v, u32 exponent)
+inline r32 dot_product(const v2 &l, const v2 &r) { return (l.x * r.x) + (l.y * r.y); }
+inline r32 length_squared(const v2 &v) { return (v.x * v.x) + (v.y * v.y); }
+inline void log(const v2 &v) { log("v2: %f, %f", v.x, v.y); }
+inline v2 pow(const v2 &v, u32 exponent)
 {
     v2 result = v;
     for (u32 i = 1; i < exponent; i++) { result.x *= v.x; result.y *= v.y; }
@@ -125,20 +132,20 @@ union v2s
     s32 E[2];
 };
 
-v2s operator+(const v2s &l, const v2s &r) { return { l.x + r.x, l.y + r.y }; }
-v2s operator+(const v2s &l, const s32 &r) { return { l.x + r, l.y + r }; }
-v2s operator-(const v2s &l, const v2s &r) { return { l.x - r.x, l.y - r.y }; }
-v2s operator-(const v2s &l, const int &r) { return { l.x - r, l.y - r }; }
-v2s operator*(const v2s &l, const s32 &r) { return { l.x * r, l.y * r }; }
+inline v2s operator+(const v2s &l, const v2s &r) { return { l.x + r.x, l.y + r.y }; }
+inline v2s operator+(const v2s &l, const s32 &r) { return { l.x + r, l.y + r }; }
+inline v2s operator-(const v2s &l, const v2s &r) { return { l.x - r.x, l.y - r.y }; }
+inline v2s operator-(const v2s &l, const int &r) { return { l.x - r, l.y - r }; }
+inline v2s operator*(const v2s &l, const s32 &r) { return { l.x * r, l.y * r }; }
 
-void operator+=(v2s &l, const v2s &r) { l.x = l.x + r.x; l.y = l.y + r.y; }
-void operator+=(v2s &l, const s32 &r) { l.x = l.x + r; l.y = l.y + r; }
-void operator*=(v2s &l, const s32 &r) { l.x = l.x * r; l.y = l.y * r; }
-bool operator==(const v2s &l, const v2s &r) { if (l.x == r.x && l.y == r.y) return true; return false; }
-bool operator!=(const v2s &l, const v2s &r) { if (l.x != r.x || l.y != r.y) return true; return false; }
+inline void operator+=(v2s &l, const v2s &r) { l.x = l.x + r.x; l.y = l.y + r.y; }
+inline void operator+=(v2s &l, const s32 &r) { l.x = l.x + r; l.y = l.y + r; }
+inline void operator*=(v2s &l, const s32 &r) { l.x = l.x * r; l.y = l.y * r; }
+inline bool operator==(const v2s &l, const v2s &r) { if (l.x == r.x && l.y == r.y) return true; return false; }
+inline bool operator!=(const v2s &l, const v2s &r) { if (l.x != r.x || l.y != r.y) return true; return false; }
 
-v2 cv2(v2s v) { return { (r32)v.x, (r32)v.y }; }
-void log(const v2s &v) { log("v2s: %d, %d", v.x, v.y); }
+inline v2 cv2(v2s v) { return { (r32)v.x, (r32)v.y }; }
+inline void log(const v2s &v) { log("v2s: %d, %d", v.x, v.y); }
 
 inline v2s
 normalized(const v2s &v)
@@ -241,6 +248,11 @@ union v4
     {
         r32 r, g, b, a;
     };
+    struct
+    {
+        v3 rgb;
+        r32 a;
+    };
     r32 E[4];
 };
 
@@ -293,7 +305,8 @@ normalized(const quat &v)
     return {v.x * inverse_length, v.y * inverse_length, v.z * inverse_length, v.w * inverse_length};
 }
 
-quat get_rotation(r32 angle, const v3& axis)
+inline quat 
+get_rotation(r32 angle, const v3& axis)
 {
     v3 norm = normalized(axis);
     r32 s = sinf(angle * 0.5f);
@@ -467,8 +480,6 @@ create_transform_m4x4(v3 position, quat rotation, v3 scale)
 //
 // string
 //
-
-#include <string>
 
 function b32
 equal(const char* a, const char *b)

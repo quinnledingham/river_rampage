@@ -37,8 +37,7 @@ init_rect_mesh(Mesh *rect)
     init_mesh(rect);
 }
 
-function void
-draw_rect(v2 coords, r32 rotation, v2 dim, v4 color)
+void draw_rect(v2 coords, r32 rotation, v2 dim, v4 color)
 {
     v3 coords_v3 = { coords.x, coords.y, 0 };
     quat rotation_quat = get_rotation(rotation, { 0, 0, 1 });
@@ -54,8 +53,7 @@ draw_rect(v2 coords, r32 rotation, v2 dim, v4 color)
     draw_shape(shape);
 }
 
-function void
-draw_rect(v2 coords, r32 rotation, v2 dim, Bitmap *bitmap)
+void draw_rect(v2 coords, r32 rotation, v2 dim, Bitmap *bitmap)
 {
     v3 coords_v3 = { coords.x, coords.y, 0 };
     quat rotation_quat = get_rotation(-rotation, { 0, 0, 1 });
@@ -138,8 +136,7 @@ init_circle_mesh(Mesh *mesh)
     init_mesh(mesh);
 }
 
-function void
-draw_circle(v2 coords, r32 rotation, r32 radius, v4 color)
+void draw_circle(v2 coords, r32 rotation, r32 radius, v4 color)
 {
     v3 coords_v3 = { coords.x, coords.y, 0 };
     quat rotation_quat = get_rotation(rotation, { 0, 0, 1 });
@@ -158,9 +155,8 @@ draw_circle(v2 coords, r32 rotation, r32 radius, v4 color)
 //
 // Cube
 //
-
-function Mesh
-get_cube_mesh()
+ 
+Mesh get_cube_mesh()
 {
     Mesh mesh = {};
     
@@ -192,8 +188,7 @@ get_cube_mesh()
     return mesh;
 }
 
-function void
-draw_cube(v3 coords, r32 rotation, v3 dim, v4 color)
+void draw_cube(v3 coords, r32 rotation, v3 dim, v4 color)
 {
     quat rotation_quat = get_rotation(rotation, { 0, 0, 1 });
     
@@ -211,8 +206,7 @@ draw_cube(v3 coords, r32 rotation, v3 dim, v4 color)
 // shapes
 //
 
-function void
-init_shapes(Shader *color, Shader *texture)
+void init_shapes(Shader *color, Shader *texture)
 {
     init_rect_mesh(&shape_rect);
     init_circle_mesh(&shape_circle);
@@ -279,10 +273,10 @@ draw_shape(Shape shape)
 //
 
 // uses draw_rect
-function void
-draw_string(Font *font, const char *string, v2 coords, f32 pixel_height, v4 color)
+void draw_string(Font *font, const char *string, v2 coords, f32 pixel_height, v4 color)
 {
-    f32 scale = stbtt_ScaleForPixelHeight(&font->info, pixel_height);
+    stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
+    f32 scale = stbtt_ScaleForPixelHeight(info, pixel_height);
     f32 string_x_coord = coords.x;
     
     u32 i = 0;
@@ -296,73 +290,10 @@ draw_string(Font *font, const char *string, v2 coords, f32 pixel_height, v4 colo
         
         draw_rect({ x, y }, 0, {dim.x, dim.y}, &font_char->bitmap);
         
-        int kern = stbtt_GetCodepointKernAdvance(&font->info, string[i], string[i + 1]);
+        int kern = stbtt_GetCodepointKernAdvance(info, string[i], string[i + 1]);
         string_x_coord += ((kern + font_char->ax) * scale);
         
         i++;
     }
 }
 
-// returns the coords at the center of rect
-function v2 get_center(Rect rect) { return rect.coords + (rect.dim / 2.0f); }
-
-function void
-center_on(Rect *rect, v2 coords)
-{
-    rect->coords = coords - (rect->dim / 2.0f);
-}
-
-// returns the coords of where in would be placed to
-// be centered in out
-function v2
-get_centered(Rect in, Rect out)
-{
-    return
-    { 
-        (out.dim.x/2.0f) - (in.dim.x / 2.0f), 
-        (out.dim.y/2.0f) - (in.dim.y / 2.0f)
-    };
-}
-
-function Rect
-get_centered_rect(Rect og, r32 x_percent, r32 y_percent)
-{
-    Rect rect = {};
-    rect.dim.x = og.dim.x * x_percent;
-    rect.dim.y = og.dim.y * y_percent;
-    rect.coords = get_centered(rect, og);
-    rect.coords += og.coords;
-    return rect;
-}
-
-function Rect
-get_centered_rect_pad(Rect og, v2 pad)
-{
-    Rect rect = {};
-    rect.dim.x = og.dim.x + pad.x;
-    rect.dim.y = og.dim.y + pad.y;
-    rect.coords = get_centered(rect, og);
-    rect.coords += og.coords;
-    return rect;
-}
-
-function Rect
-get_centered_square(Rect og, r32 percent)
-{
-    Rect rect = {};
-    if (og.dim.x <= og.dim.y)
-    {
-        rect.dim.x = og.dim.x * percent;
-        rect.dim.y = rect.dim.x;
-    }
-    else
-    {
-        rect.dim.y = og.dim.y * percent;
-        rect.dim.x = rect.dim.y;
-    }
-    
-    //log("%f %f\n", rect.dim.x, rect.dim.y);
-    rect.coords = get_centered(rect, og);
-    rect.coords += og.coords;
-    return rect;
-}

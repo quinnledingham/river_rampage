@@ -3,45 +3,56 @@
 
 struct Window
 {
-    SDL_Window *sdl;
+    //SDL_Window *sdl; 
     v2s dim;
     r32 aspect_ratio; // update with dim change
     
-    b32 update_matrices;
+    b32 *update_matrices;
 };
-
-function void swap_window(Window *window) { SDL_GL_SwapWindow(window->sdl); }
 
 struct Matrices // for rendering
 {
+    b32 update;
+
     m4x4 perspective_matrix;
     m4x4 orthographic_matrix;
     m4x4 view_matrix;
 };
 
 // functions to set matrices in uniform buffer
-function void
-orthographic(u32 ubo, Matrices *matrices)
+void orthographic(u32 ubo, Matrices *matrices);
+void perspective(u32 ubo, Matrices *matrices);
+
+u32 init_uniform_buffer_object(u32 block_size, u32 block_index);
+void platform_set_uniform_block_binding(u32 shader_handle, const char *tag, u32 index);
+void platform_set_uniform_buffer_data(u32 ubo, u32 size, void *data);
+
+void platform_uniform_m4x4(u32 shader_handle, const char *tag, m4x4 *m);
+void platform_uniform_f32(u32 shader_handle, const char *tag, f32 f);
+void platform_uniform_v3(u32 shader_handle, const char *tag, v3 v);
+void platform_uniform_v4(u32 shader_handle, const char *tag, v4 v);
+void platform_set_texture(Bitmap *bitmap);
+
+void platform_blend_function(u32 source_factor, u32 destination_factor);
+
+enum
 {
-    glBindBuffer(GL_UNIFORM_BUFFER, ubo);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0,            sizeof(m4x4), (void*)&matrices->orthographic_matrix);
-    glBufferSubData(GL_UNIFORM_BUFFER, sizeof(m4x4), sizeof(m4x4), (void*)&identity_m4x4());
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
-}
-function void
-perspective(u32 ubo, Matrices *matrices)
-{
-    glBindBuffer(GL_UNIFORM_BUFFER, ubo);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0,            sizeof(m4x4), (void*)&matrices->perspective_matrix);
-    glBufferSubData(GL_UNIFORM_BUFFER, sizeof(m4x4), sizeof(m4x4), (void*)&matrices->view_matrix);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
-}
+    PLATFORM_POLYGON_MODE_POINT,
+    PLATFORM_POLYGON_MODE_LINE,
+    PLATFORM_POLYGON_MODE_FILL,
+
+    PLATFORM_CAPABILITY_DEPTH_TEST,
+    PLATFORM_CAPABILITY_CULL_FACE,
+};
+
+void platform_set_polygon_mode(u32 mode);
+void platform_set_capability(u32 capability, b32 state);
 
 struct Time
 {
     u64 run_time_ms;
     r32 run_time_s;
-    u32 frame_time_ms;
+    u64 frame_time_ms;
     r32 frame_time_s;
     r32 frames_per_s;
 };
@@ -57,7 +68,7 @@ struct Button
     b32 previous_state;
 };
 
-void set(Button *button, s32 id) 
+inline void set(Button *button, s32 id) 
 {
     if (button->num_of_ids > 2)
         error("set() too many ids trying to be assigned to button");
@@ -66,53 +77,16 @@ void set(Button *button, s32 id)
     button->id = id; 
 }
 
-b32 is_down(Button button) 
+inline b32 is_down(Button button) 
 { 
     if (button.current_state) return true; return false; 
 }
 
-b32 on_down(Button button)
+inline b32 on_down(Button button)
 {
     if (button.current_state && button.current_state != button.previous_state) return true;
     return false;
 }
-
-// delta_mouse is a relative mouse movement amount
-// as opposed to the screen coords of the mouse
-function void
-update_camera_with_mouse(Camera *camera, v2s delta_mouse, v2 move_speed)
-{
-    //printf("delta %f, move %f\n", (f32)delta_mouse.x, move_speed.x);
-    
-    camera->yaw   += (f32)delta_mouse.x * move_speed.x;
-    camera->pitch -= (f32)delta_mouse.y * move_speed.y;
-    
-    if (camera->pitch > 89.0f) camera->pitch = 89.0f;
-    if (camera->pitch < -89.0f) camera->pitch = -89.0f;
-    
-    v3 camera_direction = 
-    {
-        cosf(DEG2RAD * camera->yaw) * cosf(DEG2RAD * camera->pitch),
-        sinf(DEG2RAD * camera->pitch),
-        sinf(DEG2RAD * camera->yaw) * cosf(DEG2RAD * camera->pitch)
-    };
-    camera->target = normalized(camera_direction);
-}
-
-function void
-update_camera_with_keys(Camera *camera, v3 move_vector,
-                        Button forward, Button backward,
-                        Button left, Button right,
-                        Button up, Button down)
-{
-    if (is_down(forward))  camera->position += camera->target * move_vector;
-    if (is_down(backward)) camera->position -= camera->target * move_vector;
-    if (is_down(left))     camera->position -= normalized(cross_product(camera->target, camera->up)) * move_vector;
-    if (is_down(right))    camera->position += normalized(cross_product(camera->target, camera->up)) * move_vector;
-    if (is_down(up))       camera->position.y += move_vector.y;
-    if (is_down(down))     camera->position.y -= move_vector.y;
-}
-
 
 struct Controller
 {
@@ -156,9 +130,9 @@ struct Input
     
     Flag relative_mouse_mode;
     
-    SDL_Joystick *joysticks[4];
-    SDL_GameController *game_controllers[4];
-    u32 num_of_joysticks;
+    //SDL_Joystick *joysticks[4];
+    //SDL_GameController *game_controllers[4];
+    //u32 num_of_joysticks;
 };
 
 struct Application
@@ -172,5 +146,8 @@ struct Application
     
     void *data;
 };
+
+void *platform_malloc(u32 size);
+void platform_free(void *ptr);
 
 #endif //APPLICATION_H
