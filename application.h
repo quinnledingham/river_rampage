@@ -106,8 +106,9 @@ struct Controller
             
             Button wire_frame;
             Button reload_shaders;
+            Button toggle_camera_mode;
         };
-        Button buttons[10];
+        Button buttons[11];
     };
 };
 

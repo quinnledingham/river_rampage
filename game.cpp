@@ -8,6 +8,22 @@
 
 #include "menu.cpp"
 
+/*
+TODO
+
+Make main menu and pause menu look better
+
+Skybox
+
+Clean up obj file loader (make string to float a seperate function)
+Clean up mtl file loader
+Improve rendering of models
+
+Make boat movement better
+Add pitch and yaw to boat
+
+*/
+
 // returns game mode
 function s32
 draw_main_menu(Application *app, Game_Data *data)
@@ -94,7 +110,7 @@ void* init_data(Assets *assets)
     *data = {};
     
     // 3D
-    data->camera.position = { 0, 0, 2 };
+    data->camera.position = { 0, 5, 10 };
     data->camera.up       = { 0, 1, 0 };
     data->camera.target   = { 0, 0, -2 };
     data->camera.yaw      = -90.0f;
@@ -111,6 +127,7 @@ void* init_data(Assets *assets)
     data->cube = get_cube_mesh();
     
     data->tree = load_obj("../assets/objs/tails/", "tails.obj");
+    data->boat_model = load_obj("../assets/objs/boat/", "boat.obj");
     
     Shader *shader = find_shader(assets, "MATERIAL");
     platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
@@ -161,6 +178,10 @@ b8 update(void *application)
         
         platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
         platform_set_uniform_block_binding(shader->handle, "Wav",      1);
+
+        shader = find_shader(&app->assets, "MATERIAL");
+        load_shader(shader);
+        compile_shader(shader);
     }
 
     switch (data->game_mode)

@@ -19,15 +19,15 @@ update_camera_with_mouse(Camera *camera, v2s delta_mouse, v2 move_speed)
 }
 
 function void
-update_camera_with_keys(Camera *camera, v3 move_vector,
+update_camera_with_keys(Camera *camera, v3 target, v3 up_v, v3 move_vector,
                         Button forward, Button backward,
                         Button left, Button right,
                         Button up, Button down)
 {
-    if (is_down(forward))  camera->position += camera->target * move_vector;
-    if (is_down(backward)) camera->position -= camera->target * move_vector;
-    if (is_down(left))     camera->position -= normalized(cross_product(camera->target, camera->up)) * move_vector;
-    if (is_down(right))    camera->position += normalized(cross_product(camera->target, camera->up)) * move_vector;
+    if (is_down(forward))  camera->position += target * move_vector;
+    if (is_down(backward)) camera->position -= target * move_vector;
+    if (is_down(left))     camera->position -= normalized(cross_product(target, up_v)) * move_vector;
+    if (is_down(right))    camera->position += normalized(cross_product(target, up_v)) * move_vector;
     if (is_down(up))       camera->position.y += move_vector.y;
     if (is_down(down))     camera->position.y -= move_vector.y;
 }
@@ -144,12 +144,23 @@ apply_waves(const v3 position, Wave *waves, u32 waves_count, f32 time)
 }
 
 function void
+update_boat_3D(Boat3D *boat,   v3 target, v3 up, v3 move_vector,
+               Button forward, Button backward,
+               Button left,    Button right)
+{
+    if (is_down(forward))  boat->coords += target * move_vector;
+    if (is_down(backward)) boat->coords -= target * move_vector;
+    if (is_down(left))     boat->coords -= normalized(cross_product(target, up)) * move_vector;
+    if (is_down(right))    boat->coords += normalized(cross_product(target, up)) * move_vector;
+}
+
+function void
 draw_water(Assets *assets, Mesh mesh, r32 seconds, Wave *waves, u32 waves_count, Light_Source light, Camera camera)
 {
     u32 active_shader = use_shader(find_shader(assets, "WATER"));
     
     v4 color = {30.0f/255.0f, 144.0f/255.0f, 255.0f/255.0f, 0.9};
-    m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {1, 0, 0}), {10, 1, 10});
+    m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {0, 1, 0}), {50, 1, 50});
 
     platform_uniform_m4x4(active_shader, "model", &model);
     platform_uniform_f32(active_shader, "time", seconds);
@@ -178,19 +189,57 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
 
     if (!data->paused)
     {
-        f32 mouse_m_per_s = 100.0f;
-        f32 mouse_move_speed = mouse_m_per_s * time.frame_time_s;
-        update_camera_with_mouse(camera, controller->mouse, {mouse_move_speed, mouse_move_speed});
-        
-        f32 m_per_s = 5.0f; 
-        f32 move_speed = m_per_s * time.frame_time_s;
-        v3 move_vector = {move_speed, move_speed, move_speed};
-        
-        update_camera_with_keys(camera, move_vector,
-                                controller->forward, controller->backward,
-								controller->left,    controller->right,
-                                controller->up,      controller->down);
-        
+        // update camera
+        if (on_down(controller->toggle_camera_mode))
+        {
+            data->camera_mode++;
+            if (data->camera_mode == CAMERA_MODES_COUNT) data->camera_mode = 0;
+        }
+
+        if (data->camera_mode == FREE_CAMERA)
+        {
+            f32 mouse_m_per_s = 100.0f;
+            f32 mouse_move_speed = mouse_m_per_s * time.frame_time_s;
+            update_camera_with_mouse(camera, controller->mouse, {mouse_move_speed, mouse_move_speed});
+            
+            f32 m_per_s = 5.0f; 
+            f32 move_speed = m_per_s * time.frame_time_s;
+            v3 move_vector = {move_speed, move_speed, move_speed};
+            
+            update_camera_with_keys(&data->camera, data->camera.target, data->camera.up, move_vector,
+                                    controller->forward, controller->backward,
+    								controller->left,    controller->right,
+                                    controller->up,      controller->down);
+
+            log("%f %f %f", data->camera.position.x, data->camera.position.y, data->camera.position.z);
+            log("%f %f", data->camera.yaw, data->camera.pitch);
+        }
+        else if (data->camera_mode == BOAT_CAMERA)
+        {
+            v3 camera_direction = 
+            {
+                cosf(DEG2RAD * camera->yaw) * cosf(DEG2RAD * camera->pitch),
+                sinf(DEG2RAD * camera->pitch),
+                sinf(DEG2RAD * camera->yaw) * cosf(DEG2RAD * camera->pitch)
+            };
+            data->camera.target = normalized(camera_direction);
+
+            f32 m_per_s = 5.0f; 
+            f32 move_speed = m_per_s * time.frame_time_s;
+            v3 move_vector = {move_speed, 0.0f, move_speed};
+
+            update_camera_with_keys(&data->camera, data->boat3D.direction, data->camera.up, move_vector,
+                                    controller->forward, controller->backward,
+                                    controller->left,    controller->right,
+                                    controller->up,      controller->down);
+
+
+            update_boat_3D(&data->boat3D, data->boat3D.direction, {0, 1, 0}, move_vector,
+                           controller->forward, controller->backward,
+                           controller->left,    controller->right);
+
+        }
+
         data->boat3D.draw_coords = apply_waves(data->boat3D.coords, data->waves, 5, time.run_time_s);
     }
     else
@@ -211,9 +260,11 @@ draw_game_3D(Application *app, Game_Data *data)
 	platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, true);
             
     draw_water(&app->assets, data->water, app->time.run_time_s, data->waves, 5, data->light, data->camera);
-    draw_model(find_shader(&app->assets, "MATERIAL"), &data->tree, data->light, data->camera);
+    draw_model(find_shader(&app->assets, "MATERIAL"), &data->tree, data->light, data->camera, {0, 0, 0});
     draw_cube(data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
-    draw_cube(data->boat3D.draw_coords, 0, { 1, 1, 1 }, { 255, 0, 255, 255 });
+    //draw_cube(data->boat3D.draw_coords, 0, { 1, 1, 1 }, { 255, 0, 255, 255 });
+
+    draw_model(find_shader(&app->assets, "MATERIAL"), &data->boat_model, data->light, data->camera, data->boat3D.draw_coords);
     
 	orthographic(data->matrices_ubo, &app->matrices); // 2D
 

@@ -515,6 +515,27 @@ get_length(const char *string)
     return length;
 }
 
+function char*
+string_malloc(const char *string)
+{
+    if (string == 0) return 0;
+    u32 length = get_length(string);
+    char* result = (char*)malloc(length + 1);
+    for (u32 i = 0; i < length; i++) result[i] = string[i];
+    result[length] = 0;
+    return result;
+}
+
+internal const char*
+string_malloc_length(const char *string, u32 length)
+{
+    if (string == 0) return 0;
+    char* result = (char*)malloc(length + 1);
+    for (u32 i = 0; i < length; i++) result[i] = string[i];
+    result[length] = 0;
+    return result;
+}
+
 // converts n number of chars to a string
 // ex) chtos(3, a, b, c) returns "abc"
 function char*

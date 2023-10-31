@@ -53,6 +53,8 @@ struct Boat3D
 {
     v3 coords;
     v3 draw_coords; // boat coords with waves applied
+
+    v3 direction = {1, 0, 0};
 };
 
 enum Game_Modes
@@ -60,6 +62,14 @@ enum Game_Modes
     MAIN_MENU,
     IN_GAME_2D,
     IN_GAME_3D,
+};
+
+enum Camera_Modes
+{
+    BOAT_CAMERA,
+    FREE_CAMERA,
+
+    CAMERA_MODES_COUNT,
 };
 
 struct Game_Data
@@ -75,6 +85,9 @@ struct Game_Data
     u32 wave_ubo; 
     
     Boat3D boat3D;
+    u32 camera_mode;
+
+    Model boat_model;
     
     // 2D
     Boat boat;

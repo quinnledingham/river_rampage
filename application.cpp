@@ -104,9 +104,9 @@ void platform_set_polygon_mode(u32 mode)
 {
     switch(mode)
     {
-        case PLATFORM_POLYGON_MODE_POINT: glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
-        case PLATFORM_POLYGON_MODE_LINE:  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        case PLATFORM_POLYGON_MODE_FILL:  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        case PLATFORM_POLYGON_MODE_POINT: glPolygonMode(GL_FRONT_AND_BACK, GL_POINT); break;
+        case PLATFORM_POLYGON_MODE_LINE:  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); break;
+        case PLATFORM_POLYGON_MODE_FILL:  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); break;
     }
 }
 
@@ -300,6 +300,7 @@ init_controllers(Input *input)
     
     set(&keyboard->wire_frame,     SDLK_t);
     set(&keyboard->reload_shaders, SDLK_r);
+    set(&keyboard->toggle_camera_mode, SDLK_c);
     
     input->num_of_controllers = 1;
 }
@@ -365,6 +366,7 @@ int main(int argc, char *argv[])
 
     u64 assets_loading_time_started = SDL_GetTicks64();
     if (load_assets(&app.assets, "../assets.ethan")) return 1;
+    app.data = (void*)init_data(&app.assets);
     log("time loading assets: %f", get_seconds(assets_loading_time_started, SDL_GetTicks64()));
 
     init_controllers(&app.input);
@@ -376,8 +378,6 @@ int main(int argc, char *argv[])
     glPatchParameteri(GL_PATCH_VERTICES, 4); 
 
     init_shapes(find_shader(&app.assets, "COLOR"), find_shader(&app.assets, "TEX"));
-
-    app.data = (void*)init_data(&app.assets);
 
     return main_loop(&app, sdl_window);
 }

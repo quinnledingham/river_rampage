@@ -113,7 +113,7 @@ struct Model
 };
 
 Model load_obj(const char *path, const char *filename);
-void draw_model(Shader *shader, Model *model, Light_Source light, Camera camera);
+void draw_model(Shader *shader, Model *model, Light_Source light, Camera camera, v3 position);
 
 struct Font_Scale
 {
