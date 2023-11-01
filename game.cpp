@@ -15,6 +15,8 @@ TODO
 
 Make main menu and pause menu look better
 
+investigate the text renderer
+
 Clean up obj file loader (make string to float a seperate function)
 Clean up mtl file loader
 Improve rendering of models

@@ -208,43 +208,29 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
             if (data->camera_mode == CAMERA_MODES_COUNT) data->camera_mode = 0;
         }
 
+        Button null_button = {};
+        f32 m_per_s = 5.0f; 
+        f32 move_speed = m_per_s * time.frame_time_s;
+
         if (data->camera_mode == FREE_CAMERA)
         {
             f32 mouse_m_per_s = 100.0f;
             f32 mouse_move_speed = mouse_m_per_s * time.frame_time_s;
             update_camera_with_mouse(camera, controller->mouse, {mouse_move_speed, mouse_move_speed});
             
-            f32 m_per_s = 5.0f; 
-            f32 move_speed = m_per_s * time.frame_time_s;
             v3 move_vector = {move_speed, move_speed, move_speed};
-            
             update_camera_with_keys(&data->camera, data->camera.target, data->camera.up, move_vector,
                                     controller->forward, controller->backward,
     								controller->left,    controller->right,
                                     controller->up,      controller->down);
-
-            //log("%f %f %f", data->camera.position.x, data->camera.position.y, data->camera.position.z);
-            //log("%f %f", data->camera.yaw, data->camera.pitch);
         }
         else if (data->camera_mode == BOAT_CAMERA)
         {
-            v3 camera_direction = 
-            {
-                cosf(DEG2RAD * camera->yaw) * cosf(DEG2RAD * camera->pitch),
-                sinf(DEG2RAD * camera->pitch),
-                sinf(DEG2RAD * camera->yaw) * cosf(DEG2RAD * camera->pitch)
-            };
-            data->camera.target = normalized(camera_direction);
-
-            f32 m_per_s = 5.0f; 
-            f32 move_speed = m_per_s * time.frame_time_s;
             v3 move_vector = {move_speed, 0.0f, move_speed};
-
             update_camera_with_keys(&data->camera, data->boat3D.direction, data->camera.up, move_vector,
                                     controller->forward, controller->backward,
-                                    controller->up,    controller->up,
-                                    controller->up,      controller->down);
-
+                                    null_button, null_button,
+                                    null_button, null_button);
 
             update_boat_3D(&data->boat3D, data->boat3D.direction, {0, 1, 0}, move_vector,
                            controller->forward, controller->backward,
