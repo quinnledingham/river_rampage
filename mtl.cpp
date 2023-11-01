@@ -1,3 +1,16 @@
+struct MTL_Token
+{
+    s32 type;
+    union
+    {
+        const char *lexeme;
+        float float_num;
+        s32 int_num;
+    };
+    s32 ch;
+};
+
+
 struct Mtl
 {
     Material *materials; // loaded from the corresponding material file

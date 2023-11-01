@@ -644,24 +644,42 @@ mix_audio(Audio_Player *player, r32 frame_time_s)
 // Model
 //
 
-void draw_model(Shader *shader, Model *model, Light_Source light, Camera camera, v3 position, quat rotation)
+void draw_model(Shader *shader, Shader *tex_shader, Model *model, Light_Source light, Camera camera, v3 position, quat rotation)
 {
-    u32 handle = use_shader(shader);
-    //v4 shape_color = {0, 255, 0, 1};
-    //glUniform4fv(glGetUniformLocation(handle, "user_color"), (GLsizei)1, (float*)&shape_color);
-    m4x4 model_matrix = create_transform_m4x4(position, rotation, {1, 1, 1});
-    glUniformMatrix4fv(glGetUniformLocation(handle, "model"),      (GLsizei)1, false, (float*)&model_matrix);
-    
-    glUniform3fv(glGetUniformLocation(handle, "viewPos"), (GLsizei)1, (float*)&camera.position);
-    
     v3 light_ambient = { 0.2, 0.2, 0.2 };
     v3 light_diffuse = { 0.9, 0.9, 0.9 };
     v3 light_specular = { 1, 1, 1 };
-    
+
+    u32 shader_enabled = 0; // 0 no shader, 1 shader, 2 tex_shader
+    u32 handle = 0;
+    //u32 handle = use_shader(shader);
+
+    //m4x4 model_matrix = create_transform_m4x4(position, rotation, {1, 1, 1});
+    //glUniformMatrix4fv(glGetUniformLocation(handle, "model"), (GLsizei)1, false, (float*)&model_matrix);
+    //glUniform3fv(glGetUniformLocation(handle, "viewPos"), (GLsizei)1, (float*)&camera.position);    
     glBindTexture(GL_TEXTURE_2D, 0);
 
     for (s32 i = 0; i < model->meshes_count; i++)
     {
+        if (shader_enabled != 1 && model->meshes[i].material.diffuse_map.memory == 0)
+        {
+            shader_enabled = 1;
+            handle = use_shader(shader);
+
+            m4x4 model_matrix = create_transform_m4x4(position, rotation, {1, 1, 1});
+            glUniformMatrix4fv(glGetUniformLocation(handle, "model"), (GLsizei)1, false, (float*)&model_matrix);
+            glUniform3fv(glGetUniformLocation(handle, "viewPos"), (GLsizei)1, (float*)&camera.position);  
+        }
+        else if (shader_enabled != 2 && model->meshes[i].material.diffuse_map.memory != 0)
+        {
+            shader_enabled = 2;
+            handle = use_shader(tex_shader);
+
+            m4x4 model_matrix = create_transform_m4x4(position, rotation, {1, 1, 1});
+            glUniformMatrix4fv(glGetUniformLocation(handle, "model"), (GLsizei)1, false, (float*)&model_matrix);
+            glUniform3fv(glGetUniformLocation(handle, "viewPos"), (GLsizei)1, (float*)&camera.position);    
+        }
+
         glUniform3fv(glGetUniformLocation(handle, "material.ambient"), (GLsizei)1, (float*)&model->meshes[i].material.ambient);
         glUniform3fv(glGetUniformLocation(handle, "material.diffuse"), (GLsizei)1, (float*)&model->meshes[i].material.diffuse);
         glUniform3fv(glGetUniformLocation(handle, "material.specular"), (GLsizei)1, (float*)&model->meshes[i].material.specular);
@@ -866,112 +884,27 @@ skip_whitespace(const char *ptr)
     return ptr;
 }
 
-#define MAX_POWER 20
-
-global const
-double POWER_10_POS[MAX_POWER] =
-{
-    1.0e0,  1.0e1,  1.0e2,  1.0e3,  1.0e4,  1.0e5,  1.0e6,  1.0e7,  1.0e8,  1.0e9,
-    1.0e10, 1.0e11, 1.0e12, 1.0e13, 1.0e14, 1.0e15, 1.0e16, 1.0e17, 1.0e18, 1.0e19,
-};
-
-global const
-double POWER_10_NEG[MAX_POWER] =
-{
-    1.0e0,   1.0e-1,  1.0e-2,  1.0e-3,  1.0e-4,  1.0e-5,  1.0e-6,  1.0e-7,  1.0e-8,  1.0e-9,
-    1.0e-10, 1.0e-11, 1.0e-12, 1.0e-13, 1.0e-14, 1.0e-15, 1.0e-16, 1.0e-17, 1.0e-18, 1.0e-19,
-};
-
-internal int
-is_exponent(char c)
-{
-    return (c == 'e' || c == 'E');
-}
-
-function const char*
-parse_float(const char *ptr, float *val)
-{
-    r64 sign = 1.0;
-    r64 num = 0.0;
-    r64 fra = 0.0;
-    r64 div = 1.0;
-    u32 eval = 0;
-    const r64* powers = POWER_10_POS;
-
-    ptr = skip_whitespace(ptr);
-
-    switch (*ptr)
-    {
-        case '+': sign =  1.0; ptr++; break;
-        case '-': sign = -1.0; ptr++; break;
-    }
-
-    while (isdigit(*ptr)) num = 10.0 * num + (double)(*ptr++ - '0');
-
-    if (*ptr == '.') ptr++;
-
-    while (isdigit(*ptr))
-    {
-        fra  = 10.0 * fra + (double)(*ptr++ - '0');
-        div *= 10.0;
-    }
-
-    num += fra / div;
-
-    if (is_exponent(*ptr))
-    {
-        ptr++;
-
-        switch (*ptr)
-        {
-            case '+': powers = POWER_10_POS; ptr++; break;
-            case '-': powers = POWER_10_NEG; ptr++; break;
-        }
-
-        while (isdigit(*ptr)) eval = 10 * eval + (*ptr++ - '0');
-
-        num *= (eval >= MAX_POWER) ? 0.0 : powers[eval];
-    }
-
-    *val = (float)(sign * num);
-
-    return ptr;
-}
-
-function const char*
-parse_int(const char *ptr, u32 *val)
-{
-    u32 sign = 1;
-    u32 num = 0;
-
-    ptr = skip_whitespace(ptr);
-
-    if (*ptr == '-')
-    {
-        sign = -1;
-        ptr++;
-    }
-
-    while (isdigit(*ptr)) num = 10 * num + (*ptr++ - '0');
-    *val = sign * num;
-
-    return ptr;
-}
-
-inline void
+internal void
 parse_v3_obj(File *file, s32 *line_num, v3 *v)
 {    
-    file->ch = (char*)parse_float(file->ch, &v->x);
-    file->ch = (char*)parse_float(file->ch, &v->y);
-    file->ch = (char*)parse_float(file->ch, &v->z);
+    file->ch = (char*)skip_whitespace(file->ch);
+    file->ch = (char*)char_array_to_f32(file->ch, &v->x);
+    file->ch = (char*)skip_whitespace(file->ch);
+    file->ch = (char*)char_array_to_f32(file->ch, &v->y);
+    file->ch = (char*)skip_whitespace(file->ch);
+    file->ch = (char*)char_array_to_f32(file->ch, &v->z);
+    file->ch = (char*)skip_whitespace(file->ch);
 }
 
-inline void
+internal void
 parse_face_vertex(File *file, s32 *line_num, Face_Vertex *f)
 {
-    file->ch = (char*)parse_int(file->ch, &f->position_index);
-    file->ch = (char*)parse_int(file->ch, &f->uv_index);
-    file->ch = (char*)parse_int(file->ch, &f->normal_index);
+    file->ch = (char*)skip_whitespace(file->ch);
+    file->ch = (char*)char_array_to_u32(file->ch, &f->position_index);
+    file->ch = (char*)skip_whitespace(file->ch);
+    file->ch = (char*)char_array_to_u32(file->ch, &f->uv_index);
+    file->ch = (char*)skip_whitespace(file->ch);
+    file->ch = (char*)char_array_to_u32(file->ch, &f->normal_index);
 }
 
 Model load_obj(const char *path, const char *filename)
@@ -1117,8 +1050,11 @@ Model load_obj(const char *path, const char *filename)
             else if (token.type == OBJ_TOKEN_NORMAL) parse_v3_obj(&file, &line_num, &obj.normals[normals_index++]);
             else if (token.type == OBJ_TOKEN_TEXTURE_COORD)
             {
-                file.ch = (char*)parse_float(file.ch, &obj.uvs[uvs_index].x);
-                file.ch = (char*)parse_float(file.ch, &obj.uvs[uvs_index].y);
+                file.ch = (char*)skip_whitespace(file.ch);
+                file.ch = (char*)char_array_to_f32(file.ch, &obj.uvs[uvs_index].x);
+                file.ch = (char*)skip_whitespace(file.ch);
+                file.ch = (char*)char_array_to_f32(file.ch, &obj.uvs[uvs_index].y);
+                file.ch = (char*)skip_whitespace(file.ch);
                 uvs_index++;
             }
             else if (token.type == OBJ_TOKEN_FACE)

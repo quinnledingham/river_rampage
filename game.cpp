@@ -1,5 +1,7 @@
 #include "log.h"
 #include "types.h"
+#include "types_math.h"
+#include "char_array.h"
 #include "assets.h"
 #include "shapes.h"
 #include "data_structures.h"
@@ -12,8 +14,6 @@
 TODO
 
 Make main menu and pause menu look better
-
-Skybox
 
 Clean up obj file loader (make string to float a seperate function)
 Clean up mtl file loader
@@ -116,7 +116,7 @@ void* init_data(Assets *assets)
     data->camera.yaw      = -90.0f;
     data->camera.fov      = 80.0f;
     
-    data->light.position = { 5.0f, 5.0f, 10.0f };
+    data->light.position = { 5.0f, 20.0f, 10.0f };
     data->light.color = { 1.0f, 1.0f, 1.0f, 1.0f };
     
     Mesh temp_square_mesh = create_square_mesh(10, 10);
@@ -140,7 +140,7 @@ void* init_data(Assets *assets)
     data->wave_ubo = init_uniform_buffer_object(5 * sizeof(Wave), 1);
     
     data->waves[0] = get_wave({ 1.0, 0.0 }, 20.0f, 0.2f);
-    data->waves[1] = get_wave({ 1, 1 }, 1.0f, 0.15f);
+    data->waves[1] = get_wave({ 1.0, 1.0 }, 1.0f, 0.15f);
     data->waves[2] = get_wave({ 0.1, 0.1 }, 2.0f, 0.1f);
     data->waves[3] = get_wave({ 0.7, 0.9 }, 9.0f, 0.05f);
     data->waves[4] = get_wave({ 1.0, 1.0 }, 10.0f, 0.25f);
@@ -182,7 +182,7 @@ b8 update(void *application)
         platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
         platform_set_uniform_block_binding(shader->handle, "Wav",      1);
 
-        shader = find_shader(&app->assets, "SKYBOX");
+        shader = find_shader(&app->assets, "MATERIAL");
         load_shader(shader);
         compile_shader(shader);
     }

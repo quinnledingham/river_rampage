@@ -4,6 +4,8 @@
 
 #include "log.h"
 #include "types.h"
+#include "types_math.h"
+#include "char_array.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_RESIZE_IMPLEMENTATION

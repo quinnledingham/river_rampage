@@ -28,15 +28,13 @@ uniform Light light;
 void main()
 {
     // ambient
-    vec3 ambient = light.ambient * material.ambient;
-    //vec3 ambient = light.ambient * texture(material.diffuse_map, uv).rgb;
+    vec3 ambient = light.ambient * texture(material.diffuse_map, uv).rgb;
 
     // diffuse 
     vec3 norm = normalize(Normal);
     vec3 lightDir = normalize(light.position - FragPos);
     float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = light.diffuse * (diff * material.diffuse);
-    //vec3 diffuse = light.diffuse * diff * texture(material.diffuse_map, uv).rgb;
+    vec3 diffuse = light.diffuse * diff * texture(material.diffuse_map, uv).rgb;
     
     // specular
     vec3 viewDir = normalize(viewPos - FragPos);
