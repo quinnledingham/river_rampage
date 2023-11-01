@@ -17,6 +17,9 @@ COLOR|FRAGMENT, ../assets/shaders/color.fs
 TEX|VERTEX, ../assets/shaders/basic.vs
 TEX|FRAGMENT, ../assets/shaders/tex.fs
 
+SKYBOX|VERTEX, ../assets/shaders/skybox.vs
+SKYBOX|FRAGMENT, ../assets/shaders/skybox.fs
+
 BITMAPS:
 BOAT, ../assets/bitmaps/boat.png
 PERLIN, ../assets/bitmaps/noiseTexture.png

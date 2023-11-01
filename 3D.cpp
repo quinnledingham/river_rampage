@@ -150,8 +150,19 @@ update_boat_3D(Boat3D *boat,   v3 target, v3 up, v3 move_vector,
 {
     if (is_down(forward))  boat->coords += target * move_vector;
     if (is_down(backward)) boat->coords -= target * move_vector;
-    if (is_down(left))     boat->coords -= normalized(cross_product(target, up)) * move_vector;
-    if (is_down(right))    boat->coords += normalized(cross_product(target, up)) * move_vector;
+
+    if (is_down(left))
+    {
+        quat rot = get_rotation(DEG2RAD * 0.05f, up);
+        boat->direction = rot * boat->direction;
+    }
+    else if (is_down(right))
+    {
+        quat rot = get_rotation(DEG2RAD * -0.05f, up);
+        boat->direction = rot * boat->direction;
+    }
+    //if (is_down(left))     boat->coords -= normalized(cross_product(target, up)) * move_vector;
+    //if (is_down(right))    boat->coords += normalized(cross_product(target, up)) * move_vector;
 }
 
 function void
@@ -249,22 +260,45 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
 }
 
 internal void
+draw_skybox(Assets *assets, Cubemap *cubemap, Mesh *cube)
+{
+    platform_set_depth_mask(false);
+    Shader *shader = find_shader(assets, "SKYBOX");
+    u32 active_shader = use_shader(shader);
+
+    m4x4 model_matrix = create_transform_m4x4({0, 0, 0}, get_rotation(0, {0, 1, 0}), {1000, 1000, 1000});
+    platform_uniform_m4x4(active_shader, "model", &model_matrix);
+
+    platform_set_texture_cube_map(cubemap, active_shader);
+    draw_mesh(cube);
+    platform_set_depth_mask(true);
+}
+
+internal void
 draw_game_3D(Application *app, Game_Data *data)
 {
 	Controller *menu_controller = app->input.active_controller;
 
 	app->matrices.view_matrix = get_view(data->camera);
 	perspective(data->matrices_ubo, &app->matrices); // 3D
-            
+    
+    // skybox
+    
+    draw_skybox(&app->assets, &data->skybox, &data->skybox_cube);
+
 	platform_set_capability(PLATFORM_CAPABILITY_DEPTH_TEST, true);
 	platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, true);
-            
+    
     draw_water(&app->assets, data->water, app->time.run_time_s, data->waves, 5, data->light, data->camera);
-    draw_model(find_shader(&app->assets, "MATERIAL"), &data->tree, data->light, data->camera, {0, 0, 0});
+    draw_model(find_shader(&app->assets, "MATERIAL"), &data->tree, data->light, data->camera, {0, 0, 0}, get_rotation(0, {0, 1, 0}));
     draw_cube(data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
+
+    //draw_cube({1, 5, 1}, 0, { 1, 1, 1 }, find_bitmap(&app->assets, "BOAT"));
     //draw_cube(data->boat3D.draw_coords, 0, { 1, 1, 1 }, { 255, 0, 255, 255 });
 
-    draw_model(find_shader(&app->assets, "MATERIAL"), &data->boat_model, data->light, data->camera, data->boat3D.draw_coords);
+    r32 angle = v2_to_angle({data->boat3D.direction.x, data->boat3D.direction.z});
+    quat rot = get_rotation(angle, {0, 1, 0});
+    draw_model(find_shader(&app->assets, "MATERIAL"), &data->boat_model, data->light, data->camera, data->boat3D.draw_coords, rot);
     
 	orthographic(data->matrices_ubo, &app->matrices); // 2D
 

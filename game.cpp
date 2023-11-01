@@ -127,7 +127,7 @@ void* init_data(Assets *assets)
     data->cube = get_cube_mesh();
     
     data->tree = load_obj("../assets/objs/tails/", "tails.obj");
-    data->boat_model = load_obj("../assets/objs/boat/", "boat.obj");
+    data->boat_model = load_obj("../assets/objs/boat/", "boat2.obj");
     
     Shader *shader = find_shader(assets, "MATERIAL");
     platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
@@ -149,6 +149,9 @@ void* init_data(Assets *assets)
     
     data->boat3D.coords = { 0, -1.5f, 0 };
     
+    data->skybox_cube = get_cube_mesh(false);
+    data->skybox = load_cubemap();
+
     // 2D
     init_boat(&data->boat);
     //data->tree = load_obj("../assets/objs/test.obj");
@@ -179,7 +182,7 @@ b8 update(void *application)
         platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
         platform_set_uniform_block_binding(shader->handle, "Wav",      1);
 
-        shader = find_shader(&app->assets, "MATERIAL");
+        shader = find_shader(&app->assets, "SKYBOX");
         load_shader(shader);
         compile_shader(shader);
     }

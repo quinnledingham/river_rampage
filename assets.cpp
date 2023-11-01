@@ -104,16 +104,29 @@ write_file(File *file, const char *filename)
 // Bitmap
 //
 
-function Bitmap
-load_bitmap(const char *filename)
+internal Bitmap
+load_bitmap(const char *filename, b32 flip_on_load)
 {
-    stbi_set_flip_vertically_on_load(true);
+    if (flip_on_load) stbi_set_flip_vertically_on_load(true);
+    else              stbi_set_flip_vertically_on_load(false);
     Bitmap bitmap = {};
     bitmap.memory = stbi_load(filename, &bitmap.dim.width, &bitmap.dim.height, &bitmap.channels, 0);
     if (bitmap.memory == 0) error("load_bitmap() could not load bitmap %s", filename);
     //log("file: %s %d %d %d\n", filename, bitmap.dim.width, bitmap.dim.height, bitmap.channels);
     bitmap.pitch = bitmap.dim.width * bitmap.channels;
     return bitmap;
+}
+
+internal Bitmap
+load_bitmap(const char *filename)
+{
+    return load_bitmap(filename, true);
+}
+
+internal void
+free_bitmap(Bitmap bitmap)
+{
+    stbi_image_free(bitmap.memory);
 }
 
 function void
@@ -166,6 +179,51 @@ load_and_init_bitmap(const char *filename)
     Bitmap bitmap = load_bitmap(filename);
     init_bitmap_handle(&bitmap);
     return bitmap;
+}
+
+/*
+GL_TEXTURE_CUBE_MAP_POSITIVE_X  Right
+GL_TEXTURE_CUBE_MAP_NEGATIVE_X  Left
+GL_TEXTURE_CUBE_MAP_POSITIVE_Y  Top
+GL_TEXTURE_CUBE_MAP_NEGATIVE_Y  Bottom
+GL_TEXTURE_CUBE_MAP_POSITIVE_Z  Back
+GL_TEXTURE_CUBE_MAP_NEGATIVE_Z  Front
+*/
+Cubemap
+load_cubemap()
+{
+    Cubemap cubemap = {};
+
+    GLenum target = GL_TEXTURE_CUBE_MAP;
+    GLint internal_format = GL_RGB;
+    GLenum data_format = GL_RGB;
+    GLint pixel_unpack_alignment = 1;
+
+    glGenTextures(1, &cubemap.handle);
+    glBindTexture(target, cubemap.handle);
+
+    for (u32 i = 0; i < 6; i++)
+    {
+        cubemap.bitmaps[i] = load_bitmap(cubemap.filenames[i], false);
+        Bitmap *bitmap = &cubemap.bitmaps[i];
+
+        if (bitmap->memory == 0)
+        {
+            error("load_cubemap(): could not load %s", cubemap.filenames[i]);
+            free_bitmap(*bitmap);
+            continue;
+        }
+        //glPixelStorei(GL_UNPACK_ALIGNMENT, pixel_unpack_alignment);
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, internal_format, bitmap->dim.width, bitmap->dim.height, 0, data_format, GL_UNSIGNED_BYTE, bitmap->memory);
+    }
+
+    glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    return cubemap;
 }
 
 //
@@ -586,12 +644,12 @@ mix_audio(Audio_Player *player, r32 frame_time_s)
 // Model
 //
 
-void draw_model(Shader *shader, Model *model, Light_Source light, Camera camera, v3 position)
+void draw_model(Shader *shader, Model *model, Light_Source light, Camera camera, v3 position, quat rotation)
 {
     u32 handle = use_shader(shader);
     //v4 shape_color = {0, 255, 0, 1};
     //glUniform4fv(glGetUniformLocation(handle, "user_color"), (GLsizei)1, (float*)&shape_color);
-    m4x4 model_matrix = create_transform_m4x4(position, get_rotation(DEG2RAD * 90.0f, {0, 1, 0}), {1, 1, 1});
+    m4x4 model_matrix = create_transform_m4x4(position, rotation, {1, 1, 1});
     glUniformMatrix4fv(glGetUniformLocation(handle, "model"),      (GLsizei)1, false, (float*)&model_matrix);
     
     glUniform3fv(glGetUniformLocation(handle, "viewPos"), (GLsizei)1, (float*)&camera.position);
@@ -600,6 +658,8 @@ void draw_model(Shader *shader, Model *model, Light_Source light, Camera camera,
     v3 light_diffuse = { 0.9, 0.9, 0.9 };
     v3 light_specular = { 1, 1, 1 };
     
+    glBindTexture(GL_TEXTURE_2D, 0);
+
     for (s32 i = 0; i < model->meshes_count; i++)
     {
         glUniform3fv(glGetUniformLocation(handle, "material.ambient"), (GLsizei)1, (float*)&model->meshes[i].material.ambient);
@@ -973,7 +1033,7 @@ Model load_obj(const char *path, const char *filename)
         u32 uvs_index           = 0;
         u32 normals_index       = 0;
         u32 face_vertices_index = 0;
-        
+        /*
         while(*file.ch != EOF)
         {
             file.ch = (char*)skip_whitespace(file.ch);
@@ -1046,8 +1106,8 @@ Model load_obj(const char *path, const char *filename)
                 file.ch++;
             }
         }
+        */
         
-        /*
         do
         {
             last_token = token;
@@ -1086,7 +1146,7 @@ Model load_obj(const char *path, const char *filename)
                 model.meshes[meshes_index].material.id = string_malloc(token.lexeme);
             }
         } while(token.type != OBJ_TOKEN_EOF);
-        */
+        
     }
     
     free_file(&file);

@@ -32,6 +32,7 @@ void platform_uniform_f32(u32 shader_handle, const char *tag, f32 f);
 void platform_uniform_v3(u32 shader_handle, const char *tag, v3 v);
 void platform_uniform_v4(u32 shader_handle, const char *tag, v4 v);
 void platform_set_texture(Bitmap *bitmap);
+void platform_set_texture_cube_map(Cubemap *cubemap, u32 shader);
 
 void platform_blend_function(u32 source_factor, u32 destination_factor);
 
@@ -47,6 +48,7 @@ enum
 
 void platform_set_polygon_mode(u32 mode);
 void platform_set_capability(u32 capability, b32 state);
+void platform_set_depth_mask(b32 state);
 
 struct Time
 {

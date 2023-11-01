@@ -350,9 +350,9 @@ get_rotation_to_direction(const v3& direction, const v3& up)
     
     quat world_to_object = from_to({ 0, 0, 1 }, forward); // From world forward to object forward
     v3 object_up = { 0, 1, 0 };
-    object_up = world_to_object * object_up; // What direction is the new object up?
+    object_up = world_to_object * object_up;   // What direction is the new object up?
     quat u_to_u = from_to(object_up, norm_up); // From object up to desired up
-    quat result = world_to_object * u_to_u; // Rotate to forward direction then twist to correct up
+    quat result = world_to_object * u_to_u;    // Rotate to forward direction then twist to correct up
     
     return normalized(result);
 }

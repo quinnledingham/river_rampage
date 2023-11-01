@@ -95,6 +95,14 @@ void platform_set_texture(Bitmap *bitmap)
     glBindTexture(GL_TEXTURE_2D, bitmap->handle);
 }
 
+void platform_set_texture_cube_map(Cubemap *cubemap, u32 shader)
+{
+    //glDepthFunc(GL_LEQUAL);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap->handle);
+    glUniform1i(glGetUniformLocation(shader, "skybox"), 0);
+}
+
 void platform_blend_function(u32 source_factor, u32 destination_factor)
 {
     glBlendFunc(source_factor, destination_factor);
@@ -123,6 +131,12 @@ void platform_set_capability(u32 capability, b32 state)
         case PLATFORM_CAPABILITY_DEPTH_TEST: opengl_set_capability(GL_DEPTH_TEST, state); break;
         case PLATFORM_CAPABILITY_CULL_FACE:  opengl_set_capability(GL_CULL_FACE, state);  break;
     }
+}
+
+void platform_set_depth_mask(b32 state)
+{
+    if (state) glDepthMask(GL_TRUE);
+    else       glDepthMask(GL_FALSE);
 }
 
 //

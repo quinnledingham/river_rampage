@@ -156,37 +156,64 @@ void draw_circle(v2 coords, r32 rotation, r32 radius, v4 color)
 // Cube
 //
  
-Mesh get_cube_mesh()
+Mesh get_cube_mesh(b32 out)
 {
     Mesh mesh = {};
     
     mesh.vertices_count = 8;
     mesh.vertices = ARRAY_MALLOC(Vertex, mesh.vertices_count);
     
+    // back
     mesh.vertices[0] = { {-0.5, -0.5, -0.5}, {0, 0, 1}, {0, 0} }; // bottom left
     mesh.vertices[1] = { {-0.5,  0.5, -0.5}, {0, 0, 1}, {0, 1} }; // top left
     mesh.vertices[2] = { { 0.5, -0.5, -0.5}, {0, 0, 1}, {1, 0} }; // bottom right
     mesh.vertices[3] = { { 0.5,  0.5, -0.5}, {0, 0, 1}, {1, 1} }; // top right
     
+    // forward
     mesh.vertices[4] = { {-0.5, -0.5, 0.5}, {0, 0, 1}, {0, 0} }; // bottom left
     mesh.vertices[5] = { {-0.5,  0.5, 0.5}, {0, 0, 1}, {0, 1} }; // top left
     mesh.vertices[6] = { { 0.5, -0.5, 0.5}, {0, 0, 1}, {1, 0} }; // bottom right
     mesh.vertices[7] = { { 0.5,  0.5, 0.5}, {0, 0, 1}, {1, 1} }; // top right
+    /*
+    // back
+    mesh.vertices[0] = { {-1.0, -1.0, -1.0}, {0, 0, 1}, {0, 0} }; // bottom left
+    mesh.vertices[1] = { {-1.0,  1.0, -1.0}, {0, 0, 1}, {0, 1} }; // top left
+    mesh.vertices[2] = { { 1.0, -1.0, -1.0}, {0, 0, 1}, {1, 0} }; // bottom right
+    mesh.vertices[3] = { { 1.0,  1.0, -1.0}, {0, 0, 1}, {1, 1} }; // top right
     
+    // forward
+    mesh.vertices[4] = { {-1.0, -1.0, 1.0}, {0, 0, 1}, {0, 0} }; // bottom left
+    mesh.vertices[5] = { {-1.0,  1.0, 1.0}, {0, 0, 1}, {0, 1} }; // top left
+    mesh.vertices[6] = { { 1.0, -1.0, 1.0}, {0, 0, 1}, {1, 0} }; // bottom right
+    mesh.vertices[7] = { { 1.0,  1.0, 1.0}, {0, 0, 1}, {1, 1} }; // top right
+    */
     mesh.indices_count = 6 * 6; // 6 indices per side (rects), 6 sides
     mesh.indices = ARRAY_MALLOC(u32, mesh.indices_count);
     
-    init_rect_indices(mesh.indices + 0,  3, 1, 2, 0); // back
-    init_rect_indices(mesh.indices + 6,  5, 7, 4, 6); // front
-    init_rect_indices(mesh.indices + 12, 1, 3, 5, 7); // top
-    init_rect_indices(mesh.indices + 18, 4, 6, 0, 2); // bottom
-    init_rect_indices(mesh.indices + 24, 1, 5, 0, 4); // left
-    init_rect_indices(mesh.indices + 30, 7, 3, 6, 2); // right
-    
+    if (out)
+    {
+        init_rect_indices(mesh.indices + 0,  3, 1, 2, 0); // back
+        init_rect_indices(mesh.indices + 6,  5, 7, 4, 6); // front
+        init_rect_indices(mesh.indices + 12, 1, 3, 5, 7); // top
+        init_rect_indices(mesh.indices + 18, 4, 6, 0, 2); // bottom
+        init_rect_indices(mesh.indices + 24, 1, 5, 0, 4); // left
+        init_rect_indices(mesh.indices + 30, 7, 3, 6, 2); // right
+    }
+    else
+    {
+        init_rect_indices(mesh.indices + 0,  1, 3, 0, 2); // back
+        init_rect_indices(mesh.indices + 6,  7, 5, 6, 4); // front
+        init_rect_indices(mesh.indices + 12, 5, 7, 1, 3); // top
+        init_rect_indices(mesh.indices + 18, 0, 2, 4, 6); // bottom
+        init_rect_indices(mesh.indices + 24, 5, 1, 4, 0); // left
+        init_rect_indices(mesh.indices + 30, 3, 7, 2, 6); // right
+    }
+
     init_mesh(&mesh);
     
     return mesh;
 }
+Mesh get_cube_mesh() { return get_cube_mesh(true); }
 
 void draw_cube(v3 coords, r32 rotation, v3 dim, v4 color)
 {
@@ -199,6 +226,20 @@ void draw_cube(v3 coords, r32 rotation, v3 dim, v4 color)
     shape.dim = dim;
     shape.draw_type = SHAPE_COLOR;
     shape.color = color;
+    draw_shape(shape);
+}
+
+void draw_cube(v3 coords, r32 rotation, v3 dim, Bitmap *bitmap)
+{
+    quat rotation_quat = get_rotation(rotation, { 0, 0, 1 });
+    
+    Shape shape = {};
+    shape.type = SHAPE_CUBE;
+    shape.coords = coords;
+    shape.rotation = rotation_quat;
+    shape.dim = dim;
+    shape.draw_type = SHAPE_TEXTURE;
+    shape.bitmap = bitmap;
     draw_shape(shape);
 }
 

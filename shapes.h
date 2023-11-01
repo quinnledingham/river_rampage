@@ -121,6 +121,8 @@ void draw_rect(v2 coords, r32 rotation, v2 dim, Bitmap *bitmap);
 void draw_string(Font *font, const char *string, v2 coords, f32 pixel_height, v4 color);
 
 Mesh get_cube_mesh();
+Mesh get_cube_mesh(b32 out);
 void draw_cube(v3 coords, r32 rotation, v3 dim, v4 color);
+void draw_cube(v3 coords, r32 rotation, v3 dim, Bitmap *bitmap);
 
 #endif //SHAPES_H

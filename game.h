@@ -88,6 +88,9 @@ struct Game_Data
     u32 camera_mode;
 
     Model boat_model;
+
+    Mesh skybox_cube;
+    Cubemap skybox;
     
     // 2D
     Boat boat;

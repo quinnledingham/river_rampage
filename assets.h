@@ -19,6 +19,23 @@ struct Bitmap
     u32 handle; // opengl handle
 };
 
+struct Cubemap
+{
+    const char *filenames[6] = { 
+        "../assets/skybox/right.jpg", 
+        "../assets/skybox/left.jpg", 
+        "../assets/skybox/top.jpg",
+        "../assets/skybox/bottom.jpg",
+        "../assets/skybox/front.jpg",
+        "../assets/skybox/back.jpg" 
+    };
+    Bitmap bitmaps[6];
+
+    u32 handle; // opengl handle
+};
+
+Cubemap load_cubemap();
+
 struct Shader
 {
     const char *vs_filename;  //.vs vertex_shader
@@ -113,7 +130,7 @@ struct Model
 };
 
 Model load_obj(const char *path, const char *filename);
-void draw_model(Shader *shader, Model *model, Light_Source light, Camera camera, v3 position);
+void draw_model(Shader *shader, Model *model, Light_Source light, Camera camera, v3 position, quat rotation);
 
 struct Font_Scale
 {
