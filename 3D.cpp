@@ -242,7 +242,7 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
 
             update_camera_with_keys(&data->camera, data->boat3D.direction, data->camera.up, move_vector,
                                     controller->forward, controller->backward,
-                                    controller->left,    controller->right,
+                                    controller->up,    controller->up,
                                     controller->up,      controller->down);
 
 
@@ -317,13 +317,7 @@ draw_game_3D(Application *app, Game_Data *data)
         draw_rect( { 0, 0 }, 0, cv2(app->window.dim), { 0, 0, 0, 0.5f} );
         
         s32 pause = draw_pause_menu(&app->assets, cv2(app->window.dim), on_down(menu_controller->select), data->active);
-        if      (pause == 1) 
-  			data->paused = false;
-        else if (pause == 2) { 
-            data->game_mode = MAIN_MENU; 
-            data->paused = false; 
-            app->input.relative_mouse_mode.set(true);
-            data->active = 0;
-        }
+        if      (pause == 1) data->paused = false;
+        else if (pause == 2) data->game_mode = MAIN_MENU;
     }
 }

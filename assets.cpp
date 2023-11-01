@@ -26,8 +26,8 @@ read_file(const char *filename)
 function s32
 get_char(File *file)
 {
-    if (file->ch == 0) file->ch = (char*)file->memory;
-    if (file->ch == (char*)file->memory + file->size) return EOF;
+    if (file->ch == 0) file->ch = (const char*)file->memory;
+    if (file->ch == (const char*)file->memory + file->size) return EOF;
     s32 ch = *file->ch;
     file->ch++;
     return ch;
@@ -36,15 +36,15 @@ get_char(File *file)
 function s32
 previous_char(File *file)
 {
-    if (file->ch == 0) file->ch = (char*)file->memory;
-    char *ptr = file->ch - 2;
+    if (file->ch == 0) file->ch = (const char*)file->memory;
+    const char *ptr = file->ch - 2;
     return *ptr;
 }
 
 function s32
 peek_char(File *file)
 {
-    char *ptr = file->ch;
+    const char *ptr = file->ch;
     return *ptr;
 }
 
@@ -66,7 +66,7 @@ copy_last_num_of_chars(File *file, u32 length)
     char *string = (char*)SDL_malloc(length + 1);
     memset(string, 0, length + 1);
     
-    char *ptr = file->ch - length;
+    const char *ptr = file->ch - length;
     for (int i = 0; i < length; i++)
     {
         int ch = *ptr++;
@@ -703,19 +703,6 @@ void draw_model(Shader *shader, Shader *tex_shader, Model *model, Light_Source l
 }
 
 // OBJ
-
-struct MTL_Token
-{
-    s32 type;
-    union
-    {
-        const char *lexeme;
-        float float_num;
-        s32 int_num;
-    };
-    s32 ch;
-};
-
 
 #include "mtl.cpp"
 

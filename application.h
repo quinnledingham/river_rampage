@@ -146,7 +146,7 @@ struct Application
     Input input;
     Assets assets;
     Audio_Player player;
-    
+
     void *data;
 };
 

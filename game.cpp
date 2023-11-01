@@ -54,16 +54,11 @@ draw_main_menu(Application *app, Game_Data *data)
     if (menu_button(&main_menu, "2D", index++, data->active, select))
     {
         data->game_mode = IN_GAME_2D;
-        data->active = 0;
     }
     
     if (menu_button(&main_menu, "3D", index++, data->active, select))
     {
         data->game_mode = IN_GAME_3D;
-        app->input.relative_mouse_mode.set(true);
-        platform_set_capability(PLATFORM_CAPABILITY_DEPTH_TEST, true);
-        platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, true);
-        data->active = 0;
     }
     
     if (menu_button(&main_menu, "Quit", index++, data->active, select))
@@ -123,7 +118,7 @@ void* init_data(Assets *assets)
     Mesh temp_patch_mesh = make_square_mesh_into_patches(&temp_square_mesh, 10, 10);
     data->water = temp_patch_mesh;
     
-    data->game_mode = MAIN_MENU;
+    data->game_mode = IN_GAME_3D;
     data->cube = get_cube_mesh();
     
     data->tree = load_obj("../assets/objs/tails/", "tails.obj");
@@ -141,9 +136,9 @@ void* init_data(Assets *assets)
     
     data->waves[0] = get_wave({ 1.0, 0.0 }, 20.0f, 0.2f);
     data->waves[1] = get_wave({ 1.0, 1.0 }, 1.0f, 0.15f);
-    data->waves[2] = get_wave({ 0.1, 0.1 }, 2.0f, 0.1f);
+    data->waves[2] = get_wave({ 0.0, 0.4 }, 2.0f, 0.1f);
     data->waves[3] = get_wave({ 0.7, 0.9 }, 9.0f, 0.05f);
-    data->waves[4] = get_wave({ 1.0, 1.0 }, 10.0f, 0.25f);
+    data->waves[4] = get_wave({ 0.0, -1.0 }, 10.0f, 0.25f);
 
     platform_set_uniform_buffer_data(data->wave_ubo, sizeof(Wave) * 5, (void*)&data->waves);
     
@@ -154,7 +149,6 @@ void* init_data(Assets *assets)
 
     // 2D
     init_boat(&data->boat);
-    //data->tree = load_obj("../assets/objs/test.obj");
     
     return (void*)data;
 }
@@ -185,6 +179,22 @@ b8 update(void *application)
         shader = find_shader(&app->assets, "MATERIAL");
         load_shader(shader);
         compile_shader(shader);
+    }
+
+    local_persist u32 last_game_mode = GAME_MODES_COUNT;
+    if (last_game_mode != data->game_mode)
+    {
+        last_game_mode = data->game_mode;
+
+        // stuff I want to check every time the game mode is changed
+        switch(data->game_mode)
+        {
+            case MAIN_MENU:  app->input.relative_mouse_mode.set(false); break;
+            case IN_GAME_3D: app->input.relative_mouse_mode.set(true);  break; // change mouse mode if it just switched to 3D
+        }
+
+        data->paused = false;
+        data->active = 0;
     }
 
     switch (data->game_mode)

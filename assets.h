@@ -6,7 +6,7 @@ struct File
     u32 size;
     void *memory;
     
-    char *ch; // for functions like get_char(File *file);
+    const char *ch; // for functions like get_char(File *file);
 };
 
 struct Bitmap
@@ -73,15 +73,15 @@ struct Vertex
 
 struct Material
 {
-    v3 ambient; // Ka
-    v3 diffuse; // Kd
-    v3 specular; // Ks
+    v3 ambient;            // Ka
+    v3 diffuse;            // Kd
+    v3 specular;           // Ks
     f32 specular_exponent; // Ns
     
     Bitmap ambient_map;
-    Bitmap diffuse_map; // map_Kd
+    Bitmap diffuse_map;    // map_Kd
     
-    const char *id;
+    const char *id; // id from mtl file
 };
 
 struct Mesh
@@ -118,7 +118,7 @@ struct Camera
     r32 yaw;
     r32 pitch;
 };
-function inline m4x4 get_view(Camera camera) 
+inline m4x4 get_view(Camera camera) 
 { 
     return look_at(camera.position, camera.position + camera.target, camera.up); 
 }
@@ -190,6 +190,7 @@ struct Audio
     u32 length;
 };
 
+// different volumes for different kinds of audio
 enum
 {
     AUDIO_SOUND,
@@ -200,7 +201,7 @@ struct Playing_Audio
 {
     u8 *position;
     u32 length_remaining;
-    u32 type;
+    u32 type; // type of sound to control the volume by type
 };
 
 struct Audio_Player

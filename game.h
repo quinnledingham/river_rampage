@@ -62,6 +62,8 @@ enum Game_Modes
     MAIN_MENU,
     IN_GAME_2D,
     IN_GAME_3D,
+
+    GAME_MODES_COUNT
 };
 
 enum Camera_Modes
