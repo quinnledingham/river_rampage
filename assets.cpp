@@ -129,8 +129,14 @@ free_bitmap(Bitmap bitmap)
     stbi_image_free(bitmap.memory);
 }
 
+enum Texture_Parameters
+{
+    TEXTURE_PARAMETERS_DEFAULT,
+    TEXTURE_PARAMETERS_CHAR,
+};
+
 function void
-init_bitmap_handle(Bitmap *bitmap)
+init_bitmap_handle(Bitmap *bitmap, u32 texture_parameters)
 {
     GLenum target = GL_TEXTURE_2D;
     
@@ -160,18 +166,27 @@ init_bitmap_handle(Bitmap *bitmap)
     glTexImage2D(target, 0, internal_format, bitmap->dim.width, bitmap->dim.height, 0, data_format, GL_UNSIGNED_BYTE, bitmap->memory);
     glGenerateMipmap(target);
     
-    // Tile
-    glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    
-    //glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    //glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    
-    glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
-    glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    switch(texture_parameters)
+    {
+        case TEXTURE_PARAMETERS_DEFAULT:
+        glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
+        glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        break;
+
+        case TEXTURE_PARAMETERS_CHAR:
+        glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        break;
+    }
     
     glBindTexture(target, 0);
 }
+
+function void init_bitmap_handle(Bitmap *bitmap) { init_bitmap_handle(bitmap, TEXTURE_PARAMETERS_DEFAULT); }
 
 function Bitmap
 load_and_init_bitmap(const char *filename)
@@ -441,9 +456,8 @@ load_font_char(Font *font, u32 codepoint, f32 scale, v4 color)
                                                &font_char->bitmap.dim.width, &font_char->bitmap.dim.height,
                                                0, 0);
     font_char->bitmap.channels = 4;
-    font_char->bitmap.memory = (u8*)SDL_malloc(font_char->bitmap.dim.width * 
-                                               font_char->bitmap.dim.height * 
-                                               font_char->bitmap.channels);
+    font_char->bitmap.memory = (u8*)SDL_malloc(font_char->bitmap.dim.width * font_char->bitmap.dim.height * font_char->bitmap.channels);
+
     u32 *dest = (u32*)font_char->bitmap.memory;
     for (s32 x = 0; x < font_char->bitmap.dim.width; x++)
     {
@@ -457,7 +471,7 @@ load_font_char(Font *font, u32 codepoint, f32 scale, v4 color)
     
     //free(mono_bitmap);
     
-    init_bitmap_handle(&font_char->bitmap);
+    init_bitmap_handle(&font_char->bitmap, TEXTURE_PARAMETERS_CHAR);
     
     return font_char;
 }

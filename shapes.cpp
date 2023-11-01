@@ -319,17 +319,16 @@ void draw_string(Font *font, const char *string, v2 coords, f32 pixel_height, v4
     stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
     f32 scale = stbtt_ScaleForPixelHeight(info, pixel_height);
     f32 string_x_coord = coords.x;
-    
+
     u32 i = 0;
     while (string[i] != 0)
     {
         Font_Char *font_char = load_font_char(font, string[i], scale, color);
         
-        f32 y = coords.y + font_char->c_y1;
-        f32 x = string_x_coord + (font_char->lsb * scale);
-        v2 dim = { f32(font_char->c_x2 - font_char->c_x1), f32(font_char->c_y2 - font_char->c_y1) };
+        v2 char_coords = { string_x_coord + (font_char->lsb * scale), coords.y + font_char->c_y1 };
+        v2 char_dim = { f32(font_char->c_x2 - font_char->c_x1), f32(font_char->c_y2 - font_char->c_y1) };
         
-        draw_rect({ x, y }, 0, {dim.x, dim.y}, &font_char->bitmap);
+        draw_rect(char_coords, 0, char_dim, &font_char->bitmap);
         
         int kern = stbtt_GetCodepointKernAdvance(info, string[i], string[i + 1]);
         string_x_coord += ((kern + font_char->ax) * scale);

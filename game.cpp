@@ -15,8 +15,6 @@ TODO
 
 Make main menu and pause menu look better
 
-investigate the text renderer
-
 Clean up obj file loader (make string to float a seperate function)
 Clean up mtl file loader
 Improve rendering of models
@@ -31,42 +29,30 @@ function s32
 draw_main_menu(Application *app, Game_Data *data)
 {
     Controller *menu_controller = app->input.active_controller;
-
-    orthographic(data->matrices_ubo, &app->matrices);
-    
-    Menu main_menu = {};
-    main_menu.font = find_font(&app->assets, "CASLON");
-    
-    main_menu.button_style.default_back_color = { 100, 255, 0, 1 };
-    main_menu.button_style.active_back_color  = { 0, 255, 100, 1 };
-    main_menu.button_style.default_text_color = { 0, 100, 0, 1 };
-    main_menu.button_style.active_text_color  = { 0, 100, 0, 1 };
-    
-    b32 select = on_down(menu_controller->select);
-    u32 index = 0;
     
     Rect window_rect = {};
-    window_rect. coords = { 0, 0 };
-    window_rect.dim = cv2(app->window.dim);
-    Rect bounds = get_centered_rect(window_rect, 0.5f, 0.5f);
-    main_menu.button_style.dim = { bounds.dim.x, bounds.dim.y / 3.0f };
-    draw_rect(bounds.coords, 0, bounds.dim, { 0, 0, 0, 0.2f} );
-    main_menu.coords = bounds.coords;
+    window_rect.coords = { 0, 0 };
+    window_rect.dim    = cv2(app->window.dim);
+
+    Menu main_menu = {};
+    main_menu.font = find_font(&app->assets, "CASLON");
+    main_menu.rect = get_centered_rect(window_rect, 0.5f, 0.5f);
+
+    main_menu.button_style.default_back_color = { 100, 255,   0,   1 };
+    main_menu.button_style.active_back_color  = {   0, 255, 100,   1 };
+    main_menu.button_style.default_text_color = {   0, 100,   0,   1 };
+    main_menu.button_style.active_text_color  = {   0, 100,   0,   1 };
     
-    if (menu_button(&main_menu, "2D", index++, data->active, select))
-    {
-        data->game_mode = IN_GAME_2D;
-    }
-    
-    if (menu_button(&main_menu, "3D", index++, data->active, select))
-    {
-        data->game_mode = IN_GAME_3D;
-    }
-    
-    if (menu_button(&main_menu, "Quit", index++, data->active, select))
-    {
-        return true;
-    }
+    main_menu.button_style.dim = { main_menu.rect.dim.x, main_menu.rect.dim.y / 3.0f };
+
+    b32 select = on_down(menu_controller->select);
+    u32 index = 0;
+
+    orthographic(data->matrices_ubo, &app->matrices);
+    draw_rect(main_menu.rect.coords, 0, main_menu.rect.dim, { 0, 0, 0, 0.2f} );
+    if (menu_button(&main_menu, "2D",   index++, data->active, select)) data->game_mode = IN_GAME_2D;
+    if (menu_button(&main_menu, "3D",   index++, data->active, select)) data->game_mode = IN_GAME_3D;    
+    if (menu_button(&main_menu, "Quit", index++, data->active, select)) return true;
 
     return false;
 }
@@ -91,7 +77,7 @@ draw_pause_menu(Assets *assets, v2 window_dim, b32 select, s32 active)
     Rect bounds = get_centered_rect(window_rect, 0.9f, 0.5f);
     pause_menu.button_style.dim = { bounds.dim.x, bounds.dim.y / 2.0f };
     draw_rect(bounds.coords, 0, bounds.dim, { 0, 0, 0, 0.2f} );
-    pause_menu.coords = bounds.coords;
+    pause_menu.rect.coords = bounds.coords;
     
     if (menu_button(&pause_menu, "Unpause", index++, active, select))   return 1;
     if (menu_button(&pause_menu, "Main Menu", index++, active, select)) return 2;

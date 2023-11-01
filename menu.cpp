@@ -20,8 +20,8 @@ struct Menu
     Font *font;
     
     v2 padding;
-    v2 coords;
-    v2 dim;
+
+    Rect rect; // coords and dim of menu
 };
 
 // index  = number of button
@@ -30,7 +30,6 @@ struct Menu
 function b8
 menu_button(Menu *menu, const char *text, u32 index, u32 active, u32 press)
 {
-    f32 pixel_height = menu->button_style.dim.y;
     v4 back_color = menu->button_style.default_back_color;
     v4 text_color = menu->button_style.default_text_color;
     
@@ -41,16 +40,20 @@ menu_button(Menu *menu, const char *text, u32 index, u32 active, u32 press)
         back_color = menu->button_style.active_back_color;
         text_color = menu->button_style.active_text_color;
     }
-    
     // drawing
-    draw_rect(menu->coords, 0, menu->button_style.dim, back_color);
+    draw_rect(menu->rect.coords, 0, menu->button_style.dim, back_color);
     
+    f32 pixel_height = menu->button_style.dim.y;
+    if (menu->button_style.dim.x < menu->button_style.dim.y) pixel_height = menu->button_style.dim.x;
+    pixel_height *= 0.8f;
+
     v2 text_dim = get_string_dim(menu->font, text, pixel_height, text_color);
-    f32 text_x_coord = menu->coords.x + (menu->button_style.dim.x / 2.0f) - (text_dim.x / 2.0f);
-    f32 text_y_coord = menu->coords.y + (menu->button_style.dim.y / 2.0f) + (text_dim.y / 2.0f);
-    draw_string(menu->font, text, { text_x_coord, text_y_coord }, pixel_height, text_color);
+    v2 text_coords = {};
+    text_coords.x = menu->rect.coords.x + (menu->button_style.dim.x / 2.0f) - (text_dim.x / 2.0f);
+    text_coords.y = menu->rect.coords.y + (menu->button_style.dim.y / 2.0f) + (text_dim.y / 2.0f);
+    draw_string(menu->font, text, text_coords, pixel_height, text_color);
     
-    menu->coords.y += menu->button_style.dim.y + menu->padding.y;
+    menu->rect.coords.y += menu->button_style.dim.y + menu->padding.y;
     
     return button_pressed;
 }
