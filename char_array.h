@@ -7,7 +7,6 @@ equal(const char* a, const char *b)
 {
     if (a == 0 && b == 0) return true;
     if (a == 0 || b == 0) return false;
-    //printf("%s == %s\n", a, b);
     
     int i = 0;
     do
@@ -15,6 +14,23 @@ equal(const char* a, const char *b)
         if (a[i] != b[i])
             return false;
     } while(a[i] != 0 && b[i++] != 0);
+    
+    return true;
+}
+
+inline b32
+equal_start(const char *longer, const char *shorter)
+{
+    if (longer == 0 && shorter == 0) return true;
+    if (longer == 0 || shorter == 0) return false;
+
+    u32 i = 0;
+    do
+    {
+        if (shorter[i] == 0) break;
+        if (longer[i] != shorter[i]) 
+            return false;
+    } while(longer[i] != 0 && shorter[i++] != 0);
     
     return true;
 }
@@ -35,12 +51,44 @@ get_length(const char *string)
     return length;
 }
 
+
+// assumes that dest is big enough for src
+inline void
+copy_char_array(char *dest, const char *src)
+{
+    const char *ptr = src;
+    while(*ptr != 0)
+    {
+        *dest++ = *ptr;
+        ptr++;
+    }
+}
+
+internal const char*
+char_array_insert(const char *og_string, u32 position, const char *new_string)
+{
+    u32 og_length = get_length(og_string);
+    u32 new_length = get_length(new_string);
+    u32 total_length = og_length + new_length;
+    const char *result = (const char *)platform_malloc(total_length + 1);
+    char *ptr = (char *)result;
+
+    u32 result_index = 0;
+    u32 og_string_index = 0;
+    for (og_string_index;           og_string_index <   position;  og_string_index++) ptr[result_index++] = og_string[og_string_index];
+    for (u32 new_string_index = 0; new_string_index < new_length; new_string_index++) ptr[result_index++] = new_string[new_string_index];
+    for (og_string_index;           og_string_index < og_length;   og_string_index++) ptr[result_index++] = og_string[og_string_index];
+    ptr[result_index] = 0;
+
+    return result;
+}
+
 inline char*
 string_malloc(const char *string)
 {
     if (string == 0) return 0;
     u32 length = get_length(string);
-    char* result = (char*)malloc(length + 1);
+    char* result = (char*)platform_malloc(length + 1);
     for (u32 i = 0; i < length; i++) result[i] = string[i];
     result[length] = 0;
     return result;
@@ -50,7 +98,7 @@ inline const char*
 string_malloc_length(const char *string, u32 length)
 {
     if (string == 0) return 0;
-    char* result = (char*)malloc(length + 1);
+    char* result = (char*)platform_malloc(length + 1);
     for (u32 i = 0; i < length; i++) result[i] = string[i];
     result[length] = 0;
     return result;
@@ -61,7 +109,7 @@ string_malloc_length(const char *string, u32 length)
 inline char*
 chtos(int n, ...)
 {
-    char* s = (char*)malloc(n + 1);
+    char* s = (char*)platform_malloc(n + 1);
     memset(s, 0, n + 1);
     
     va_list ptr;
@@ -78,7 +126,7 @@ inline char*
 ftos(f32 f)
 {
     u32 size = 64;
-    char *buffer = (char*)malloc(size);
+    char *buffer = (char*)platform_malloc(size);
     memset(buffer, 0, size);
     u32 ret = snprintf(buffer, size, "%f", f);
     if (ret < 0)

@@ -17,6 +17,7 @@
 #include "assets.h"
 #include "shapes.h"
 #include "data_structures.h"
+#include "gui.h"
 #include "game.h"
 #include "application.h"
 
@@ -146,6 +147,26 @@ void platform_set_depth_mask(b32 state)
 //
 
 function void
+update_window(Window *window)
+{
+    glViewport(0, 0, window->dim.width, window->dim.height);
+    window->aspect_ratio = (r32)window->dim.width / (r32)window->dim.height;
+    *window->update_matrices = true;
+}
+
+function void
+reset_controller(Controller *controller)
+{
+    controller->mouse = {};
+    for (u32 j = 0; j < ARRAY_COUNT(controller->buttons); j++)
+    {
+        controller->buttons[j].current_state = 0;
+        controller->buttons[j].previous_state = 0;
+    }
+}
+
+
+function void
 prepare_controller_for_input(Controller *controller)
 {
     controller->mouse = {};
@@ -166,12 +187,54 @@ controller_process_input(Controller *controller, s32 id, b32 state)
     }
 }
 
-function void
-update_window(Window *window)
+internal void
+keyboard_input_to_char_array(s32 id, char *buffer, u32 *buffer_index, b32 shift)
 {
-    glViewport(0, 0, window->dim.width, window->dim.height);
-    window->aspect_ratio = (r32)window->dim.width / (r32)window->dim.height;
-    *window->update_matrices = true;
+    s32 ch = 0;
+
+    if      (id == SDLK_a) ch = 'a';
+    else if (id == SDLK_b) ch = 'b';
+    else if (id == SDLK_c) ch = 'c';
+    else if (id == SDLK_d) ch = 'd';
+    else if (id == SDLK_e) ch = 'e';
+    else if (id == SDLK_f) ch = 'f';
+    else if (id == SDLK_g) ch = 'g';
+    else if (id == SDLK_h) ch = 'h';
+    else if (id == SDLK_i) ch = 'i';
+    else if (id == SDLK_j) ch = 'j';
+    else if (id == SDLK_k) ch = 'k';
+    else if (id == SDLK_l) ch = 'l';
+    else if (id == SDLK_m) ch = 'm';
+    else if (id == SDLK_n) ch = 'n';
+    else if (id == SDLK_o) ch = 'o';
+    else if (id == SDLK_p) ch = 'p';
+    else if (id == SDLK_q) ch = 'q';
+    else if (id == SDLK_r) ch = 'r';
+    else if (id == SDLK_s) ch = 's';
+    else if (id == SDLK_t) ch = 't';
+    else if (id == SDLK_u) ch = 'u';
+    else if (id == SDLK_v) ch = 'v';
+    else if (id == SDLK_w) ch = 'w';
+    else if (id == SDLK_x) ch = 'x';
+    else if (id == SDLK_y) ch = 'y';
+    else if (id == SDLK_z) ch = 'z';
+
+    else if (id == SDLK_SLASH) ch = '/';
+    else if (id == SDLK_MINUS && shift) ch = '_';
+
+    else if (id == SDLK_TAB)       ch = 9;
+    else if (id == SDLK_BACKSPACE) ch = 8;
+    else if (id == SDLK_RETURN)    ch = 13;
+    else if (id == SDLK_ESCAPE)    ch = 27;
+
+    else if (id == SDLK_LEFT)  ch = 37;
+    else if (id == SDLK_UP)    ch = 38;
+    else if (id == SDLK_RIGHT) ch = 39;
+    else if (id == SDLK_DOWN)  ch = 40;
+
+    if (isalpha(ch) && shift) ch -= 32;
+
+    buffer[(*buffer_index)++] = ch;
 }
 
 function b32
@@ -179,6 +242,20 @@ process_input(Window *window, Input *input)
 {
     for (u32 i = 0; i < input->num_of_controllers; i++) prepare_controller_for_input(&input->controllers[i]);
     
+    u32 buffer_index = 0;
+    input->new_input_buffer = false;
+    SDL_memset(input->buffer, 0, 10);
+
+    local_persist u32 last_input_mode = 0;
+    if (last_input_mode != input->mode)
+    {
+        last_input_mode = input->mode;
+        if (input->mode == INPUT_MODE_KEYBOARD)
+        {
+            for (u32 i = 0; i < input->num_of_controllers; i++) reset_controller(&input->controllers[i]);
+        }
+    }
+
     SDL_Event event;
     while(SDL_PollEvent(&event))
     {
@@ -218,9 +295,19 @@ process_input(Window *window, Input *input)
                 input->active_controller = &input->controllers[0];
                 SDL_KeyboardEvent *keyboard_event = &event.key;
                 s32 key_id = keyboard_event->keysym.sym;
+                b32 shift = keyboard_event->keysym.mod & KMOD_LSHIFT;
                 b32 state = false;
                 if (keyboard_event->state == SDL_PRESSED) state = true;
-                controller_process_input(&input->controllers[0], key_id, state);
+
+                if (input->mode == INPUT_MODE_GAME)
+                {
+                    controller_process_input(&input->controllers[0], key_id, state);
+                }
+                else if (input->mode == INPUT_MODE_KEYBOARD && state)
+                {
+                    input->new_input_buffer = true;
+                    keyboard_input_to_char_array(key_id, input->buffer, &buffer_index, shift);
+                }
             } break;
         }
     }
@@ -314,13 +401,22 @@ init_controllers(Input *input)
     set(&keyboard->select,   SDLK_RETURN);
     set(&keyboard->pause,    SDLK_ESCAPE);
     
-    set(&keyboard->wire_frame,     SDLK_t);
     set(&keyboard->reload_shaders, SDLK_r);
     set(&keyboard->toggle_camera_mode, SDLK_c);
+    set(&keyboard->toggle_console, SDLK_t);
     
     input->num_of_controllers = 1;
 }
 
+function void
+init_keyboard(Input *input)
+{
+    Keyboard *keyboard = &input->keyboard;
+    set(&keyboard->a, SDLK_a);
+    set(&keyboard->b, SDLK_b);
+
+    input->num_of_controllers = 1;
+}
 
 function void
 init_opengl(SDL_Window *sdl_window)

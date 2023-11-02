@@ -33,6 +33,9 @@ typedef r64 f64;
 #define PI      3.14159265359f
 #define EPSILON 0.00001f
 
+void *platform_malloc(u32 size);
+void platform_free(void *ptr);
+
 #define ARRAY_COUNT(n)     (sizeof(n) / sizeof(n[0]))
 #define ARRAY_MALLOC(t, n) ((t*)platform_malloc(n * sizeof(t)))
 

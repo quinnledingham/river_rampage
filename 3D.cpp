@@ -199,6 +199,27 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
         else              input->relative_mouse_mode.set(true);
     }
 
+    if (data->show_console) {
+        data->show_console = update_console(&data->console, input);
+        if (!data->show_console && !data->paused) input->relative_mouse_mode.set(true);
+    }
+    else {
+        if (on_down(controller->toggle_console))
+        {
+            data->show_console = !data->show_console;
+
+            if (data->show_console) {
+                input->mode = INPUT_MODE_KEYBOARD;
+                input->relative_mouse_mode.set(false);
+                data->console.lines_up_index = data->console.lines;
+            }
+            else {
+                input->mode = INPUT_MODE_GAME;
+                input->relative_mouse_mode.set(true);
+            }
+        }
+    }
+
     if (!data->paused)
     {
         // update camera
@@ -295,9 +316,17 @@ draw_game_3D(Application *app, Game_Data *data)
     platform_set_capability(PLATFORM_CAPABILITY_DEPTH_TEST, false);
     platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, false);
     
-    Font *caslon = find_font(&app->assets, "CASLON");
-    draw_string(caslon, ftos(app->time.frames_per_s), { 100, 100 }, 50, { 255, 150, 0, 1 });
+    if (data->show_fps)
+    {
+        Font *caslon = find_font(&app->assets, "CASLON");
+        draw_string(caslon, ftos(app->time.frames_per_s), { 100, 100 }, 50, { 255, 150, 0, 1 });
+    }
     
+    platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);  
+    if (data->show_console) draw_console(&data->console, app->window.dim);
+    if (data->wire_frame) platform_set_polygon_mode(PLATFORM_POLYGON_MODE_LINE);
+    else                  platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);
+
     if (data->paused) 
     {
         draw_rect( { 0, 0 }, 0, cv2(app->window.dim), { 0, 0, 0, 0.5f} );

@@ -76,6 +76,12 @@ enum Camera_Modes
 
 struct Game_Data
 {
+    b8 paused;
+    b8 wire_frame;
+    b8 show_fps;
+    b8 show_console;
+    Console console;
+
     // 3D
     Light_Source light;
     Camera camera;
@@ -99,10 +105,8 @@ struct Game_Data
     r32 water_force;
     
     u32 game_mode;
-    b8 paused;
     s32 active;
-    b8 wire_frame;
-    
+
     Model tree;
 };
 

@@ -182,6 +182,7 @@ struct Font
 };
 
 v2 get_string_dim(Font *font, const char *string, f32 pixel_height, v4 color);
+v2 get_string_dim(Font *font, const char *string, s32 length, f32 pixel_height, v4 color);
 
 struct Audio
 {

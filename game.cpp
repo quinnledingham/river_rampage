@@ -5,6 +5,7 @@
 #include "assets.h"
 #include "shapes.h"
 #include "data_structures.h"
+#include "gui.h"
 #include "game.h"
 #include "application.h"
 
@@ -38,10 +39,11 @@ draw_main_menu(Application *app, Game_Data *data)
     main_menu.font = find_font(&app->assets, "CASLON");
     main_menu.rect = get_centered_rect(window_rect, 0.5f, 0.5f);
 
-    main_menu.button_style.default_back_color = { 100, 255,   0,   1 };
-    main_menu.button_style.active_back_color  = {   0, 255, 100,   1 };
-    main_menu.button_style.default_text_color = {   0, 100,   0,   1 };
-    main_menu.button_style.active_text_color  = {   0, 100,   0,   1 };
+    main_menu.button_style.default_back_color = {  34,  44, 107,   1 };
+    main_menu.button_style.active_back_color  = {  42,  55, 131,   1 };
+    main_menu.button_style.default_text_color = { 234,   0,  39,   1 };
+    main_menu.button_style.active_text_color  = { 171, 160, 200,   1 };;
+    //main_menu.button_style.active_text_color  = { ,   0,  255,   1 };
     
     main_menu.button_style.dim = { main_menu.rect.dim.x, main_menu.rect.dim.y / 3.0f };
 
@@ -49,6 +51,7 @@ draw_main_menu(Application *app, Game_Data *data)
     u32 index = 0;
 
     orthographic(data->matrices_ubo, &app->matrices);
+    draw_rect({ 0, 0 }, 0, cv2(app->window.dim), { 37, 38, 90, 1.0f} );
     draw_rect(main_menu.rect.coords, 0, main_menu.rect.dim, { 0, 0, 0, 0.2f} );
     if (menu_button(&main_menu, "2D",   index++, data->active, select)) data->game_mode = IN_GAME_2D;
     if (menu_button(&main_menu, "3D",   index++, data->active, select)) data->game_mode = IN_GAME_3D;    
@@ -61,24 +64,22 @@ draw_main_menu(Application *app, Game_Data *data)
 function s32
 draw_pause_menu(Assets *assets, v2 window_dim, b32 select, s32 active)
 {
-    Menu pause_menu = {};
-    pause_menu.font = find_font(assets, "CASLON");
-    
-    pause_menu.button_style.default_back_color = { 100, 255, 0, 1 };
-    pause_menu.button_style.active_back_color  = { 0, 255, 100, 1 };
-    pause_menu.button_style.default_text_color = { 0, 100, 0, 1 };
-    pause_menu.button_style.active_text_color  = { 0, 100, 0, 1 };
-    
-    u32 index = 0;
-    
     Rect window_rect = {};
     window_rect. coords = { 0, 0 };
     window_rect.dim = window_dim;
-    Rect bounds = get_centered_rect(window_rect, 0.9f, 0.5f);
-    pause_menu.button_style.dim = { bounds.dim.x, bounds.dim.y / 2.0f };
-    draw_rect(bounds.coords, 0, bounds.dim, { 0, 0, 0, 0.2f} );
-    pause_menu.rect.coords = bounds.coords;
+
+    Menu pause_menu = {};
+    pause_menu.font = find_font(assets, "CASLON");
+    pause_menu.rect = get_centered_rect(window_rect, 0.7f, 0.5f);
     
+    pause_menu.button_style.default_back_color = {  34,  44, 107,   1 };
+    pause_menu.button_style.active_back_color  = {  42,  55, 131,   1 };
+    pause_menu.button_style.default_text_color = { 234,   0,  39,   1 };
+    pause_menu.button_style.active_text_color  = { 171, 160, 200,   1 };;
+    pause_menu.button_style.dim = { pause_menu.rect.dim.x, pause_menu.rect.dim.y / 2.0f };
+
+    u32 index = 0;
+    draw_rect(pause_menu.rect.coords, 0, pause_menu.rect.dim, { 0, 0, 0, 0.2f} );
     if (menu_button(&pause_menu, "Unpause", index++, active, select))   return 1;
     if (menu_button(&pause_menu, "Main Menu", index++, active, select)) return 2;
     return 0;
@@ -91,6 +92,8 @@ void* init_data(Assets *assets)
 {
     Game_Data *data = (Game_Data*)malloc(sizeof(Game_Data));
     *data = {};
+
+    init_console(&data->console, assets);
     
     // 3D
     data->camera.position = { 0, 5, 10 };
@@ -148,14 +151,14 @@ b8 update(void *application)
     Game_Data *data = (Game_Data*)app->data;
     Controller *controller = app->input.active_controller;
 
-    if (on_down(controller->wire_frame))
+    if (console_command(&data->console, TOGGLE_WIREFRAME))
     {
         data->wire_frame = !data->wire_frame;
         if (data->wire_frame) platform_set_polygon_mode(PLATFORM_POLYGON_MODE_LINE);
         else                  platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);
     }
 
-    if (on_down(controller->reload_shaders))
+    if (console_command(&data->console, RELOAD_SHADERS))
     {
         Shader *shader = find_shader(&app->assets, "WATER");
         load_shader(shader);
@@ -167,6 +170,11 @@ b8 update(void *application)
         shader = find_shader(&app->assets, "MATERIAL");
         load_shader(shader);
         compile_shader(shader);
+    }
+
+    if (console_command(&data->console, TOGGLE_FPS))
+    {
+        data->show_fps = !data->show_fps;
     }
 
     local_persist u32 last_game_mode = GAME_MODES_COUNT;
@@ -206,5 +214,7 @@ b8 update(void *application)
         } break;
     }
     
+
+
     return false;
 }

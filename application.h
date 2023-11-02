@@ -106,11 +106,24 @@ struct Controller
             Button select;
             Button pause;
             
-            Button wire_frame;
             Button reload_shaders;
             Button toggle_camera_mode;
+            Button toggle_console;
         };
-        Button buttons[11];
+        Button buttons[12];
+    };
+};
+
+struct Keyboard
+{
+    union
+    {
+        struct
+        {
+            Button a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z;
+            Button shift;
+        };
+        Button buttons[27];
     };
 };
 
@@ -125,12 +138,27 @@ struct Flag
     b8 changed() { b8 up = updated; updated = false; return up; }
 };
 
+enum
+{
+    INPUT_MODE_GAME,
+    INPUT_MODE_KEYBOARD,
+};
+
+// if I want to have a game controller seperate from the application layer then I will need to
+// pass all of the inputs from application to game
 struct Input
 {
     Controller controllers[5];
     u32 num_of_controllers;
     Controller *active_controller;
     
+    Button input_buffer[10];
+    Keyboard keyboard;
+
+    char buffer[10];
+    b32 new_input_buffer;
+    u32 mode; // game or keyboard
+
     Flag relative_mouse_mode;
     
     //SDL_Joystick *joysticks[4];
@@ -149,8 +177,5 @@ struct Application
 
     void *data;
 };
-
-void *platform_malloc(u32 size);
-void platform_free(void *ptr);
 
 #endif //APPLICATION_H

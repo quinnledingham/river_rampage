@@ -465,7 +465,8 @@ load_font_char(Font *font, u32 codepoint, f32 scale, v4 color)
         {
             u8 alpha = *mono_bitmap++;
             u32 real_alpha = u32((f32)alpha * color.a);
-            *dest++ = ((real_alpha << 24) | ((u32)color.r << 16) | ((u32)color.g <<  8) | ((u32)color.b <<  0));
+            u32 new_color = ((real_alpha << 24) | ((u32)color.b << 16) | ((u32)color.g <<  8) | ((u32)color.r <<  0));
+            *dest++ = new_color;
         }
     }
     
@@ -476,16 +477,23 @@ load_font_char(Font *font, u32 codepoint, f32 scale, v4 color)
     return font_char;
 }
 
-v2 get_string_dim(Font *font, const char *string, f32 pixel_height, v4 color)
+v2 get_string_dim(Font *font, const char *string, s32 length, f32 pixel_height, v4 color)
 {
-    stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
+    if (string == 0) return { 0, 0 };
 
-    v2 dim = {};
+    stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
     f32 scale = stbtt_ScaleForPixelHeight(info, pixel_height);
-    
+    v2 dim = {};
     u32 i = 0;
+
     while (string[i] != 0)
     {
+        if (length != -1)
+        {
+            // if a length is set then only include in the dim the chars up to that point
+            if (i == length) break;
+        }
+
         Font_Char *font_char = load_font_char(font, string[i], scale, color);
         
         f32 y = -1.0f * (r32)font_char->c_y1;
@@ -498,6 +506,11 @@ v2 get_string_dim(Font *font, const char *string, f32 pixel_height, v4 color)
     }
     
     return dim;
+}
+
+v2 get_string_dim(Font *font, const char *string, f32 pixel_height, v4 color)
+{
+    return get_string_dim(font, string, -1, pixel_height, color);
 }
 
 //
