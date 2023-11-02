@@ -372,6 +372,10 @@ main_loop(Application *app, SDL_Window *sdl_window)
 {
     Game_Data *data = (Game_Data*)app->data;
 
+    Bitmap *icon = find_bitmap(&app->assets, "ICON");
+    SDL_Surface *icon_surface = SDL_CreateRGBSurfaceFrom(icon->memory, icon->dim.width, icon->dim.height, 32, icon->pitch, 0x00000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
+    SDL_SetWindowIcon(sdl_window, icon_surface);
+
     while(1)
     {
         if (process_input(&app->window, &app->input)) return 0; // quit if process_input returns false

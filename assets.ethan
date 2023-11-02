@@ -25,8 +25,7 @@ SKYBOX|FRAGMENT, ../assets/shaders/skybox.fs
 
 BITMAPS:
 BOAT, ../assets/bitmaps/boat.png
-PERLIN, ../assets/bitmaps/noiseTexture.png
-NORMAL, ../assets/bitmaps/normal.jpg
+ICON, ../assets/bitmaps/favicon.png
 
 FONTS:
 CASLON, ../assets/fonts/LibreCaslonCondensed-Regular.ttf

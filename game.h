@@ -54,6 +54,9 @@ struct Boat3D
     v3 coords;
     v3 draw_coords; // boat coords with waves applied
 
+    v3 draw_coords_history[500];
+    u32 newest_draw_coord_index;
+
     v3 direction = {1, 0, 0};
 };
 
@@ -94,6 +97,8 @@ struct Game_Data
     b8 show_console;
     Console console;
     Onscreen_Notifications onscreen_notifications;
+
+    r32 game_run_time_s;
 
     // 3D
     Light_Source light;

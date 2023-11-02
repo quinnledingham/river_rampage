@@ -182,10 +182,33 @@ draw_water(Assets *assets, Mesh mesh, r32 seconds, Wave *waves, u32 waves_count,
     platform_uniform_v3(active_shader, "cameraPos", camera.position);
     platform_uniform_v4(active_shader, "objectColor", color);
     
-    Bitmap *perlin = find_bitmap(assets, "NORMAL");\
-    platform_set_texture(perlin);
+    //Bitmap *perlin = find_bitmap(assets, "NORMAL");
+    //platform_set_texture(perlin);
 
     draw_mesh_patches(&mesh);
+}
+
+internal void
+update_boat_3D_draw_coord(Boat3D *boat, Wave *waves, u32 waves_count, r32 run_time_s)
+{
+    v3 draw_coords = apply_waves(boat->coords, waves, waves_count, run_time_s);
+
+    boat->draw_coords_history[boat->newest_draw_coord_index] = draw_coords;
+    
+    v3 sum = draw_coords;
+    u32 indices_added = 1;
+    u32 index = boat->newest_draw_coord_index + 1;
+    while(index != boat->newest_draw_coord_index) {
+        sum += boat->draw_coords_history[index];
+        index++;
+        indices_added++;
+        if (index >= ARRAY_COUNT(boat->draw_coords_history)) index = 0;
+    }
+    
+    boat->draw_coords = sum / indices_added;
+
+    boat->newest_draw_coord_index++;
+    if (boat->newest_draw_coord_index >= ARRAY_COUNT(boat->draw_coords_history)) boat->newest_draw_coord_index = 0;
 }
 
 internal void
@@ -223,6 +246,8 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
 
     if (!data->paused)
     {
+        data->game_run_time_s += time.frame_time_s;
+
         // update camera
         if (on_down(controller->toggle_camera_mode))
         {
@@ -265,7 +290,7 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
 
         }
 
-        data->boat3D.draw_coords = apply_waves(data->boat3D.coords, data->waves, 5, time.run_time_s);
+        update_boat_3D_draw_coord(&data->boat3D, data->waves, 5, data->game_run_time_s);
     }
     else
     {
@@ -303,7 +328,7 @@ draw_game_3D(Application *app, Game_Data *data)
 	platform_set_capability(PLATFORM_CAPABILITY_DEPTH_TEST, true);
 	platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, true);
     
-    draw_water(&app->assets, data->water, app->time.run_time_s, data->waves, 5, data->light, data->camera);
+    draw_water(&app->assets, data->water, data->game_run_time_s, data->waves, 5, data->light, data->camera);
     draw_model(find_shader(&app->assets, "MATERIAL"), find_shader(&app->assets, "MATERIAL_TEX"),
         find_model(&app->assets, "TAILS"), data->light, data->camera, {0, 0, 0}, get_rotation(0, {0, 1, 0}));
     draw_cube(data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
