@@ -14,18 +14,12 @@
 /*
 TODO
 
-Make main menu and pause menu look better
-
-Clean up obj file loader (make string to float a seperate function)
+Clean up obj file loader
 Clean up mtl file loader
 Improve rendering of models
 
 Make boat movement better
 Add pitch and yaw to boat
-
-Add alerts to screen when modes change
-
-add checking for going over the input buffer
 */
 
 // returns game mode
@@ -97,6 +91,9 @@ void* init_data(Assets *assets)
     *data = {};
 
     init_console(&data->console, assets);
+
+    data->onscreen_notifications.font = find_font(assets, "CASLON");
+    data->onscreen_notifications.text_color = { 255, 255, 255, 1 };
     
     // 3D
     data->camera.position = { 0, 5, 10 };
@@ -114,9 +111,6 @@ void* init_data(Assets *assets)
     
     data->game_mode = IN_GAME_3D;
     data->cube = get_cube_mesh();
-    
-    data->tree = load_obj("../assets/objs/tails/", "tails.obj");
-    data->boat_model = load_obj("../assets/objs/boat/", "boat2.obj");
     
     Shader *shader = find_shader(assets, "MATERIAL");
     platform_set_uniform_block_binding(shader->handle, "Matrices", 0);

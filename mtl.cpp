@@ -121,12 +121,14 @@ load_mtl(const char *path, const char *filename)
 {
     Mtl mtl = {};
     
-    char filepath[80];
-    memset(filepath, 0, 80);
-    strcat(strcat(filepath, path), filename);
-    
+    //char filepath[80];
+    //memset(filepath, 0, 80);
+    //strcat(strcat(filepath, path), filename);
+    const char *filepath = char_array_insert(path, get_length(path), filename);
+
     Lexer lexer = {};
     lexer.file = read_file(filepath);
+
     if (!lexer.file.size) { error("load_mtl: could not read material file"); return mtl; }
     lexer.scan = &scan_mtl;
     lexer.token_size = sizeof(MTL_Token);
@@ -182,9 +184,8 @@ load_mtl(const char *path, const char *filename)
         else if (equal(token->lexeme, "map_Kd"))
         {
             token = (MTL_Token*)lex(&lexer);
-            memset(filepath, 0, 80);
-            strcat(strcat(filepath, path), token->lexeme);
-            material.diffuse_map = load_and_init_bitmap(filepath);
+            const char *diffuse_map_filepath = char_array_insert(path, get_length(path), token->lexeme);
+            material.diffuse_map = load_and_init_bitmap(diffuse_map_filepath);
         }
     } while(token->type != MTL_TOKEN_EOF);
     
@@ -193,6 +194,7 @@ load_mtl(const char *path, const char *filename)
         mtl.materials[material_index++] = material;
     }
     
+    platform_free((void*)filepath);
     free_file(&lexer.file);
     
     return mtl;

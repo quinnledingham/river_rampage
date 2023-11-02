@@ -66,6 +66,12 @@ enum Game_Modes
     GAME_MODES_COUNT
 };
 
+const global Pair game_modes[3] = {
+        { MAIN_MENU, "MAIN_MENU" },
+        { IN_GAME_2D, "IN_GAME_2D" },
+        { IN_GAME_3D, "IN_GAME_3D" },
+    };
+
 enum Camera_Modes
 {
     BOAT_CAMERA,
@@ -74,6 +80,12 @@ enum Camera_Modes
     CAMERA_MODES_COUNT,
 };
 
+const global Pair camera_modes[2] = {
+        { BOAT_CAMERA, "BOAT_CAMERA" },
+        { FREE_CAMERA, "FREE_CAMERA" },
+    };
+
+
 struct Game_Data
 {
     b8 paused;
@@ -81,6 +93,7 @@ struct Game_Data
     b8 show_fps;
     b8 show_console;
     Console console;
+    Onscreen_Notifications onscreen_notifications;
 
     // 3D
     Light_Source light;
@@ -95,8 +108,6 @@ struct Game_Data
     Boat3D boat3D;
     u32 camera_mode;
 
-    Model boat_model;
-
     Mesh skybox_cube;
     Cubemap skybox;
     
@@ -106,8 +117,6 @@ struct Game_Data
     
     u32 game_mode;
     s32 active;
-
-    Model tree;
 };
 
 b8 update(void *application);

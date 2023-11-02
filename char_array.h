@@ -3,6 +3,13 @@
 //
 
 inline b32
+is_ascii(s32 ch)
+{
+    if (ch >= 0 && ch <= 127) return true;
+    else                      return false;
+}
+
+inline b32
 equal(const char* a, const char *b)
 {
     if (a == 0 && b == 0) return true;
@@ -239,4 +246,55 @@ char_array_to_f32(const char *ptr, f32 *result)
     *result = (f32)(sign * num);
 
     return ptr;
+}
+
+internal const char*
+get_path(const char *file)
+{
+    u32 length = get_length(file);
+    char *ptr = (char*)file;
+    ptr += length;
+
+    u32 path_length = length;
+    ptr--;
+    while(*ptr != '/')
+    {
+        ptr--;
+        path_length--;
+    }
+
+    char *path = (char*)platform_malloc(path_length);
+    for (u32 i = 0; i < path_length; i++)
+    {
+        path[i] = file[i];
+    }
+    path[path_length] = 0;
+
+    return (const char*)path;
+}
+
+
+
+struct Pair
+{
+    u32 key;
+    const char *value;
+};
+
+inline const char*
+pair_get_value(const Pair *pairs, u32 num_of_pairs, u32 key)
+{
+    for (u32 i = 0; i < num_of_pairs; i++) {
+        if (pairs[i].key == key) return pairs[i].value;
+    }
+    return 0;
+}
+
+inline u32
+pair_get_key(const Pair *pairs, u32 num_of_pairs, const char *value)
+{
+    for (u32 i = 0; i < num_of_pairs; i++) {
+        if (equal(pairs[i].value, value)) return pairs[i].key;
+    }
+    return num_of_pairs; // returns out of range int
 }

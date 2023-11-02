@@ -73,3 +73,14 @@ struct Console
 
     u32 command; // the command to execute
 };
+
+struct Onscreen_Notifications
+{
+    char memory[10][90];
+    u32 lines; // number of lines of memory used
+    f32 times[10]; // how long left on displaying the line
+    v4 colors[10]; // the color for each line
+
+    Font *font;
+    v4 text_color;
+};

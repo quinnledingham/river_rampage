@@ -190,7 +190,7 @@ internal void
 keyboard_input_to_char_array(s32 id, char *buffer, u32 *buffer_index, b32 shift)
 {
     s32 ch = 0;
-
+/*
     if      (id == SDLK_a) ch = 'a';
     else if (id == SDLK_b) ch = 'b';
     else if (id == SDLK_c) ch = 'c';
@@ -226,12 +226,16 @@ keyboard_input_to_char_array(s32 id, char *buffer, u32 *buffer_index, b32 shift)
     else if (id == SDLK_RETURN)    ch = 13;
     else if (id == SDLK_ESCAPE)    ch = 27;
 
+
+*/
+    if (is_ascii(id)) {
+        ch = id;
+        if (isalpha(ch) && shift) ch -= 32;
+    }
     else if (id == SDLK_LEFT)  ch = 37;
     else if (id == SDLK_UP)    ch = 38;
     else if (id == SDLK_RIGHT) ch = 39;
     else if (id == SDLK_DOWN)  ch = 40;
-
-    if (isalpha(ch) && shift) ch -= 32;
 
     buffer[(*buffer_index)++] = ch;
 }
@@ -244,6 +248,8 @@ process_input(Window *window, Input *input)
     u32 buffer_index = 0;
     SDL_memset(input->buffer, 0, 10);
 
+    // Clear the controllers if the input mode is switch from game to keyboard.
+    // Keyboard is always cleared so no need going the other way.
     local_persist u32 last_input_mode = 0;
     if (last_input_mode != input->mode)
     {
@@ -303,6 +309,11 @@ process_input(Window *window, Input *input)
                 }
                 else if (input->mode == INPUT_MODE_KEYBOARD && state)
                 {
+                    if (buffer_index >= 10) {
+                        error("process_input(): too many inputs for buffer in input_mode keyboard");
+                        break;
+                    }
+
                     keyboard_input_to_char_array(key_id, input->buffer, &buffer_index, shift);
                 }
             } break;
@@ -460,11 +471,21 @@ init_window(Window *window, b32 *update_matrices)
 
 int main(int argc, char *argv[])  
 { 
+    //log("%s", get_path("../assets/bitmaps/normal.jpg"));
+
     Application app = {};
     SDL_Window *sdl_window = init_window(&app.window, &app.matrices.update);
 
     u64 assets_loading_time_started = SDL_GetTicks64();
-    if (load_assets(&app.assets, "../assets.ethan")) return 1;
+
+    if (equal(argv[1], "load_assets")) {
+        if (load_assets(&app.assets, "../assets.ethan")) return 1;
+        save_assets(&app.assets, "assets.save");
+    }
+    else {
+        if (load_saved_assets(&app.assets, "assets.save")) return 1;
+    }
+
     app.data = (void*)init_data(&app.assets);
     log("time loading assets: %f", get_seconds(assets_loading_time_started, SDL_GetTicks64()));
 

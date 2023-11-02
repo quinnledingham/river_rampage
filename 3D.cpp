@@ -144,18 +144,19 @@ apply_waves(const v3 position, Wave *waves, u32 waves_count, f32 time)
 }
 
 function void
-update_boat_3D(Boat3D *boat,   v3 target, v3 up, v3 move_vector,
+update_boat_3D(Boat3D *boat,   v3 target, v3 up,
+               v3 move_vector, r32 rotation_speed,
                Button forward, Button backward,
                Button left,    Button right)
 {
     if (is_down(left))
     {
-        quat rot = get_rotation(DEG2RAD * 0.05f, up);
+        quat rot = get_rotation(DEG2RAD * rotation_speed, up);
         boat->direction = rot * boat->direction;
     }
     else if (is_down(right))
     {
-        quat rot = get_rotation(DEG2RAD * -0.05f, up);
+        quat rot = get_rotation(DEG2RAD * -rotation_speed, up);
         boat->direction = rot * boat->direction;
     }
 
@@ -227,11 +228,15 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
         {
             data->camera_mode++;
             if (data->camera_mode == CAMERA_MODES_COUNT) data->camera_mode = 0;
+
+            add_onscreen_notification(&data->onscreen_notifications, pair_get_value(camera_modes, 2, data->camera_mode));
         }
 
         Button null_button = {};
         f32 m_per_s = 5.0f; 
         f32 move_speed = m_per_s * time.frame_time_s;
+
+        f32 boat_rotation_speed = 50.0f * time.frame_time_s;
 
         if (data->camera_mode == FREE_CAMERA)
         {
@@ -253,7 +258,8 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
                                     null_button, null_button,
                                     null_button, null_button);
 
-            update_boat_3D(&data->boat3D, data->boat3D.direction, {0, 1, 0}, move_vector,
+            update_boat_3D(&data->boat3D, data->boat3D.direction, {0, 1, 0}, 
+                           move_vector, boat_rotation_speed,
                            controller->forward, controller->backward,
                            controller->left,    controller->right);
 
@@ -299,7 +305,7 @@ draw_game_3D(Application *app, Game_Data *data)
     
     draw_water(&app->assets, data->water, app->time.run_time_s, data->waves, 5, data->light, data->camera);
     draw_model(find_shader(&app->assets, "MATERIAL"), find_shader(&app->assets, "MATERIAL_TEX"),
-        &data->tree, data->light, data->camera, {0, 0, 0}, get_rotation(0, {0, 1, 0}));
+        find_model(&app->assets, "TAILS"), data->light, data->camera, {0, 0, 0}, get_rotation(0, {0, 1, 0}));
     draw_cube(data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
 
     //draw_cube({1, 5, 1}, 0, { 1, 1, 1 }, find_bitmap(&app->assets, "BOAT"));
@@ -309,7 +315,7 @@ draw_game_3D(Application *app, Game_Data *data)
     //log("x: %f, y: %f, %f", data->boat3D.direction.x, data->boat3D.direction.z, angle);
     quat rot = get_rotation(-angle, {0, 1, 0});
     draw_model(find_shader(&app->assets, "MATERIAL"), find_shader(&app->assets, "MATERIAL_TEX"),
-        &data->boat_model, data->light, data->camera, data->boat3D.draw_coords, rot);
+        find_model(&app->assets, "BOAT2"), data->light, data->camera, data->boat3D.draw_coords, rot);
     
 	orthographic(data->matrices_ubo, &app->matrices); // 2D
 
@@ -324,6 +330,7 @@ draw_game_3D(Application *app, Game_Data *data)
     
     platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);  
     if (data->show_console) draw_console(&data->console, app->window.dim);
+    draw_onscreen_notifications(&data->onscreen_notifications, app->window.dim, app->time.frame_time_s);
     if (data->wire_frame) platform_set_polygon_mode(PLATFORM_POLYGON_MODE_LINE);
     else                  platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);
 

@@ -1,3 +1,12 @@
+internal f32
+get_pixel_height(v2 box)
+{
+    f32 pixel_height = box.y;
+    if (box.x < box.y) pixel_height = box.x;
+    pixel_height *= 0.8f;
+    return pixel_height;
+}
+
 internal void
 draw_button(Draw_Button button)
 {
@@ -163,19 +172,35 @@ console_clear_line(Console *console, u32 line)
 function b32
 update_console(Console *console, Input *input)
 {
+    if (input->buffer[0] == 0) return true;
+
     u32 max_lines  = ARRAY_COUNT(console->memory)    - 1;
     u32 max_length = ARRAY_COUNT(console->memory[0]) - 1;
+    u32 current_length = get_length(console->textbox.buffer);
 
-    if (input->buffer[0] != 0)
+    const char *ptr = input->buffer;
+    while(*ptr != 0)
     {
-        u32 current_length = get_length(console->textbox.buffer);
+        s32 ch = *ptr++;
 
-        // scan for special inputs
-        const char *ptr = input->buffer;
-        while(*ptr != 0)
+        if (!is_ascii(ch)) continue;
+
+        if (ch != 9) console_clear_line(console, console->auto_complete); // any other input than autocomplete clear the search buffer
+
+        switch(ch)
         {
-            if (*ptr == 9) // Tab: autocomplete
-            {
+            case 8: // Backspace: delete char
+                if (console->textbox.cursor_position == 0) continue;
+
+                for(u32 i = console->textbox.cursor_position; i < current_length; i++)
+                {
+                    console->textbox.buffer[i - 1] = console->textbox.buffer[i];
+                }
+                console->textbox.buffer[current_length - 1] = 0;
+                console->textbox.cursor_position--;
+            break;
+
+            case 9: // Tab: Autocomplete
                 if (console->auto_complete[0] == 0) copy_char_array(console->auto_complete, console->textbox.buffer);
 
                 for (u32 i = 0; i < ARRAY_COUNT(console_commands); i++)
@@ -188,23 +213,9 @@ update_console(Console *console, Input *input)
                         break;
                     }
                 }
-            }
-            else console_clear_line(console, console->auto_complete);
+            break;
 
-            if      (*ptr == 8 && console->textbox.cursor_position != 0) // Backspace: remove char
-            { 
-                for(u32 i = console->textbox.cursor_position; i < current_length; i++)
-                {
-                    console->textbox.buffer[i - 1] = console->textbox.buffer[i];
-                }
-                console->textbox.buffer[current_length - 1] = 0;
-                console->textbox.cursor_position--;
-            }
-            else if (*ptr == 13) // return: do command/newline
-            {
-                //if      (equal(console->textbox.buffer, console_commands[0])) console->command = TOGGLE_WIREFRAME;
-                //else if (equal(console->textbox.buffer, console_commands[1])) console->command = RELOAD_SHADERS;
-
+            case 13: // Enter/Return: Execute command
                 for (u32 i = 0; i < ARRAY_COUNT(console_commands); i++) {
                     if (equal(console->textbox.buffer, console_commands[i])) console->command = i + 2;
                 }
@@ -226,33 +237,43 @@ update_console(Console *console, Input *input)
 
                 input->mode = INPUT_MODE_GAME;
                 return false;
-            }
-            else if (*ptr == 27) // Esc
-            {
+            break;
+
+            case 27: // Esc: Close consle
                 input->mode = INPUT_MODE_GAME;
                 return false;
-            }
-            else if (*ptr == 37 && console->textbox.cursor_position != 0) console->textbox.cursor_position--; // Left
-            else if (*ptr == 39 && console->textbox.cursor_position != current_length) console->textbox.cursor_position++; // Right
-            else if (*ptr == 38 || *ptr == 40) // Up: move thorugh command history
-            {
-                if (*ptr == 38 && console->lines_up_index != 0)              console->lines_up_index--;
-                if (*ptr == 40 && console->lines_up_index != console->lines) console->lines_up_index++;
+            break;
+
+            case 37: // Left
+                if (console->textbox.cursor_position != 0)
+                    console->textbox.cursor_position--; // Left
+            break;
+
+            case 39: // Right
+                if (console->textbox.cursor_position != current_length)
+                    console->textbox.cursor_position++; // Right
+            break;
+
+            case 38: // Up
+            case 40: // Down
+                if (ch == 38 && console->lines_up_index != 0)              console->lines_up_index--;
+                if (ch == 40 && console->lines_up_index != console->lines) console->lines_up_index++;
 
                 console->textbox.buffer = console->memory[console->lines_up_index];
                 console->textbox.cursor_position = get_length(console->textbox.buffer);
-            }
-            else if ((isalpha(*ptr) || *ptr == '/' || *ptr == '_') && current_length < max_length)
-            {
+            break;
+
+            default: // Add char to char_array in textbox
+                if (current_length >= max_length) continue;
+
                 for(s32 i = current_length - 1; i > (s32)console->textbox.cursor_position; i--)
                 {
                     console->textbox.buffer[i + 1] = console->textbox.buffer[i];
                 }
-                console->textbox.buffer[console->textbox.cursor_position] = *ptr;
+                console->textbox.buffer[console->textbox.cursor_position] = ch;
                 console->textbox.buffer[current_length + 1] = 0;
                 console->textbox.cursor_position++;
-            }
-            ptr++;
+            break;
         }
     }
 
@@ -266,4 +287,65 @@ draw_console(Console *console, v2s window_dim)
     console->textbox.dim.x = window_dim.x;
 
     draw_textbox(&console->textbox);
+}
+
+internal void
+add_onscreen_notification(Onscreen_Notifications *n, const char *not)
+{
+    if (n->lines == ARRAY_COUNT(n->memory)) {
+        log("add_onscreen_notification(): too many notfications");
+        return;
+    }
+
+    n->times[n->lines] = 1.0f;
+    n->colors[n->lines] = n->text_color;
+
+    u32 not_length = get_length(not);
+    for (u32 ch = 0; ch < not_length; ch++) {
+        n->memory[n->lines][ch] = not[ch];
+    }   
+    n->lines++;
+}
+
+internal void
+update_onscreen_notifications(Onscreen_Notifications *n, r32 frame_time_s)
+{
+    for (u32 i = 0; i < n->lines; i++) {
+        n->times[i] -= frame_time_s;
+
+        n->colors[i].a = n->times[i];
+
+        if (n->times[i] <= 0.0f) {
+            //for (u32 ch = 0; ch < ARRAY_COUNT(n->memory[i]); ch++) {
+            //    n->memory[i][ch] = 0;
+            //}
+            n->colors[i].a = 0.0f;
+
+            // Last line that was added is dissappearing so you can start adding from the beginning again.
+            if (i == n->lines - 1) {
+                n->lines = 0;
+            }
+        }
+    }
+}
+
+internal void
+draw_onscreen_notifications(Onscreen_Notifications *n, v2s window_dim, r32 frame_time_s)
+{
+    update_onscreen_notifications(n, frame_time_s);
+
+    f32 pixel_height = get_pixel_height(cv2(window_dim) * 0.1f);
+
+    f32 above_text_coord = 0.0f;
+    for (u32 i = 0; i < n->lines; i++)
+    {
+        v2 text_dim = get_string_dim(n->font, n->memory[i], pixel_height, n->text_color);
+        v2 text_coords = {};
+        text_coords.x = (window_dim.x / 2.0f) - (text_dim.x / 2.0f);
+        text_coords.y = above_text_coord + text_dim.y + 10.0f;
+
+        draw_string(n->font, n->memory[i], text_coords, pixel_height, n->colors[i]);
+
+        above_text_coord = text_coords.y;
+    }
 }

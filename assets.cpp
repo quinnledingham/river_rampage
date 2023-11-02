@@ -343,7 +343,7 @@ void compile_shader(Shader *shader)
     }
     
     shader->compiled = true;
-    log("compiled shader with vs file %s", shader->vs_filename);
+    if (shader->vs_filename != 0) log("compiled shader with vs file %s", shader->vs_filename);
 }
 
 u32 use_shader(Shader *shader)
@@ -480,6 +480,10 @@ load_font_char(Font *font, u32 codepoint, f32 scale, v4 color)
 v2 get_string_dim(Font *font, const char *string, s32 length, f32 pixel_height, v4 color)
 {
     if (string == 0) return { 0, 0 };
+    if (font == 0) {
+        error("get_string_dim(): no font");
+        return { 0, 0 };
+    }
 
     stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
     f32 scale = stbtt_ScaleForPixelHeight(info, pixel_height);
@@ -684,6 +688,7 @@ void draw_model(Shader *shader, Shader *tex_shader, Model *model, Light_Source l
     //m4x4 model_matrix = create_transform_m4x4(position, rotation, {1, 1, 1});
     //glUniformMatrix4fv(glGetUniformLocation(handle, "model"), (GLsizei)1, false, (float*)&model_matrix);
     //glUniform3fv(glGetUniformLocation(handle, "viewPos"), (GLsizei)1, (float*)&camera.position);    
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, 0);
 
     for (s32 i = 0; i < model->meshes_count; i++)
@@ -921,16 +926,13 @@ parse_face_vertex(File *file, s32 *line_num, Face_Vertex *f)
     file->ch = (char*)char_array_to_u32(file->ch, &f->normal_index);
 }
 
-Model load_obj(const char *path, const char *filename)
+Model load_obj(const char *filename)
 {
     Model model = {};
     Obj obj = {};
     
-    char filepath[80];
-    memset(filepath, 0, 80);
-    strcat(strcat(filepath, path), filename);
-    
-    File file = read_file(filepath);
+    File file = read_file(filename);
+
     if (!file.size) { error("load_obj: could not read object file"); return model; }
 
     // count components
@@ -1101,7 +1103,9 @@ Model load_obj(const char *path, const char *filename)
     
     free_file(&file);
     
-    Mtl mtl = load_mtl(path, obj.material_filename);
+    const char *filepath = get_path(filename);
+    Mtl mtl = load_mtl(filepath, obj.material_filename);
+    platform_free((void*)filepath);
     
     // creating the model's meshes
     {
@@ -1227,16 +1231,12 @@ parse_asset_file(Assets *assets, File *file, void (action)(void *data, void *arg
     {
         last_token = tok;
         tok = scan_asset_file(file, &line_num, tok);
-        //printf("%d, %s\n", tok.type, tok.lexeme);
         
         if (tok.type == ATT_KEYWORD)
         {
-            u32 type = 0;
-            if      (equal(tok.lexeme, "FONTS"))   type = ASSET_TYPE_FONT;
-            else if (equal(tok.lexeme, "BITMAPS")) type = ASSET_TYPE_BITMAP;
-            else if (equal(tok.lexeme, "SHADERS")) type = ASSET_TYPE_SHADER;
-            else if (equal(tok.lexeme, "AUDIOS"))  type = ASSET_TYPE_AUDIO;
-            
+            u32 type = pair_get_key(asset_types, ASSET_TYPE_AMOUNT, tok.lexeme);
+            if (type == ASSET_TYPE_AMOUNT) error("parse_asset_file(): could not find asset type for lexeme");
+
             // add last shader
             if (shader_tag != 0 && type != ASSET_TYPE_SHADER)
             {
@@ -1270,11 +1270,7 @@ parse_asset_file(Assets *assets, File *file, void (action)(void *data, void *arg
                 }
                 else if (equal(last_token.lexeme, "|")) // shader part needs to be grabbed
                 {
-                    if      (equal(tok.lexeme, "VERTEX"))     shader_type = VERTEX_SHADER;
-                    else if (equal(tok.lexeme, "CONTROL"))    shader_type = TESSELLATION_CONTROL_SHADER;
-                    else if (equal(tok.lexeme, "EVALUATION")) shader_type = TESSELLATION_EVALUATION_SHADER;
-                    else if (equal(tok.lexeme, "GEOMETRY"))   shader_type = GEOMETRY_SHADER;
-                    else if (equal(tok.lexeme, "FRAGMENT"))   shader_type = FRAGMENT_SHADER;
+                    shader_type = pair_get_key(shader_types, SHADER_TYPE_AMOUNT, tok.lexeme);
                     
                     // check that comma comes after
                     tok = scan_asset_file(file, &line_num, tok);
@@ -1309,7 +1305,7 @@ parse_asset_file(Assets *assets, File *file, void (action)(void *data, void *arg
                     }
                 }
             }
-            else // Fonts, Bitmaps, Audios
+            else // Fonts, Bitmaps, Audios, Models
             {
                 if (!equal(last_token.lexeme, ","))
                 {
@@ -1405,10 +1401,56 @@ load_assets(Assets *assets, const char *filename) // returns 0 on success
                 asset.audio = load_audio(info->filename);
                 assets->types[ASSET_TYPE_AUDIO].data[info->index] = asset;
             } break;
+
+            case ASSET_TYPE_MODEL:
+            {
+                asset.model = load_obj(info->filename);
+                assets->types[ASSET_TYPE_MODEL].data[info->index] = asset;
+            } break;
         }
     }
     
     return 0;
+}
+
+internal void
+save_bitmap_memory(Bitmap bitmap, FILE *file)
+{
+    fwrite(bitmap.memory, bitmap.dim.x * bitmap.dim.y * bitmap.channels, 1, file);
+}
+
+internal void
+load_bitmap_memory(Bitmap *bitmap, FILE *file)
+{
+    u32 size = bitmap->dim.x * bitmap->dim.y * bitmap->channels;
+    bitmap->memory = (u8*)SDL_malloc(size);
+    fread(bitmap->memory, size, 1, file);
+    init_bitmap_handle(bitmap);
+}
+
+internal void
+save_mesh(Mesh mesh, FILE *file)
+{
+    fwrite((void*)&mesh, sizeof(Mesh), 1, file);
+    fwrite(mesh.vertices, sizeof(Vertex), mesh.vertices_count, file);
+    fwrite(mesh.indices, sizeof(u32), mesh.indices_count, file);
+
+    if (mesh.material.diffuse_map.channels != 0) save_bitmap_memory(mesh.material.diffuse_map, file);
+}
+
+internal Mesh
+load_mesh(FILE *file)
+{
+    Mesh mesh = {};
+    fread((void*)&mesh, sizeof(Mesh), 1, file);
+    mesh.vertices = ARRAY_MALLOC(Vertex, mesh.vertices_count);
+    mesh.indices = ARRAY_MALLOC(u32, mesh.indices_count);
+    fread(mesh.vertices, sizeof(Vertex), mesh.vertices_count, file);
+    fread(mesh.indices, sizeof(u32), mesh.indices_count, file);
+
+    if (mesh.material.diffuse_map.channels != 0) load_bitmap_memory(&mesh.material.diffuse_map, file);
+
+    return mesh;
 }
 
 function void
@@ -1428,11 +1470,13 @@ save_assets(Assets *assets, const char *filename)
             case ASSET_TYPE_FONT: 
             {
                 fwrite(asset->font.file.memory, asset->font.file.size, 1, file);
+                fwrite(asset->font.info, sizeof(stbtt_fontinfo), 1, file);
             } break;
             
             case ASSET_TYPE_BITMAP: 
             {
-                fwrite(asset->bitmap.memory, asset->bitmap.dim.x * asset->bitmap.dim.y * asset->bitmap.channels, 1, file);
+                //fwrite(asset->bitmap.memory, asset->bitmap.dim.x * asset->bitmap.dim.y * asset->bitmap.channels, 1, file);
+                save_bitmap_memory(asset->bitmap, file);
             } break;
             
             case ASSET_TYPE_SHADER: 
@@ -1447,6 +1491,11 @@ save_assets(Assets *assets, const char *filename)
             case ASSET_TYPE_AUDIO:
             {
                 fwrite(asset->audio.buffer, asset->audio.length, 1, file);
+            } break;
+
+            case ASSET_TYPE_MODEL:
+            {
+                for (u32 i = 0; i < asset->model.meshes_count; i++) save_mesh(asset->model.meshes[i], file);
             } break;
         }
     }
@@ -1474,6 +1523,7 @@ load_saved_assets(Assets *assets, const char *filename) // returns 0 on success
     u32 bitmaps_index = 0;
     u32 shaders_index = 0;
     u32 audios_index = 0;
+    u32 models_index = 0;
     
     for (u32 i = 0; i < assets->num_of_assets; i++)
     {
@@ -1491,20 +1541,22 @@ load_saved_assets(Assets *assets, const char *filename) // returns 0 on success
                 fread(asset.font.file.memory, asset.font.file.size, 1, file);
 
                 asset.font.info = SDL_malloc(sizeof(stbtt_fontinfo));
-                stbtt_fontinfo *info = (stbtt_fontinfo*)&asset.font.info;
-                *info = {};
+                fread(asset.font.info, sizeof(stbtt_fontinfo), 1, file);
+                //stbtt_fontinfo *info = (stbtt_fontinfo*)&asset.font.info;
+                *((stbtt_fontinfo*)asset.font.info) = {};
 
-                stbtt_InitFont(info, (u8*)asset.font.file.memory, stbtt_GetFontOffsetForIndex((u8*)asset.font.file.memory, 0));
+                stbtt_InitFont((stbtt_fontinfo*)asset.font.info, (u8*)asset.font.file.memory, stbtt_GetFontOffsetForIndex((u8*)asset.font.file.memory, 0));
                 assets->types[ASSET_TYPE_FONT].data[fonts_index++] = asset;
             } break;
             
             case ASSET_TYPE_BITMAP: 
             {
                 asset.bitmap = all_asset->bitmap;
-                u32 size = asset.bitmap.dim.x * asset.bitmap.dim.y * asset.bitmap.channels;
-                asset.bitmap.memory = (u8*)SDL_malloc(size);
-                fread(asset.bitmap.memory, size, 1, file);
-                init_bitmap_handle(&asset.bitmap);
+                //u32 size = asset.bitmap.dim.x * asset.bitmap.dim.y * asset.bitmap.channels;
+                //asset.bitmap.memory = (u8*)SDL_malloc(size);
+                //fread(asset.bitmap.memory, size, 1, file);
+                //init_bitmap_handle(&asset.bitmap);
+                load_bitmap_memory(&asset.bitmap, file);
                 assets->types[ASSET_TYPE_BITMAP].data[bitmaps_index++] = asset;
             } break;
             
@@ -1521,6 +1573,13 @@ load_saved_assets(Assets *assets, const char *filename) // returns 0 on success
                 fread((void*)asset.shader.tes_file, asset.shader.file_sizes[2], 1, file);
                 fread((void*)asset.shader.gs_file,  asset.shader.file_sizes[3], 1, file);
                 fread((void*)asset.shader.fs_file,  asset.shader.file_sizes[4], 1, file);
+                
+                asset.shader.vs_filename = 0;
+                asset.shader.tcs_filename = 0;
+                asset.shader.tes_filename = 0;
+                asset.shader.gs_filename = 0;
+                asset.shader.fs_filename = 0;
+
                 asset.shader.compiled = false;
                 compile_shader(&asset.shader);
                 assets->types[ASSET_TYPE_SHADER].data[shaders_index++] = asset;
@@ -1532,6 +1591,17 @@ load_saved_assets(Assets *assets, const char *filename) // returns 0 on success
                 asset.audio.buffer = (u8*)SDL_malloc(asset.audio.length);
                 fread(asset.audio.buffer, asset.audio.length, 1, file);
                 assets->types[ASSET_TYPE_AUDIO].data[audios_index++] = asset;
+            } break;
+
+            case ASSET_TYPE_MODEL:
+            {
+                asset.model = all_asset->model;
+                asset.model.meshes = (Mesh*)SDL_malloc(asset.model.meshes_count * sizeof(Mesh));
+                for (u32 i = 0; i < asset.model.meshes_count; i++) { 
+                    asset.model.meshes[i] = load_mesh(file);
+                    init_mesh(&asset.model.meshes[i]);
+                }
+                assets->types[ASSET_TYPE_MODEL].data[models_index++] = asset;
             } break;
         }
     }

@@ -139,8 +139,6 @@ struct Input
     u32 num_of_controllers;
     Controller *active_controller;
     
-    Button input_buffer[10];
-
     char buffer[10];
     u32 mode; // game or keyboard
 

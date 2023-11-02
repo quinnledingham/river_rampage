@@ -129,7 +129,7 @@ struct Model
     u32 meshes_count;
 };
 
-Model load_obj(const char *path, const char *filename);
+Model load_obj(const char *filename);
 void draw_model(Shader *shader, Shader *tex_shader, Model *model, Light_Source light, Camera camera, v3 position, quat rotation);
 
 struct Font_Scale
@@ -230,6 +230,16 @@ enum shader_types
     TESSELLATION_EVALUATION_SHADER,
     GEOMETRY_SHADER,
     FRAGMENT_SHADER,
+
+    SHADER_TYPE_AMOUNT
+};
+
+const Pair shader_types[SHADER_TYPE_AMOUNT] = {
+    { VERTEX_SHADER,                  "VERTEX"     },
+    { TESSELLATION_CONTROL_SHADER,    "CONTROL"    },
+    { TESSELLATION_EVALUATION_SHADER, "EVALUATION" },
+    { GEOMETRY_SHADER,                "GEOMETRY"   },
+    { FRAGMENT_SHADER,                "FRAGMENT"   },
 };
 
 enum asset_types
@@ -238,8 +248,17 @@ enum asset_types
     ASSET_TYPE_FONT,
     ASSET_TYPE_SHADER,
     ASSET_TYPE_AUDIO,
+    ASSET_TYPE_MODEL,
     
     ASSET_TYPE_AMOUNT
+};
+
+const Pair asset_types[ASSET_TYPE_AMOUNT] = {
+    { ASSET_TYPE_BITMAP, "BITMAPS" },
+    { ASSET_TYPE_FONT,   "FONTS"   },
+    { ASSET_TYPE_SHADER, "SHADERS" },
+    { ASSET_TYPE_AUDIO,  "AUDIOS"  },
+    { ASSET_TYPE_MODEL,  "MODELS"  },
 };
 
 struct Asset
@@ -249,10 +268,11 @@ struct Asset
     u32 tag_length;
     union
     {
-        Font font;
+        Font   font;
         Bitmap bitmap;
         Shader shader;
-        Audio audio;
+        Audio  audio;
+        Model  model;
     };
 };
 
@@ -262,6 +282,7 @@ struct Asset_Load_Info
     int index;
     const char *tag;
     const char *filename;     //.vs vertex_shader
+    const char *path;
     
     const char *tcs_filename; //.tcs tessellation control shader
     const char *tes_filename; //.tes tessellation evaluation shader
@@ -283,7 +304,7 @@ struct Assets
     Asset_Load_Info *info;
     u32 num_of_info_loaded;
     
-    Asset_Array types[4]; // 0 = bitmap, 1 = font ...
+    Asset_Array types[5]; // 0 = bitmap, 1 = font ...
 };
 
 function Bitmap*
@@ -317,6 +338,18 @@ find_shader(Assets *assets, const char *tag)
     {
         if (equal(tag, assets->types[ASSET_TYPE_SHADER].data[i].tag)) 
             return &assets->types[ASSET_TYPE_SHADER].data[i].shader;
+    }
+    warning(0, "Could not find shader with tag: %s", tag);
+    return 0;
+}
+
+function Model*
+find_model(Assets *assets, const char *tag)
+{
+    for (u32 i = 0; i < assets->types[ASSET_TYPE_MODEL].num_of_assets; i++)
+    {
+        if (equal(tag, assets->types[ASSET_TYPE_MODEL].data[i].tag)) 
+            return &assets->types[ASSET_TYPE_MODEL].data[i].model;
     }
     warning(0, "Could not find shader with tag: %s", tag);
     return 0;
@@ -398,7 +431,7 @@ struct Asset_Token
     const char *lexeme;
 };
 
-global const char *asset_keywords[4] = { "FONTS", "BITMAPS", "SHADERS", "AUDIOS" };
+global const char *asset_keywords[5] = { "FONTS", "BITMAPS", "SHADERS", "AUDIOS", "MODELS" };
 
 function b32
 is_asset_keyword(const char *word)

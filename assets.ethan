@@ -30,3 +30,7 @@ NORMAL, ../assets/bitmaps/normal.jpg
 
 FONTS:
 CASLON, ../assets/fonts/LibreCaslonCondensed-Regular.ttf
+
+MODELS:
+BOAT2, ../assets/objs/boat/boat2.obj
+TAILS, ../assets/objs/tails/tails.obj
