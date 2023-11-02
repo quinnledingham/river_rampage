@@ -114,19 +114,6 @@ struct Controller
     };
 };
 
-struct Keyboard
-{
-    union
-    {
-        struct
-        {
-            Button a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z;
-            Button shift;
-        };
-        Button buttons[27];
-    };
-};
-
 struct Flag
 {
     b8 state;
@@ -153,10 +140,8 @@ struct Input
     Controller *active_controller;
     
     Button input_buffer[10];
-    Keyboard keyboard;
 
     char buffer[10];
-    b32 new_input_buffer;
     u32 mode; // game or keyboard
 
     Flag relative_mouse_mode;

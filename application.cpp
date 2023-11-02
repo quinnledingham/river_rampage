@@ -165,7 +165,6 @@ reset_controller(Controller *controller)
     }
 }
 
-
 function void
 prepare_controller_for_input(Controller *controller)
 {
@@ -243,7 +242,6 @@ process_input(Window *window, Input *input)
     for (u32 i = 0; i < input->num_of_controllers; i++) prepare_controller_for_input(&input->controllers[i]);
     
     u32 buffer_index = 0;
-    input->new_input_buffer = false;
     SDL_memset(input->buffer, 0, 10);
 
     local_persist u32 last_input_mode = 0;
@@ -305,7 +303,6 @@ process_input(Window *window, Input *input)
                 }
                 else if (input->mode == INPUT_MODE_KEYBOARD && state)
                 {
-                    input->new_input_buffer = true;
                     keyboard_input_to_char_array(key_id, input->buffer, &buffer_index, shift);
                 }
             } break;
@@ -405,16 +402,6 @@ init_controllers(Input *input)
     set(&keyboard->toggle_camera_mode, SDLK_c);
     set(&keyboard->toggle_console, SDLK_t);
     
-    input->num_of_controllers = 1;
-}
-
-function void
-init_keyboard(Input *input)
-{
-    Keyboard *keyboard = &input->keyboard;
-    set(&keyboard->a, SDLK_a);
-    set(&keyboard->b, SDLK_b);
-
     input->num_of_controllers = 1;
 }
 

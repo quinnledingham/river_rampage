@@ -166,7 +166,7 @@ update_console(Console *console, Input *input)
     u32 max_lines  = ARRAY_COUNT(console->memory)    - 1;
     u32 max_length = ARRAY_COUNT(console->memory[0]) - 1;
 
-    if (input->new_input_buffer)
+    if (input->buffer[0] != 0)
     {
         u32 current_length = get_length(console->textbox.buffer);
 

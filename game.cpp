@@ -23,6 +23,9 @@ Improve rendering of models
 Make boat movement better
 Add pitch and yaw to boat
 
+Add alerts to screen when modes change
+
+add checking for going over the input buffer
 */
 
 // returns game mode
