@@ -9,6 +9,21 @@ is_ascii(s32 ch)
     else                      return false;
 }
 
+inline bool
+is_ascii_letter(int ch)
+{
+    if      (ch >= 'A' && ch <= 'Z') return true; // uppercase
+    else if (ch >= 'a' && ch <= 'z') return true; // lowercase
+    else                             return false;
+}
+
+function bool
+is_ascii_digit(int ch)
+{
+    if (isdigit(ch)) return true;
+    return false;
+}
+
 inline b32
 equal(const char* a, const char *b)
 {
@@ -263,7 +278,7 @@ get_path(const char *file)
         path_length--;
     }
 
-    char *path = (char*)platform_malloc(path_length);
+    char *path = (char*)platform_malloc(path_length + 1);
     for (u32 i = 0; i < path_length; i++)
     {
         path[i] = file[i];
@@ -273,7 +288,29 @@ get_path(const char *file)
     return (const char*)path;
 }
 
+internal const char*
+get_filename(const char *filepath)
+{
+    u32 length = get_length(filepath);
+    char *ptr = (char*)filepath;
+    ptr += length;
 
+    u32 name_length = 0;
+    while(*ptr != '/') {
+        ptr--;
+        name_length++;
+    }
+    ptr++;
+    name_length--;
+
+    char *filename = (char*)platform_malloc(name_length + 1);
+    for (u32 i = 0; i < name_length; i++) {
+        filename[i] = ptr[i];
+    }
+    filename[name_length] = 0;
+
+    return filename;
+}
 
 struct Pair
 {

@@ -278,25 +278,26 @@ load_shader_file(const char* filename, u32 *file_size)
 // loads the files
 void load_shader(Shader *shader)
 {
-    if (shader->vs_filename == 0)
-    {
+    if (shader->files[0].path == 0) {
         error("load_opengl_shader() must have a vertex shader");
         return;
     }
-    
-    // Free all files
-    if (shader->vs_file  != 0) free((void*)shader->vs_file);
-    if (shader->tcs_file != 0) free((void*)shader->tcs_file);
-    if (shader->tes_file != 0) free((void*)shader->tes_file);
-    if (shader->gs_file  != 0) free((void*)shader->gs_file);
-    if (shader->fs_file  != 0) free((void*)shader->fs_file);
-    
-    // Load files
-    if (shader->vs_filename  != 0) shader->vs_file  = load_shader_file(shader->vs_filename,  &shader->file_sizes[0]);
-    if (shader->tcs_filename != 0) shader->tcs_file = load_shader_file(shader->tcs_filename, &shader->file_sizes[1]);
-    if (shader->tes_filename != 0) shader->tes_file = load_shader_file(shader->tes_filename, &shader->file_sizes[2]);
-    if (shader->gs_filename  != 0) shader->gs_file  = load_shader_file(shader->gs_filename,  &shader->file_sizes[3]);
-    if (shader->fs_filename  != 0) shader->fs_file  = load_shader_file(shader->fs_filename,  &shader->file_sizes[4]);
+
+    printf("loaded shader: ");
+    for (u32 i = 0; i < SHADER_TYPE_AMOUNT; i++) {
+        // free the existing files if there are any
+        if (shader->files[i].memory != 0) {
+            free((void*)shader->files[i].memory);
+            shader->files[i].memory = 0;
+        }
+
+        // load the files from the shader file
+        if (shader->files[i].path != 0) {
+            shader->files[i].memory = (void*)load_shader_file(shader->files[i].path, &shader->files[i].size);
+            printf("%s ", get_filename(shader->files[i].path));
+        }
+    }
+    printf("\n");
 }
 
 bool compile_shader(u32 handle, const char *file, int type)
@@ -307,12 +308,9 @@ bool compile_shader(u32 handle, const char *file, int type)
     
     GLint compiled_s = 0;
     glGetShaderiv(s, GL_COMPILE_STATUS, &compiled_s);  
-    if (!compiled_s)
-    {
+    if (!compiled_s) {
         opengl_debug(GL_SHADER, s);
-    }
-    else
-    {
+    } else {
         glAttachShader(handle, s);
     }
     
@@ -320,6 +318,15 @@ bool compile_shader(u32 handle, const char *file, int type)
     
     return compiled_s;
 }
+
+// lines up with enum shader_types
+const u32 file_types[5] = { 
+    GL_VERTEX_SHADER,
+    GL_TESS_CONTROL_SHADER,
+    GL_TESS_EVALUATION_SHADER,
+    GL_GEOMETRY_SHADER,
+    GL_FRAGMENT_SHADER,
+};
 
 // compiles the files
 void compile_shader(Shader *shader)
@@ -329,27 +336,32 @@ void compile_shader(Shader *shader)
     if (shader->handle != 0) glDeleteProgram(shader->handle);
     shader->handle = glCreateProgram();
     
-    if (shader->vs_file == 0) error("vertex shader required");
-    
-    if (shader->vs_file  != 0) if (!compile_shader(shader->handle, shader->vs_file,  GL_VERTEX_SHADER))          { error("compile_shader() could not compile vertex shader");          return; }
-    if (shader->tcs_file != 0) if (!compile_shader(shader->handle, shader->tcs_file, GL_TESS_CONTROL_SHADER))    { error("compile_shader() could not compile tess controll shader");   return; }
-    if (shader->tes_file != 0) if (!compile_shader(shader->handle, shader->tes_file, GL_TESS_EVALUATION_SHADER)) { error("compile_shader() could not compile tess evaluation shader"); return; }
-    if (shader->gs_file  != 0) if (!compile_shader(shader->handle, shader->gs_file,  GL_GEOMETRY_SHADER))        { error("compile_shader() could not compile geometry shader");        return; }
-    if (shader->fs_file  != 0) if (!compile_shader(shader->handle, shader->fs_file,  GL_FRAGMENT_SHADER))        { error("compile_shader() could not compile fragment shader");        return; }
-    
+    if (shader->files[0].memory == 0) {
+        error("vertex shader required");
+        return;
+    }
+
+    for (u32 i = 0; i < SHADER_TYPE_AMOUNT; i++) {
+        if (shader->files[i].memory == 0) continue; // file was not loaded
+
+        if (!compile_shader(shader->handle, (char*)shader->files[i].memory, file_types[i])) {
+            error("compile_shader() could not compile %s", shader->files[i].path); 
+            return;
+        }
+    }
+
     // Link
     glLinkProgram(shader->handle);
+
     GLint linked_program = 0;
     glGetProgramiv(shader->handle, GL_LINK_STATUS, &linked_program);
-    if (!linked_program)
-    {
+    if (!linked_program) {
         opengl_debug(GL_PROGRAM, shader->handle);
         error("compile_shader() link failed");
         return;
     }
-    
+
     shader->compiled = true;
-    if (shader->vs_filename != 0) log("compiled shader with vs file %s", shader->vs_filename);
 }
 
 u32 use_shader(Shader *shader)
@@ -413,9 +425,8 @@ function Font
 load_font(const char *filename)
 {
     Font font = {};
-    SDL_memset(font.font_scales,  0, sizeof(Font_Scale)  * ARRAY_COUNT(font.font_scales));
-    SDL_memset(font.font_chars,   0, sizeof(Font_Char)   * ARRAY_COUNT(font.font_chars));
-    SDL_memset(font.font_strings, 0, sizeof(Font_String) * ARRAY_COUNT(font.font_strings));
+    SDL_memset(font.font_chars, 0, sizeof(Font_Char)        * ARRAY_COUNT(font.font_chars));
+    SDL_memset(font.bitmaps,    0, sizeof(Font_Char_Bitmap) * ARRAY_COUNT(font.bitmaps));
     font.file = read_file(filename);
     
     font.info = SDL_malloc(sizeof(stbtt_fontinfo));
@@ -462,6 +473,11 @@ load_font_char(Font *font, u32 codepoint)
 internal Font_Char_Bitmap*
 load_font_char_bitmap(Font *font, u32 codepoint, f32 scale)
 {
+    if (scale == 0.0f) {
+        error("load_font_char_bitmap(): scale can not be zero"); // scale used below
+        return 0;
+    }
+
     stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
 
     // search cache for font char
@@ -478,9 +494,10 @@ load_font_char_bitmap(Font *font, u32 codepoint, f32 scale)
         font->bitmaps_cached = 0;
 
     // free bitmap if one is being overwritten
-    if (bitmap->bitmap.memory != 0) { 
-        stbtt_FreeBitmap(bitmap->bitmap.memory, 0);
+    if (bitmap->scale != 0) { 
+        stbtt_FreeBitmap(bitmap->bitmap.memory, info->userdata);
         glDeleteTextures(1, &bitmap->bitmap.handle);
+        bitmap->bitmap.memory = 0;
     }
 
     memset(bitmap, 0, sizeof(Font_Char_Bitmap));
@@ -1300,14 +1317,7 @@ parse_asset_file(Assets *assets, File *file, void (action)(void *data, void *arg
             {
                 if (equal(last_token.lexeme, ",")) // all that is left is the filename
                 {
-                    switch(shader_type)
-                    {
-                        case VERTEX_SHADER:                  info.filename     = tok.lexeme; break;
-                        case TESSELLATION_CONTROL_SHADER:    info.tcs_filename = tok.lexeme; break;
-                        case TESSELLATION_EVALUATION_SHADER: info.tes_filename = tok.lexeme; break;
-                        case GEOMETRY_SHADER:                info.gs_filename  = tok.lexeme; break;
-                        case FRAGMENT_SHADER:                info.fs_filename  = tok.lexeme; break;
-                    }
+                    info.file_paths[shader_type] = tok.lexeme;
                 }
                 else if (equal(last_token.lexeme, "|")) // shader part needs to be grabbed
                 {
@@ -1427,11 +1437,9 @@ load_assets(Assets *assets, const char *filename) // returns 0 on success
             
             case ASSET_TYPE_SHADER:
             {
-                asset.shader.vs_filename  = info->filename;
-                asset.shader.tcs_filename = info->tcs_filename;
-                asset.shader.tes_filename = info->tes_filename;
-                asset.shader.gs_filename  = info->gs_filename;
-                asset.shader.fs_filename  = info->fs_filename;
+                for (u32 i = 0; i < SHADER_TYPE_AMOUNT; i++) {
+                    asset.shader.files[i].path = info->file_paths[i];
+                }
                 load_shader(&asset.shader);
                 compile_shader(&asset.shader);
                 assets->types[ASSET_TYPE_SHADER].data[info->index] = asset;
@@ -1522,11 +1530,9 @@ save_assets(Assets *assets, const char *filename)
             
             case ASSET_TYPE_SHADER: 
             {
-                fwrite(asset->shader.vs_file,  asset->shader.file_sizes[0], 1, file);
-                fwrite(asset->shader.tcs_file, asset->shader.file_sizes[1], 1, file);
-                fwrite(asset->shader.tes_file, asset->shader.file_sizes[2], 1, file);
-                fwrite(asset->shader.gs_file,  asset->shader.file_sizes[3], 1, file);
-                fwrite(asset->shader.fs_file,  asset->shader.file_sizes[4], 1, file);
+                for (u32 i = 0; i < SHADER_TYPE_AMOUNT; i++) {
+                    fwrite(asset->shader.files[i].memory, asset->shader.files[i].size, 1, file);
+                }
             } break;
             
             case ASSET_TYPE_AUDIO:
@@ -1604,22 +1610,11 @@ load_saved_assets(Assets *assets, const char *filename) // returns 0 on success
             case ASSET_TYPE_SHADER: 
             {
                 asset.shader = all_asset->shader;
-                if (asset.shader.file_sizes[0]) asset.shader.vs_file  = (const char*)SDL_malloc(asset.shader.file_sizes[0]);
-                if (asset.shader.file_sizes[1]) asset.shader.tcs_file = (const char*)SDL_malloc(asset.shader.file_sizes[1]);
-                if (asset.shader.file_sizes[2]) asset.shader.tes_file = (const char*)SDL_malloc(asset.shader.file_sizes[2]);
-                if (asset.shader.file_sizes[3]) asset.shader.gs_file  = (const char*)SDL_malloc(asset.shader.file_sizes[3]);
-                if (asset.shader.file_sizes[4]) asset.shader.fs_file  = (const char*)SDL_malloc(asset.shader.file_sizes[4]);
-                fread((void*)asset.shader.vs_file,  asset.shader.file_sizes[0], 1, file);
-                fread((void*)asset.shader.tcs_file, asset.shader.file_sizes[1], 1, file);
-                fread((void*)asset.shader.tes_file, asset.shader.file_sizes[2], 1, file);
-                fread((void*)asset.shader.gs_file,  asset.shader.file_sizes[3], 1, file);
-                fread((void*)asset.shader.fs_file,  asset.shader.file_sizes[4], 1, file);
-                
-                asset.shader.vs_filename = 0;
-                asset.shader.tcs_filename = 0;
-                asset.shader.tes_filename = 0;
-                asset.shader.gs_filename = 0;
-                asset.shader.fs_filename = 0;
+                for (u32 i = 0; i < SHADER_TYPE_AMOUNT; i++) {
+                    if (asset.shader.files[i].size) asset.shader.files[i].memory = SDL_malloc(asset.shader.files[i].size);
+                    fread((void*)asset.shader.files[i].memory, asset.shader.files[i].size, 1, file);
+                    asset.shader.files[i].path = 0;
+                }
 
                 asset.shader.compiled = false;
                 compile_shader(&asset.shader);
