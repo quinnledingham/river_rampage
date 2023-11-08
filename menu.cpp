@@ -40,10 +40,11 @@ draw_textbox(Draw_Textbox *box)
     if (box->dim.x < box->dim.y) pixel_height = box->dim.x;
     pixel_height *= 0.8f;
 
-    v2 text_dim = get_string_dim(box->font, box->buffer, pixel_height, box->text_color);
+    //v2 text_dim = get_string_dim(box->font, box->buffer, pixel_height, box->text_color);
+    v2 font_dim = get_font_loaded_dim(box->font, pixel_height);
     v2 text_coords = {};
     //text_coords.x = box->coords.x + (box->dim.x / 2.0f) - (text_dim.x / 2.0f);
-    text_coords.y = box->coords.y + (box->dim.y / 2.0f) + (text_dim.y / 2.0f);
+    text_coords.y = box->coords.y + (box->dim.y / 2.0f) + (font_dim.y / 2.0f);
 
     v2 text_dim_cursor = get_string_dim(box->font, box->buffer, box->cursor_position, pixel_height, box->text_color);
     v2 cursor_coords = box->coords;

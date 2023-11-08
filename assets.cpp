@@ -149,16 +149,22 @@ init_bitmap_handle(Bitmap *bitmap, u32 texture_parameters)
     
     switch(bitmap->channels)
     {
+        case 1:
+        internal_format = GL_RED,
+        data_format = GL_RED,
+        pixel_unpack_alignment = 1; 
+        break;
+
         case 3:
         internal_format = GL_RGB;
         data_format = GL_RGB;
-        pixel_unpack_alignment = 1;
+        pixel_unpack_alignment = 1; // because RGB is weird case unpack alignment can't be 3
         break;
         
         case 4:
         internal_format = GL_RGBA;
         data_format = GL_RGBA;
-        pixel_unpack_alignment = 0;
+        pixel_unpack_alignment = 4;
         break;
     }
     
@@ -417,11 +423,14 @@ load_font(const char *filename)
     *info = {};
     
     stbtt_InitFont(info, (u8*)font.file.memory, stbtt_GetFontOffsetForIndex((u8*)font.file.memory, 0));
+
+    stbtt_GetFontBoundingBox(info, &font.bb_0.x, &font.bb_0.y, &font.bb_1.x, &font.bb_1.y);
+
     return font;
 }
 
 function Font_Char*
-load_font_char(Font *font, u32 codepoint, f32 scale, v4 color)
+load_font_char(Font *font, u32 codepoint)
 {
     stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
 
@@ -429,52 +438,83 @@ load_font_char(Font *font, u32 codepoint, f32 scale, v4 color)
     for (s32 i = 0; i < font->font_chars_cached; i++)
     {
         Font_Char *font_char = &font->font_chars[i];
-        if (font_char->codepoint == codepoint && font_char->color == color && font_char->scale == scale)
+        if (font_char->codepoint == codepoint)
             return font_char;
     }
     
     // where to cache new font char
-    Font_Char *font_char = &font->font_chars[font->font_chars_cached];
-    memset(font_char, 0, sizeof(Font_Char));
-    if (font->font_chars_cached + 1 < (s32)ARRAY_COUNT(font->font_chars))
-        font->font_chars_cached++;
-    else
+    Font_Char *font_char = &font->font_chars[font->font_chars_cached++];
+    if (font->font_chars_cached >= ARRAY_COUNT(font->font_chars)) 
         font->font_chars_cached = 0;
-    
+
+    memset(font_char, 0, sizeof(Font_Char));
     font_char->codepoint = codepoint;
-    font_char->scale = scale;
-    font_char->color = color;
+    font_char->glyph_index = stbtt_FindGlyphIndex(info, font_char->codepoint);
     
     // how wide is this character
-    stbtt_GetCodepointHMetrics(info, font_char->codepoint, &font_char->ax, &font_char->lsb);
+    stbtt_GetGlyphHMetrics(info, font_char->glyph_index, &font_char->ax, &font_char->lsb);
     
-    // get bounding box for character (may be offset to account for chars that dip above or below the line
-    stbtt_GetCodepointBitmapBox(info, font_char->codepoint, font_char->scale, font_char->scale, 
-                                &font_char->c_x1, &font_char->c_y1, &font_char->c_x2, &font_char->c_y2);
-    
-    u8 *mono_bitmap = stbtt_GetCodepointBitmap(info, 0, scale, codepoint, 
-                                               &font_char->bitmap.dim.width, &font_char->bitmap.dim.height,
-                                               0, 0);
-    font_char->bitmap.channels = 4;
-    font_char->bitmap.memory = (u8*)SDL_malloc(font_char->bitmap.dim.width * font_char->bitmap.dim.height * font_char->bitmap.channels);
+    stbtt_GetGlyphBox(info, font_char->glyph_index, &font_char->bb_0.x, &font_char->bb_0.y, &font_char->bb_1.x, &font_char->bb_1.y);
 
-    u32 *dest = (u32*)font_char->bitmap.memory;
-    for (s32 x = 0; x < font_char->bitmap.dim.width; x++)
-    {
-        for (s32 y = 0; y < font_char->bitmap.dim.height; y++)
-        {
-            u8 alpha = *mono_bitmap++;
-            u32 real_alpha = u32((f32)alpha * color.a);
-            u32 new_color = ((real_alpha << 24) | ((u32)color.b << 16) | ((u32)color.g <<  8) | ((u32)color.r <<  0));
-            *dest++ = new_color;
-        }
-    }
-    
-    //free(mono_bitmap);
-    
-    init_bitmap_handle(&font_char->bitmap, TEXTURE_PARAMETERS_CHAR);
-    
     return font_char;
+}
+
+internal Font_Char_Bitmap*
+load_font_char_bitmap(Font *font, u32 codepoint, f32 scale)
+{
+    stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
+
+    // search cache for font char
+    for (s32 i = 0; i < font->bitmaps_cached; i++)
+    {
+        Font_Char_Bitmap *bitmap = &font->bitmaps[i];
+        if (bitmap->font_char->codepoint == codepoint && bitmap->scale == scale)
+            return bitmap;
+    }
+
+    // where to cache new font char
+    Font_Char_Bitmap *bitmap = &font->bitmaps[font->bitmaps_cached++];
+    if (font->bitmaps_cached >= ARRAY_COUNT(font->bitmaps)) 
+        font->bitmaps_cached = 0;
+
+    // free bitmap if one is being overwritten
+    if (bitmap->bitmap.memory != 0) { 
+        stbtt_FreeBitmap(bitmap->bitmap.memory, 0);
+        glDeleteTextures(1, &bitmap->bitmap.handle);
+    }
+
+    memset(bitmap, 0, sizeof(Font_Char_Bitmap));
+    bitmap->font_char = load_font_char(font, codepoint);
+    bitmap->scale = scale;
+
+    bitmap->bitmap.memory = stbtt_GetGlyphBitmap(info, 0, bitmap->scale, bitmap->font_char->glyph_index, &bitmap->bitmap.dim.width, &bitmap->bitmap.dim.height, 0, 0);
+    bitmap->bitmap.channels = 1;
+
+    init_bitmap_handle(&bitmap->bitmap, TEXTURE_PARAMETERS_CHAR);
+
+    return bitmap;
+}
+
+v2 get_font_loaded_dim(Font *font, f32 pixel_height)
+{
+    f32 scale = stbtt_ScaleForPixelHeight((stbtt_fontinfo*)font->info, pixel_height);
+    v2 dim = {};
+
+    for (s32 i = 0; i < font->font_chars_cached; i++)
+    {
+        Font_Char *font_char = &font->font_chars[i];
+        if (dim.y < (f32)font_char->bb_1.y) dim.y = (f32)font_char->bb_1.y;
+        if (dim.x < (f32)font_char->bb_1.x) dim.x = (f32)font_char->bb_1.x;
+    }
+
+    return dim * scale;
+}
+
+v2 get_font_dim(Font *font, f32 pixel_height)
+{
+    f32 scale = stbtt_ScaleForPixelHeight((stbtt_fontinfo*)font->info, pixel_height);
+    v2 dim = cv2(font->bb_1 - font->bb_0);
+    return dim * scale;
 }
 
 v2 get_string_dim(Font *font, const char *string, s32 length, f32 pixel_height, v4 color)
@@ -488,26 +528,27 @@ v2 get_string_dim(Font *font, const char *string, s32 length, f32 pixel_height, 
     stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
     f32 scale = stbtt_ScaleForPixelHeight(info, pixel_height);
     v2 dim = {};
-    u32 i = 0;
+    u32 index = 0;
 
-    while (string[i] != 0)
+    while (string[index] != 0)
     {
         if (length != -1)
         {
             // if a length is set then only include in the dim the chars up to that point
-            if (i == length) break;
+            if (index == length) break;
         }
 
-        Font_Char *font_char = load_font_char(font, string[i], scale, color);
+        Font_Char *font_char = load_font_char(font, string[index]);
         
-        f32 y = -1.0f * (r32)font_char->c_y1;
-        if (dim.y < y) dim.y = y;
+        if (dim.y < (r32)font_char->bb_1.y) dim.y = (r32)font_char->bb_1.y;
         
-        int kern = stbtt_GetCodepointKernAdvance(info, string[i], string[i + 1]);
-        dim.x += ((kern + font_char->ax) * scale);
+        int kern = stbtt_GetCodepointKernAdvance(info, string[index], string[index + 1]);
+        dim.x += (kern + font_char->ax);
         
-        i++;
+        index++;
     }
+
+    dim *= scale;
     
     return dim;
 }

@@ -231,6 +231,7 @@ keyboard_input_to_char_array(s32 id, char *buffer, u32 *buffer_index, b32 shift)
     if (is_ascii(id)) {
         ch = id;
         if (isalpha(ch) && shift) ch -= 32;
+        if (ch == '3'   && shift) ch = '#';
     }
     else if (id == SDLK_LEFT)  ch = 37;
     else if (id == SDLK_UP)    ch = 38;
@@ -501,7 +502,7 @@ int main(int argc, char *argv[])
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glPatchParameteri(GL_PATCH_VERTICES, 4); 
 
-    init_shapes(find_shader(&app.assets, "COLOR"), find_shader(&app.assets, "TEX"));
+    init_shapes(find_shader(&app.assets, "COLOR"), find_shader(&app.assets, "TEX"), find_shader(&app.assets, "TEXT"));
 
     return main_loop(&app, sdl_window);
 }

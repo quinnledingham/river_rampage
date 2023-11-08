@@ -20,6 +20,9 @@ COLOR|FRAGMENT, ../assets/shaders/color.fs
 TEX|VERTEX, ../assets/shaders/basic.vs
 TEX|FRAGMENT, ../assets/shaders/tex.fs
 
+TEXT|VERTEX, ../assets/shaders/basic.vs
+TEXT|FRAGMENT, ../assets/shaders/text.fs
+
 SKYBOX|VERTEX, ../assets/shaders/skybox.vs
 SKYBOX|FRAGMENT, ../assets/shaders/skybox.fs
 

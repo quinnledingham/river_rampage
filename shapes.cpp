@@ -69,6 +69,23 @@ void draw_rect(v2 coords, r32 rotation, v2 dim, Bitmap *bitmap)
     draw_shape(shape);
 }
 
+void draw_rect(v2 coords, r32 rotation, v2 dim, Bitmap *bitmap, v4 color)
+{
+    v3 coords_v3 = { coords.x, coords.y, 0 };
+    quat rotation_quat = get_rotation(-rotation, { 0, 0, 1 });
+    v3 dim_v3 = { dim.x, dim.y, 1 };
+    
+    Shape shape = {};
+    shape.type = SHAPE_RECT;
+    shape.coords = coords_v3;
+    shape.rotation = rotation_quat;
+    shape.dim = dim_v3;
+    shape.draw_type = SHAPE_TEXT;
+    shape.bitmap = bitmap;
+    shape.color = color;
+    draw_shape(shape);
+}
+
 //
 // circle
 //
@@ -247,7 +264,7 @@ void draw_cube(v3 coords, r32 rotation, v3 dim, Bitmap *bitmap)
 // shapes
 //
 
-void init_shapes(Shader *color, Shader *texture)
+void init_shapes(Shader *color, Shader *texture, Shader *text)
 {
     init_rect_mesh(&shape_rect);
     init_circle_mesh(&shape_circle);
@@ -255,6 +272,7 @@ void init_shapes(Shader *color, Shader *texture)
     
     shape_color_shader   = color;
     shape_texture_shader = texture;
+    shape_text_shader    = text;
     
     /*
     shape_color_shader.vs_file = basic_vs;
@@ -287,6 +305,14 @@ draw_shape(Shape shape)
             glBindTexture(GL_TEXTURE_2D, shape.bitmap->handle);
             glUniform1i(glGetUniformLocation(handle, "tex0"), 0);
         } break;
+
+        case SHAPE_TEXT: {
+            handle = use_shader(shape_text_shader);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, shape.bitmap->handle);
+            glUniform1i(glGetUniformLocation(handle, "tex0"), 0);
+            glUniform4fv(glGetUniformLocation(handle, "text_color"), (GLsizei)1, (float*)&shape.color);
+        } break;
         
         default: error("draw_shape(): Not valid shape draw type");
     };
@@ -318,20 +344,23 @@ void draw_string(Font *font, const char *string, v2 coords, f32 pixel_height, v4
 {
     stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
     f32 scale = stbtt_ScaleForPixelHeight(info, pixel_height);
-    f32 string_x_coord = coords.x;
+    f32 string_x_coord = 0.0f;
 
     u32 i = 0;
     while (string[i] != 0)
     {
-        Font_Char *font_char = load_font_char(font, string[i], scale, color);
+        Font_Char_Bitmap *bitmap = load_font_char_bitmap(font, string[i], scale);
+        Font_Char *font_char = bitmap->font_char;
         
-        v2 char_coords = { string_x_coord + (font_char->lsb * scale), coords.y + font_char->c_y1 };
-        v2 char_dim = { f32(font_char->c_x2 - font_char->c_x1), f32(font_char->c_y2 - font_char->c_y1) };
-        
-        draw_rect(char_coords, 0, char_dim, &font_char->bitmap);
+        v2 char_coords = { string_x_coord + font_char->lsb, -(r32)font_char->bb_1.y };
+        v2 char_dim = cv2(font_char->bb_1 - font_char->bb_0);
+
+        v2 scaled_coords = char_coords * scale;
+        v2 scaled_dim    = char_dim    * scale;
+        draw_rect(coords + scaled_coords, 0, scaled_dim, &bitmap->bitmap, color);
         
         int kern = stbtt_GetCodepointKernAdvance(info, string[i], string[i + 1]);
-        string_x_coord += ((kern + font_char->ax) * scale);
+        string_x_coord += kern + font_char->ax;
         
         i++;
     }

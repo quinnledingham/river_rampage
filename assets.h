@@ -146,17 +146,20 @@ struct Font_Scale
 
 struct Font_Char
 {
-    u32 codepoint;
+    u32 codepoint; // ascii
+    u32 glyph_index; // unicode
+    
+    s32 ax; // advance width
+    s32 lsb; // left side bearing
+
+    v2s bb_0; // bounding box coord 0
+    v2s bb_1; // bounding box coord 1
+};
+
+struct Font_Char_Bitmap
+{
+    Font_Char *font_char;
     f32 scale;
-    v4 color;
-    
-    s32 ax;
-    s32 lsb;
-    s32 c_x1;
-    s32 c_y1;
-    s32 c_x2;
-    s32 c_y2;
-    
     Bitmap bitmap;
 };
 
@@ -173,14 +176,22 @@ struct Font
     File file;
     void *info; // stbtt_fontinfo
     
-    s32 font_scales_cached;
+    v2s bb_0; // bounding box coord 0
+    v2s bb_1; // bounding box coord 1
+
     s32 font_chars_cached;
+    s32 bitmaps_cached;
+    s32 font_scales_cached;
     s32 strings_cached;
+    
+    Font_Char font_chars[255];
+    Font_Char_Bitmap bitmaps[300]; 
     Font_Scale font_scales[10];
-    Font_Char font_chars[300];
     Font_String font_strings[10];
 };
 
+v2 get_font_loaded_dim(Font *font, f32 pixel_height);
+v2 get_font_dim(Font *font, f32 pixel_height);
 v2 get_string_dim(Font *font, const char *string, f32 pixel_height, v4 color);
 v2 get_string_dim(Font *font, const char *string, s32 length, f32 pixel_height, v4 color);
 

@@ -164,7 +164,7 @@ b8 update(void *application)
         platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
         platform_set_uniform_block_binding(shader->handle, "Wav",      1);
 
-        shader = find_shader(&app->assets, "MATERIAL");
+        shader = find_shader(&app->assets, "TEXT");
         load_shader(shader);
         compile_shader(shader);
     }

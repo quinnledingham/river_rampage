@@ -4,6 +4,7 @@
 // update on load
 global Shader *shape_color_shader;
 global Shader *shape_texture_shader;
+global Shader *shape_text_shader;
 global Mesh shape_rect = {};
 global Mesh shape_circle = {};
 global Mesh shape_cube = {};
@@ -19,6 +20,7 @@ enum Shape_Draw_Types
 {
     SHAPE_COLOR,
     SHAPE_TEXTURE,
+    SHAPE_TEXT,
 };
 
 struct Shape // container for all the information needed to draw the shape
@@ -33,7 +35,7 @@ struct Shape // container for all the information needed to draw the shape
     Bitmap *bitmap;
 };
 
-void init_shapes(Shader *color, Shader *texture);
+void init_shapes(Shader *color, Shader *texture, Shader *text);
 void draw_shape(Shape shape);
 
 // Shapes for the game code to use
@@ -118,6 +120,7 @@ get_centered_square(Rect og, r32 percent)
 
 void draw_rect(v2 coords, r32 rotation, v2 dim, v4 color);
 void draw_rect(v2 coords, r32 rotation, v2 dim, Bitmap *bitmap);
+void draw_rect(v2 coords, r32 rotation, v2 dim, Bitmap *bitmap, v4 color);
 void draw_string(Font *font, const char *string, v2 coords, f32 pixel_height, v4 color);
 
 Mesh get_cube_mesh();
