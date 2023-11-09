@@ -491,6 +491,8 @@ int main(int argc, char *argv[])
         if (load_saved_assets(&app.assets, "assets.save")) return 1;
     }
 
+    init_assets(&app.assets);
+
     app.data = (void*)init_data(&app.assets);
     log("time loading assets: %f", get_seconds(assets_loading_time_started, SDL_GetTicks64()));
 

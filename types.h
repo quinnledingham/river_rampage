@@ -3,9 +3,10 @@
 
 #include <stdio.h>
 #include <stdarg.h>
-#include <cstdint>
 #include <math.h>
 #include <string>
+
+#include <cstdint>
 
 typedef int8_t s8;
 typedef int16_t s16;
@@ -99,7 +100,7 @@ union v4
     struct
     {
         v3 rgb;
-        r32 a;
+        r32 alpha;
     };
     r32 E[4];
 };

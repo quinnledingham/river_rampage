@@ -429,15 +429,18 @@ load_font(const char *filename)
     SDL_memset(font.bitmaps,    0, sizeof(Font_Char_Bitmap) * ARRAY_COUNT(font.bitmaps));
     font.file = read_file(filename);
     
-    font.info = SDL_malloc(sizeof(stbtt_fontinfo));
-    stbtt_fontinfo *info = (stbtt_fontinfo*)font.info;
+    return font;
+}
+
+function void
+init_font(Font *font)
+{
+    font->info = SDL_malloc(sizeof(stbtt_fontinfo));
+    stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
     *info = {};
     
-    stbtt_InitFont(info, (u8*)font.file.memory, stbtt_GetFontOffsetForIndex((u8*)font.file.memory, 0));
-
-    stbtt_GetFontBoundingBox(info, &font.bb_0.x, &font.bb_0.y, &font.bb_1.x, &font.bb_1.y);
-
-    return font;
+    stbtt_InitFont(info, (u8*)font->file.memory, stbtt_GetFontOffsetForIndex((u8*)font->file.memory, 0));
+    stbtt_GetFontBoundingBox(info, &font->bb_0.x, &font->bb_0.y, &font->bb_1.x, &font->bb_1.y);
 }
 
 function Font_Char*
@@ -1201,7 +1204,7 @@ Model load_obj(const char *filename)
                     mesh->material = mtl.materials[i];
             }
             
-            init_mesh(mesh);
+            //init_mesh(mesh);
             
             lower_range += mesh_face_vertices_count;
         }
@@ -1216,6 +1219,15 @@ Model load_obj(const char *filename)
     SDL_free(obj.meshes_face_count);
     
     return model;
+}
+
+internal void
+init_model(Model *model) {
+    for (s32 mesh_index = 0; mesh_index < model->meshes_count; mesh_index++) {
+        Mesh *mesh = &model->meshes[mesh_index];
+        init_mesh(mesh);
+        init_bitmap_handle(&mesh->material.diffuse_map);
+    }
 }
 
 //
@@ -1388,8 +1400,7 @@ function void
 init_types_array(Assets *assets)
 {
     u32 running_total_of_assets = 0;
-    for (u32 i = 0; i < ASSET_TYPE_AMOUNT; i++) 
-    {
+    for (u32 i = 0; i < ASSET_TYPE_AMOUNT; i++) {
         assets->types[i].data = assets->data + (running_total_of_assets);
         running_total_of_assets += assets->types[i].num_of_assets;
     }
@@ -1406,60 +1417,50 @@ load_assets(Assets *assets, const char *filename) // returns 0 on success
     parse_asset_file(assets, &file, add_asset);
     free_file(&file);
     
-    //for (u32 i = 0; i < ASSET_TYPE_AMOUNT; i++) assets->num_of_assets += assets->types[i].num_of_assets;
     assets->data = ARRAY_MALLOC(Asset, assets->num_of_assets);
     init_types_array(assets);
     
     for (u32 i = 0; i < assets->num_of_assets; i++)
     {
         Asset_Load_Info *info = &assets->info[i];
-        //printf("asset: %d, %s, %s\n", info->type, info->tag, info->filename);
-        
-        Asset asset = {};
-        asset.type = info->type;
-        asset.tag = info->tag;
-        asset.tag_length = get_length(asset.tag);
+        Asset *asset = &assets->types[info->type].data[info->index];
+        asset->type = info->type;
+        asset->tag = info->tag;
+        asset->tag_length = get_length(asset->tag);
         
         // how to load the various assets
-        switch(asset.type)
+        switch(asset->type)
         {
-            case ASSET_TYPE_FONT: 
-            {
-                asset.font = load_font(info->filename); 
-                assets->types[ASSET_TYPE_FONT].data[info->index] = asset;
-            } break;
-            
-            case ASSET_TYPE_BITMAP: 
-            {
-                asset.bitmap = load_and_init_bitmap(info->filename); 
-                assets->types[ASSET_TYPE_BITMAP].data[info->index] = asset;
-            } break;
-            
+            case ASSET_TYPE_FONT:   asset->font   = load_font(info->filename); break;
+            case ASSET_TYPE_BITMAP: asset->bitmap = load_bitmap(info->filename); break;
             case ASSET_TYPE_SHADER:
             {
                 for (u32 i = 0; i < SHADER_TYPE_AMOUNT; i++) {
-                    asset.shader.files[i].path = info->file_paths[i];
+                    asset->shader.files[i].path = info->file_paths[i];
                 }
-                load_shader(&asset.shader);
-                compile_shader(&asset.shader);
-                assets->types[ASSET_TYPE_SHADER].data[info->index] = asset;
-            } break;
-            
-            case ASSET_TYPE_AUDIO:
-            {
-                asset.audio = load_audio(info->filename);
-                assets->types[ASSET_TYPE_AUDIO].data[info->index] = asset;
-            } break;
-
-            case ASSET_TYPE_MODEL:
-            {
-                asset.model = load_obj(info->filename);
-                assets->types[ASSET_TYPE_MODEL].data[info->index] = asset;
-            } break;
+                load_shader(&asset->shader);
+            } break;         
+            case ASSET_TYPE_AUDIO:  asset->audio = load_audio(info->filename);
+            case ASSET_TYPE_MODEL:  asset->model = load_obj(info->filename); break;
         }
     }
     
     return 0;
+}
+
+internal void
+init_assets(Assets *assets)
+{
+    for (u32 i = 0; i < assets->num_of_assets; i++) {
+        Asset *asset = &assets->data[i];
+        switch(asset->type) {
+            case ASSET_TYPE_FONT:   init_font(&asset->font);            break;
+            case ASSET_TYPE_BITMAP: init_bitmap_handle(&asset->bitmap); break;
+            case ASSET_TYPE_SHADER: compile_shader(&asset->shader);     break;
+            case ASSET_TYPE_AUDIO:                                      break;
+            case ASSET_TYPE_MODEL:  init_model(&asset->model);          break;
+        }
+    }
 }
 
 internal void
@@ -1474,7 +1475,6 @@ load_bitmap_memory(Bitmap *bitmap, FILE *file)
     u32 size = bitmap->dim.x * bitmap->dim.y * bitmap->channels;
     bitmap->memory = (u8*)SDL_malloc(size);
     fread(bitmap->memory, size, 1, file);
-    init_bitmap_handle(bitmap);
 }
 
 internal void
@@ -1509,40 +1509,29 @@ save_assets(Assets *assets, const char *filename)
     FILE *file = fopen(filename, "wb");
     fwrite(assets, sizeof(Assets), 1, file);
     fwrite(assets->data, sizeof(Asset), assets->num_of_assets, file);
-    for (i = 0; i < assets->num_of_assets; i++) fwrite(assets->data[i].tag, assets->data[i].tag_length + 1, 1, file);
     
     for (i = 0; i < assets->num_of_assets; i++)
     {
         Asset *asset = &assets->data[i];
+
+        fwrite(asset->tag, asset->tag_length + 1, 1, file);
+
         switch(asset->type)
         {
-            case ASSET_TYPE_FONT: 
-            {
-                fwrite(asset->font.file.memory, asset->font.file.size, 1, file);
-                fwrite(asset->font.info, sizeof(stbtt_fontinfo), 1, file);
-            } break;
+            case ASSET_TYPE_FONT: fwrite(asset->font.file.memory, asset->font.file.size, 1, file); break;
+            case ASSET_TYPE_BITMAP: save_bitmap_memory(asset->bitmap, file); break;
             
-            case ASSET_TYPE_BITMAP: 
-            {
-                //fwrite(asset->bitmap.memory, asset->bitmap.dim.x * asset->bitmap.dim.y * asset->bitmap.channels, 1, file);
-                save_bitmap_memory(asset->bitmap, file);
-            } break;
-            
-            case ASSET_TYPE_SHADER: 
-            {
+            case ASSET_TYPE_SHADER: {
                 for (u32 i = 0; i < SHADER_TYPE_AMOUNT; i++) {
                     fwrite(asset->shader.files[i].memory, asset->shader.files[i].size, 1, file);
                 }
             } break;
             
-            case ASSET_TYPE_AUDIO:
-            {
-                fwrite(asset->audio.buffer, asset->audio.length, 1, file);
-            } break;
+            case ASSET_TYPE_AUDIO: fwrite(asset->audio.buffer, asset->audio.length, 1, file); break;
 
-            case ASSET_TYPE_MODEL:
-            {
-                for (u32 i = 0; i < asset->model.meshes_count; i++) save_mesh(asset->model.meshes[i], file);
+            case ASSET_TYPE_MODEL:{
+                for (u32 i = 0; i < asset->model.meshes_count; i++) 
+                    save_mesh(asset->model.meshes[i], file);
             } break;
         }
     }
@@ -1558,86 +1547,46 @@ load_saved_assets(Assets *assets, const char *filename) // returns 0 on success
     fread(assets, sizeof(Assets), 1, file);
     assets->data = ARRAY_MALLOC(Asset, assets->num_of_assets);
     fread(assets->data, sizeof(Asset), assets->num_of_assets, file);
-    for (u32 i = 0; i < assets->num_of_assets; i++)
-    {
-        assets->data[i].tag = (const char*)SDL_malloc(assets->data[i].tag_length + 1);
-        fread((void*)assets->data[i].tag, assets->data[i].tag_length + 1, 1, file);
-    }
-    
+
     init_types_array(assets);
     
-    u32 fonts_index = 0;
-    u32 bitmaps_index = 0;
-    u32 shaders_index = 0;
-    u32 audios_index = 0;
-    u32 models_index = 0;
-    
     for (u32 i = 0; i < assets->num_of_assets; i++)
     {
-        Asset *all_asset = &assets->data[i];
-        Asset asset = {};
-        asset.type = all_asset->type;
-        asset.tag = all_asset->tag;
+        Asset *asset = &assets->data[i];
+
+        asset->tag = (const char*)SDL_malloc(asset->tag_length + 1);
+        fread((void*)asset->tag, asset->tag_length + 1, 1, file);
         
-        switch(asset.type)
+        switch(asset->type)
         {
-            case ASSET_TYPE_FONT: 
-            {
-                asset.font = all_asset->font;
-                asset.font.file.memory = SDL_malloc(asset.font.file.size);
-                fread(asset.font.file.memory, asset.font.file.size, 1, file);
-
-                asset.font.info = SDL_malloc(sizeof(stbtt_fontinfo));
-                fread(asset.font.info, sizeof(stbtt_fontinfo), 1, file);
-                //stbtt_fontinfo *info = (stbtt_fontinfo*)&asset.font.info;
-                *((stbtt_fontinfo*)asset.font.info) = {};
-
-                stbtt_InitFont((stbtt_fontinfo*)asset.font.info, (u8*)asset.font.file.memory, stbtt_GetFontOffsetForIndex((u8*)asset.font.file.memory, 0));
-                assets->types[ASSET_TYPE_FONT].data[fonts_index++] = asset;
+            case ASSET_TYPE_FONT: {
+                asset->font.file.memory = SDL_malloc(asset->font.file.size);
+                fread(asset->font.file.memory, asset->font.file.size, 1, file);
             } break;
-            
-            case ASSET_TYPE_BITMAP: 
-            {
-                asset.bitmap = all_asset->bitmap;
-                //u32 size = asset.bitmap.dim.x * asset.bitmap.dim.y * asset.bitmap.channels;
-                //asset.bitmap.memory = (u8*)SDL_malloc(size);
-                //fread(asset.bitmap.memory, size, 1, file);
-                //init_bitmap_handle(&asset.bitmap);
-                load_bitmap_memory(&asset.bitmap, file);
-                assets->types[ASSET_TYPE_BITMAP].data[bitmaps_index++] = asset;
-            } break;
-            
-            case ASSET_TYPE_SHADER: 
-            {
-                asset.shader = all_asset->shader;
+            case ASSET_TYPE_BITMAP: load_bitmap_memory(&asset->bitmap, file); break;
+            case ASSET_TYPE_SHADER: {
                 for (u32 i = 0; i < SHADER_TYPE_AMOUNT; i++) {
-                    if (asset.shader.files[i].size) asset.shader.files[i].memory = SDL_malloc(asset.shader.files[i].size);
-                    fread((void*)asset.shader.files[i].memory, asset.shader.files[i].size, 1, file);
-                    asset.shader.files[i].path = 0;
+                    if (asset->shader.files[i].size) {
+                        asset->shader.files[i].memory = SDL_malloc(asset->shader.files[i].size);
+                        fread((void*)asset->shader.files[i].memory, asset->shader.files[i].size, 1, file);
+                    }
+                    asset->shader.files[i].path = 0;
                 }
 
-                asset.shader.compiled = false;
-                compile_shader(&asset.shader);
-                assets->types[ASSET_TYPE_SHADER].data[shaders_index++] = asset;
+                asset->shader.compiled = false;
             } break;
             
-            case ASSET_TYPE_AUDIO:
-            {
-                asset.audio = all_asset->audio;
-                asset.audio.buffer = (u8*)SDL_malloc(asset.audio.length);
-                fread(asset.audio.buffer, asset.audio.length, 1, file);
-                assets->types[ASSET_TYPE_AUDIO].data[audios_index++] = asset;
+            case ASSET_TYPE_AUDIO: {
+                asset->audio.buffer = (u8*)SDL_malloc(asset->audio.length);
+                fread(asset->audio.buffer, asset->audio.length, 1, file);
             } break;
 
-            case ASSET_TYPE_MODEL:
-            {
-                asset.model = all_asset->model;
-                asset.model.meshes = (Mesh*)SDL_malloc(asset.model.meshes_count * sizeof(Mesh));
-                for (u32 i = 0; i < asset.model.meshes_count; i++) { 
-                    asset.model.meshes[i] = load_mesh(file);
-                    init_mesh(&asset.model.meshes[i]);
+            case ASSET_TYPE_MODEL: {
+                asset->model.meshes = (Mesh*)SDL_malloc(asset->model.meshes_count * sizeof(Mesh));
+
+                for (u32 i = 0; i < asset->model.meshes_count; i++) { 
+                    asset->model.meshes[i] = load_mesh(file);
                 }
-                assets->types[ASSET_TYPE_MODEL].data[models_index++] = asset;
             } break;
         }
     }

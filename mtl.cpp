@@ -185,7 +185,7 @@ load_mtl(const char *path, const char *filename)
         {
             token = (MTL_Token*)lex(&lexer);
             const char *diffuse_map_filepath = char_array_insert(path, get_length(path), token->lexeme);
-            material.diffuse_map = load_and_init_bitmap(diffuse_map_filepath);
+            material.diffuse_map = load_bitmap(diffuse_map_filepath);
         }
     } while(token->type != MTL_TOKEN_EOF);
     
