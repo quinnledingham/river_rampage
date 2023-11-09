@@ -744,11 +744,7 @@ void draw_model(Shader *shader, Shader *tex_shader, Model *model, Light_Source l
 
     u32 shader_enabled = 0; // 0 no shader, 1 shader, 2 tex_shader
     u32 handle = 0;
-    //u32 handle = use_shader(shader);
 
-    //m4x4 model_matrix = create_transform_m4x4(position, rotation, {1, 1, 1});
-    //glUniformMatrix4fv(glGetUniformLocation(handle, "model"), (GLsizei)1, false, (float*)&model_matrix);
-    //glUniform3fv(glGetUniformLocation(handle, "viewPos"), (GLsizei)1, (float*)&camera.position);    
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -1203,9 +1199,7 @@ Model load_obj(const char *filename)
                 if (equal(mesh->material.id, mtl.materials[i].id)) 
                     mesh->material = mtl.materials[i];
             }
-            
-            //init_mesh(mesh);
-            
+                        
             lower_range += mesh_face_vertices_count;
         }
     }
@@ -1233,6 +1227,126 @@ init_model(Model *model) {
 //
 // Asset File Reading
 //
+
+struct Asset_Load_Info
+{
+    int type;             // type of asset - what type array to put it in  
+    int indexes[ASSET_TYPE_AMOUNT]; // where in the type array the asset should be loaded
+
+    const char *tag;      // name
+    const char *filename; // file path or file in case of model
+    const char *path;     // path to folder
+    
+    const char *file_paths[SHADER_TYPE_AMOUNT]; // shader
+};
+
+internal void
+load_asset(Asset *asset, Asset_Load_Info *info)
+{
+    asset->type = info->type;
+    asset->tag = info->tag;
+    asset->tag_length = get_length(asset->tag);
+
+    // how to load the various assets
+    switch(asset->type)
+    {
+        case ASSET_TYPE_FONT:   asset->font   = load_font(info->filename); break;
+        case ASSET_TYPE_BITMAP: asset->bitmap = load_bitmap(info->filename); break;
+        case ASSET_TYPE_SHADER:
+        {
+            for (u32 i = 0; i < SHADER_TYPE_AMOUNT; i++) {
+                asset->shader.files[i].path = info->file_paths[i];
+            }
+            load_shader(&asset->shader);
+        } break;         
+        case ASSET_TYPE_AUDIO:  asset->audio = load_audio(info->filename);
+        case ASSET_TYPE_MODEL:  asset->model = load_obj(info->filename); break;
+    }
+}
+
+function void
+add_asset(void *data, void *args)
+{
+    Assets *assets = (Assets*)data;
+    Asset_Load_Info *info = (Asset_Load_Info*)args;
+
+    u32 asset_array_index = info->indexes[info->type]++;
+    Asset *asset = &assets->types[info->type].data[asset_array_index];
+    load_asset(asset, info);
+}
+
+function void
+count_asset(void *data, void *args)
+{
+    Assets *assets = (Assets*)data;
+    Asset_Load_Info *info = (Asset_Load_Info*)args;
+
+    assets->num_of_assets++;
+    assets->types[info->type].num_of_assets++;
+}
+
+enum Asset_Token_Type
+{
+    ATT_KEYWORD,
+    ATT_ID,
+    ATT_SEPERATOR,
+    ATT_ERROR,
+    ATT_WARNING,
+    ATT_END
+};
+
+struct Asset_Token
+{
+    s32 type;
+    const char *lexeme;
+};
+
+const Pair shader_types[SHADER_TYPE_AMOUNT] = {
+    { VERTEX_SHADER,                  "VERTEX"     },
+    { TESSELLATION_CONTROL_SHADER,    "CONTROL"    },
+    { TESSELLATION_EVALUATION_SHADER, "EVALUATION" },
+    { GEOMETRY_SHADER,                "GEOMETRY"   },
+    { FRAGMENT_SHADER,                "FRAGMENT"   },
+};
+
+const Pair asset_types[ASSET_TYPE_AMOUNT] = {
+    { ASSET_TYPE_BITMAP, "BITMAPS" },
+    { ASSET_TYPE_FONT,   "FONTS"   },
+    { ASSET_TYPE_SHADER, "SHADERS" },
+    { ASSET_TYPE_AUDIO,  "AUDIOS"  },
+    { ASSET_TYPE_MODEL,  "MODELS"  },
+};
+
+function b32
+is_asset_keyword(const char *word)
+{
+    for (u32 i = 0; i < ASSET_TYPE_AMOUNT; i++) {
+        if (equal(word, pair_get_value(asset_types, ASSET_TYPE_AMOUNT, i))) 
+            return true;
+    }
+    return false;
+}
+
+function b32
+is_file_path_ch(s32 ch)
+{
+    if (ch == '.' || ch == '/' || ch == '-' || ch == '_') return true;
+    else return false;
+}
+
+function b32
+is_valid_body_ch(s32 ch)
+{
+    if (is_ascii_letter(ch) || is_ascii_digit(ch) || is_file_path_ch(ch)) return true;
+    else return false;
+}
+
+function b32
+is_valid_start_ch(s32 ch)
+{
+    if (is_ascii_letter(ch) || is_file_path_ch(ch)) return true;
+    else return false;
+}
 
 function Asset_Token
 scan_asset_file(File *file, s32 *line_num, Asset_Token last_token)
@@ -1353,8 +1467,11 @@ parse_asset_file(Assets *assets, File *file, void (action)(void *data, void *arg
                         const char *new_tag = info.tag;
                         info.tag = shader_tag;
                         action((void*)assets, (void*)&info);
+                        int indexes[ASSET_TYPE_AMOUNT];
+                        for (u32 i = 0; i < ASSET_TYPE_AMOUNT; i++) indexes[i] = info.indexes[i];
                         info = {};
                         info.type = ASSET_TYPE_SHADER;
+                        for (u32 i = 0; i < ASSET_TYPE_AMOUNT; i++) info.indexes[i] = indexes[i];
                         info.tag = new_tag;
                         shader_tag = info.tag;
                     }
@@ -1397,12 +1514,12 @@ parse_asset_file(Assets *assets, File *file, void (action)(void *data, void *arg
 }
 
 function void
-init_types_array(Assets *assets)
+init_types_array(Asset *data, Asset_Array *types)
 {
     u32 running_total_of_assets = 0;
     for (u32 i = 0; i < ASSET_TYPE_AMOUNT; i++) {
-        assets->types[i].data = assets->data + (running_total_of_assets);
-        running_total_of_assets += assets->types[i].num_of_assets;
+        types[i].data = data + (running_total_of_assets);
+        running_total_of_assets += types[i].num_of_assets;
     }
 }
 
@@ -1411,40 +1528,15 @@ load_assets(Assets *assets, const char *filename) // returns 0 on success
 {
     File file = read_file(filename);
     if (file.size == 0) { error("load_assets(): could not open file %s", filename); return 1; }
+    
     parse_asset_file(assets, &file, count_asset);
-    assets->info = ARRAY_MALLOC(Asset_Load_Info, assets->num_of_assets);
+    assets->data = ARRAY_MALLOC(Asset, assets->num_of_assets);
+    init_types_array(assets->data, assets->types);
+
     reset_get_char(&file);
     parse_asset_file(assets, &file, add_asset);
     free_file(&file);
-    
-    assets->data = ARRAY_MALLOC(Asset, assets->num_of_assets);
-    init_types_array(assets);
-    
-    for (u32 i = 0; i < assets->num_of_assets; i++)
-    {
-        Asset_Load_Info *info = &assets->info[i];
-        Asset *asset = &assets->types[info->type].data[info->index];
-        asset->type = info->type;
-        asset->tag = info->tag;
-        asset->tag_length = get_length(asset->tag);
-        
-        // how to load the various assets
-        switch(asset->type)
-        {
-            case ASSET_TYPE_FONT:   asset->font   = load_font(info->filename); break;
-            case ASSET_TYPE_BITMAP: asset->bitmap = load_bitmap(info->filename); break;
-            case ASSET_TYPE_SHADER:
-            {
-                for (u32 i = 0; i < SHADER_TYPE_AMOUNT; i++) {
-                    asset->shader.files[i].path = info->file_paths[i];
-                }
-                load_shader(&asset->shader);
-            } break;         
-            case ASSET_TYPE_AUDIO:  asset->audio = load_audio(info->filename);
-            case ASSET_TYPE_MODEL:  asset->model = load_obj(info->filename); break;
-        }
-    }
-    
+
     return 0;
 }
 
@@ -1548,7 +1640,7 @@ load_saved_assets(Assets *assets, const char *filename) // returns 0 on success
     assets->data = ARRAY_MALLOC(Asset, assets->num_of_assets);
     fread(assets->data, sizeof(Asset), assets->num_of_assets, file);
 
-    init_types_array(assets);
+    init_types_array(assets->data, assets->types);
     
     for (u32 i = 0; i < assets->num_of_assets; i++)
     {

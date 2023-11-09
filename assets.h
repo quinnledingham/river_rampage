@@ -238,24 +238,13 @@ struct Asset
         Shader shader;
         Audio  audio;
         Model  model;
-        void *memory;
+        void  *memory;
     };
-};
-
-struct Asset_Load_Info
-{
-    int type;
-    int index;
-    const char *tag;
-    const char *filename;
-    const char *path;
-    
-    const char *file_paths[SHADER_TYPE_AMOUNT]; // shader
 };
 
 struct Asset_Array
 {
-    Asset *data;
+    Asset *data;       // points to Assets data array
     u32 num_of_assets;
 };
 
@@ -264,10 +253,7 @@ struct Assets
     Asset *data; // array of assets
     u32 num_of_assets;
     
-    Asset_Load_Info *info;
-    u32 num_of_info_loaded;
-    
-    Asset_Array types[ASSET_TYPE_AMOUNT]; // 0 = bitmap, 1 = font ...
+    Asset_Array types[ASSET_TYPE_AMOUNT]; // points to same memory as *data
 };
 
 internal void*
@@ -281,96 +267,9 @@ find_asset(Assets *assets, u32 type, const char *tag)
     return 0;
 }
 
-inline Bitmap* find_bitmap(Assets *assets, const char *tag) { return (Bitmap*)find_asset(assets, ASSET_TYPE_BITMAP, tag); }
-inline Font*   find_font  (Assets *assets, const char *tag) { return (Font*)  find_asset(assets, ASSET_TYPE_FONT,   tag); }
-inline Shader* find_shader(Assets *assets, const char *tag) { return (Shader*)find_asset(assets, ASSET_TYPE_SHADER, tag); }
-inline Model*  find_model (Assets *assets, const char *tag) { return (Model*) find_asset(assets, ASSET_TYPE_MODEL,  tag); }
-
-//
-// Parsing Asset File
-//
-
-const Pair shader_types[SHADER_TYPE_AMOUNT] = {
-    { VERTEX_SHADER,                  "VERTEX"     },
-    { TESSELLATION_CONTROL_SHADER,    "CONTROL"    },
-    { TESSELLATION_EVALUATION_SHADER, "EVALUATION" },
-    { GEOMETRY_SHADER,                "GEOMETRY"   },
-    { FRAGMENT_SHADER,                "FRAGMENT"   },
-};
-
-const Pair asset_types[ASSET_TYPE_AMOUNT] = {
-    { ASSET_TYPE_BITMAP, "BITMAPS" },
-    { ASSET_TYPE_FONT,   "FONTS"   },
-    { ASSET_TYPE_SHADER, "SHADERS" },
-    { ASSET_TYPE_AUDIO,  "AUDIOS"  },
-    { ASSET_TYPE_MODEL,  "MODELS"  },
-};
-
-enum Asset_Token_Type
-{
-    ATT_KEYWORD,
-    ATT_ID,
-    ATT_SEPERATOR,
-    ATT_ERROR,
-    ATT_WARNING,
-    ATT_END
-};
-
-struct Asset_Token
-{
-    s32 type;
-    const char *lexeme;
-};
-
-function b32
-is_asset_keyword(const char *word)
-{
-    for (u32 i = 0; i < ASSET_TYPE_AMOUNT; i++) {
-        if (equal(word, pair_get_value(asset_types, ASSET_TYPE_AMOUNT, i))) 
-            return true;
-    }
-    return false;
-}
-
-
-function void
-add_asset(void *data, void *args)
-{
-    Assets *assets = (Assets*)data;
-    Asset_Load_Info *info = (Asset_Load_Info*)args;
-    
-    info->index = assets->types[info->type].num_of_assets;
-    assets->types[info->type].num_of_assets++;
-    
-    assets->info[assets->num_of_info_loaded++] = *info;
-}
-
-function void
-count_asset(void *data, void *args)
-{
-    Assets *assets = (Assets*)data;
-    assets->num_of_assets++;
-}
-
-function b32
-is_file_path_ch(s32 ch)
-{
-    if (ch == '.' || ch == '/' || ch == '-' || ch == '_') return true;
-    else return false;
-}
-
-function b32
-is_valid_body_ch(s32 ch)
-{
-    if (is_ascii_letter(ch) || is_ascii_digit(ch) || is_file_path_ch(ch)) return true;
-    else return false;
-}
-
-function b32
-is_valid_start_ch(s32 ch)
-{
-    if (is_ascii_letter(ch) || is_file_path_ch(ch)) return true;
-    else return false;
-}
+inline Bitmap* find_bitmap(Assets *assets, const char *tag) { return (Bitmap*) find_asset(assets, ASSET_TYPE_BITMAP, tag); }
+inline Font*   find_font  (Assets *assets, const char *tag) { return (Font*)   find_asset(assets, ASSET_TYPE_FONT,   tag); }
+inline Shader* find_shader(Assets *assets, const char *tag) { return (Shader*) find_asset(assets, ASSET_TYPE_SHADER, tag); }
+inline Model*  find_model (Assets *assets, const char *tag) { return (Model*)  find_asset(assets, ASSET_TYPE_MODEL,  tag); }
 
 #endif //ASSETS_H
