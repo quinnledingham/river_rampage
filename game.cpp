@@ -103,10 +103,13 @@ void* init_data(Assets *assets)
     data->camera.fov      = 80.0f;
     
     data->light.position = { 5.0f, 20.0f, 10.0f };
+    data->light.ambient =  { 0.3f, 0.3f, 0.3f };
+    data->light.diffuse =  { 0.9, 0.9, 0.9 };
+    data->light.specular = { 0.5f, 0.5f, 0.5f };
     data->light.color = { 1.0f, 1.0f, 1.0f, 1.0f };
     
-    Mesh temp_square_mesh = create_square_mesh(10, 10);
-    Mesh temp_patch_mesh = make_square_mesh_into_patches(&temp_square_mesh, 10, 10);
+    Mesh temp_square_mesh = create_square_mesh(100, 100);
+    Mesh temp_patch_mesh = make_square_mesh_into_patches(&temp_square_mesh, 100, 100);
     data->water = temp_patch_mesh;
     
     data->game_mode = IN_GAME_3D;
@@ -114,21 +117,29 @@ void* init_data(Assets *assets)
     
     Shader *shader = find_shader(assets, "MATERIAL");
     platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
+    platform_set_uniform_block_binding(shader->handle, "Lights", 2);
+
+    shader = find_shader(assets, "MATERIAL_TEX");
+    platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
+    platform_set_uniform_block_binding(shader->handle, "Lights", 2);
     
     shader = find_shader(assets, "WATER");
     platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
     platform_set_uniform_block_binding(shader->handle, "Wav",      1);
+    platform_set_uniform_block_binding(shader->handle, "Lights",   2);
     
     data->matrices_ubo = init_uniform_buffer_object(2 * sizeof(m4x4), 0);
     data->wave_ubo = init_uniform_buffer_object(5 * sizeof(Wave), 1);
+    data->lights_ubo = init_uniform_buffer_object(sizeof(Light), 2);
     
     data->waves[0] = get_wave({ 1.0, 0.0 }, 20.0f, 0.2f);
-    data->waves[1] = get_wave({ 1.0, 1.0 }, 1.0f, 0.15f);
-    data->waves[2] = get_wave({ 0.0, 0.4 }, 2.0f, 0.1f);
+    data->waves[1] = get_wave({ 1.0, 1.0 }, 5.0f, 0.2f);
+    data->waves[2] = get_wave({ 0.0, 0.4 }, 5.0f, 0.1f);
     data->waves[3] = get_wave({ 0.7, 0.9 }, 9.0f, 0.05f);
     data->waves[4] = get_wave({ 0.0, -1.0 }, 10.0f, 0.25f);
 
     platform_set_uniform_buffer_data(data->wave_ubo, sizeof(Wave) * 5, (void*)&data->waves);
+    platform_set_uniform_buffer_data(data->lights_ubo, sizeof(Light), (void*)&data->light);
     
     data->boat3D.coords = { 0, -1.5f, 0 };
     
@@ -163,10 +174,20 @@ b8 update(void *application)
         
         platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
         platform_set_uniform_block_binding(shader->handle, "Wav",      1);
+        platform_set_uniform_block_binding(shader->handle, "Lights",   2);
 
-        shader = find_shader(&app->assets, "TEXT");
+        shader = find_shader(&app->assets, "MATERIAL");
         load_shader(shader);
         compile_shader(shader);
+        platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
+        platform_set_uniform_block_binding(shader->handle, "Lights", 2);
+
+        shader = find_shader(&app->assets, "MATERIAL_TEX");
+        load_shader(shader);
+        compile_shader(shader);
+        
+        platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
+        platform_set_uniform_block_binding(shader->handle, "Lights",   2);
     }
 
     if (console_command(&data->console, TOGGLE_FPS))

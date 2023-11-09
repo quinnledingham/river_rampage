@@ -300,23 +300,60 @@ void load_shader(Shader *shader)
     printf("\n");
 }
 
+u32 common;
+b32 common_compiled = false;
+const char *common_shader = "#version 330 core\n"
+"struct Light_Source {"
+"    vec3 position;"
+"    vec3 ambient;"
+"    vec3 diffuse;"
+"    vec3 specular;"
+"    vec4 color;"
+"};"
+""
+"layout (std430) uniform Lights"
+"{"
+"    //Light_Source light;"
+"    float light[16];"
+"};"
+""
+"Light_Source get_light(float a[16]) {"
+"    Light_Source l;"
+"    l.position = vec3(light[0],  light[1],  light[2]);"
+"    l.ambient  = vec3(light[3],  light[4],  light[5]);"
+"    l.diffuse  = vec3(light[6],  light[7],  light[8]);"
+"    l.specular = vec3(light[9],  light[10], light[11]);"
+"    l.color    = vec4(light[12], light[13], light[14], light[15]);"
+"    return l;"
+"}"
+;
+
 bool compile_shader(u32 handle, const char *file, int type)
 {
-    u32 s =  glCreateShader((GLenum)type);
-    glShaderSource(s, 1, &file, NULL);
-    glCompileShader(s);
+    u32 shader =  glCreateShader((GLenum)type);
+    glShaderSource(shader, 1, &file, NULL);
+    glCompileShader(shader);
     
-    GLint compiled_s = 0;
-    glGetShaderiv(s, GL_COMPILE_STATUS, &compiled_s);  
-    if (!compiled_s) {
-        opengl_debug(GL_SHADER, s);
+    GLint compiled_shader = 0;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled_shader);  
+    if (!compiled_shader) {
+        opengl_debug(GL_SHADER, shader);
     } else {
-        glAttachShader(handle, s);
+        glAttachShader(handle, shader);
+
+        if (!common_compiled) {
+            common = glCreateShader((GLenum) GL_VERTEX_SHADER);
+            glShaderSource(common, 1, &common_shader, NULL);
+            glCompileShader(common);
+            common_compiled = true;
+        }
+
+        //glAttachShader(handle, common);
     }
     
-    glDeleteShader(s);
+    glDeleteShader(shader);
     
-    return compiled_s;
+    return compiled_shader;
 }
 
 // lines up with enum shader_types
@@ -736,11 +773,11 @@ mix_audio(Audio_Player *player, r32 frame_time_s)
 // Model
 //
 
-void draw_model(Shader *shader, Shader *tex_shader, Model *model, Light_Source light, Camera camera, v3 position, quat rotation)
+void draw_model(Shader *shader, Shader *tex_shader, Model *model, Light light, Camera camera, v3 position, quat rotation)
 {
-    v3 light_ambient = { 0.2, 0.2, 0.2 };
-    v3 light_diffuse = { 0.9, 0.9, 0.9 };
-    v3 light_specular = { 1, 1, 1 };
+    //v3 light_ambient = { 0.2, 0.2, 0.2 };
+    //v3 light_diffuse = { 0.9, 0.9, 0.9 };
+    //v3 light_specular = { 1, 1, 1 };
 
     u32 shader_enabled = 0; // 0 no shader, 1 shader, 2 tex_shader
     u32 handle = 0;
@@ -774,10 +811,10 @@ void draw_model(Shader *shader, Shader *tex_shader, Model *model, Light_Source l
         glUniform3fv(glGetUniformLocation(handle, "material.specular"), (GLsizei)1, (float*)&model->meshes[i].material.specular);
         glUniform1f(glGetUniformLocation(handle, "material.shininess"), model->meshes[i].material.specular_exponent);
         
-        glUniform3fv(glGetUniformLocation(handle, "light.position"), (GLsizei)1, (float*)&light.position);
-        glUniform3fv(glGetUniformLocation(handle, "light.ambient"), (GLsizei)1, (float*)&light_ambient);
-        glUniform3fv(glGetUniformLocation(handle, "light.diffuse"), (GLsizei)1, (float*)&light_diffuse);
-        glUniform3fv(glGetUniformLocation(handle, "light.specular"), (GLsizei)1, (float*)&light_specular);
+        //glUniform3fv(glGetUniformLocation(handle, "light.position"), (GLsizei)1, (float*)&light.position);
+        //glUniform3fv(glGetUniformLocation(handle, "light.ambient"), (GLsizei)1, (float*)&light_ambient);
+        //glUniform3fv(glGetUniformLocation(handle, "light.diffuse"), (GLsizei)1, (float*)&light_diffuse);
+        //glUniform3fv(glGetUniformLocation(handle, "light.specular"), (GLsizei)1, (float*)&light_specular);
         
         if (model->meshes[i].material.diffuse_map.memory != 0)
         {
@@ -1228,63 +1265,6 @@ init_model(Model *model) {
 // Asset File Reading
 //
 
-struct Asset_Load_Info
-{
-    int type;             // type of asset - what type array to put it in  
-    int indexes[ASSET_TYPE_AMOUNT]; // where in the type array the asset should be loaded
-
-    const char *tag;      // name
-    const char *filename; // file path or file in case of model
-    const char *path;     // path to folder
-    
-    const char *file_paths[SHADER_TYPE_AMOUNT]; // shader
-};
-
-internal void
-load_asset(Asset *asset, Asset_Load_Info *info)
-{
-    asset->type = info->type;
-    asset->tag = info->tag;
-    asset->tag_length = get_length(asset->tag);
-
-    // how to load the various assets
-    switch(asset->type)
-    {
-        case ASSET_TYPE_FONT:   asset->font   = load_font(info->filename); break;
-        case ASSET_TYPE_BITMAP: asset->bitmap = load_bitmap(info->filename); break;
-        case ASSET_TYPE_SHADER:
-        {
-            for (u32 i = 0; i < SHADER_TYPE_AMOUNT; i++) {
-                asset->shader.files[i].path = info->file_paths[i];
-            }
-            load_shader(&asset->shader);
-        } break;         
-        case ASSET_TYPE_AUDIO:  asset->audio = load_audio(info->filename);
-        case ASSET_TYPE_MODEL:  asset->model = load_obj(info->filename); break;
-    }
-}
-
-function void
-add_asset(void *data, void *args)
-{
-    Assets *assets = (Assets*)data;
-    Asset_Load_Info *info = (Asset_Load_Info*)args;
-
-    u32 asset_array_index = info->indexes[info->type]++;
-    Asset *asset = &assets->types[info->type].data[asset_array_index];
-    load_asset(asset, info);
-}
-
-function void
-count_asset(void *data, void *args)
-{
-    Assets *assets = (Assets*)data;
-    Asset_Load_Info *info = (Asset_Load_Info*)args;
-
-    assets->num_of_assets++;
-    assets->types[info->type].num_of_assets++;
-}
-
 enum Asset_Token_Type
 {
     ATT_KEYWORD,
@@ -1399,6 +1379,18 @@ scan_asset_file(File *file, s32 *line_num, Asset_Token last_token)
     return { ATT_ERROR, 0 };
 }
 
+struct Asset_Load_Info
+{
+    int type;             // type of asset - what type array to put it in  
+    int indexes[ASSET_TYPE_AMOUNT]; // where in the type array the asset should be loaded
+
+    const char *tag;      // name
+    const char *filename; // file path or file in case of model
+    const char *path;     // path to folder
+    
+    const char *file_paths[SHADER_TYPE_AMOUNT]; // shader
+};
+
 // action is what happens when all the parts of an asset are found
 function void
 parse_asset_file(Assets *assets, File *file, void (action)(void *data, void *args))
@@ -1505,12 +1497,57 @@ parse_asset_file(Assets *assets, File *file, void (action)(void *data, void *arg
                     action((void*)assets, (void*)&info);
                 }
             }
-        }
-        else if (tok.type == ATT_SEPERATOR)
+        } 
+        else if (tok.type == ATT_SEPERATOR) 
         {
             error(line_num, "unexpected seperator");
         }
     }
+}
+
+internal void
+load_asset(Asset *asset, Asset_Load_Info *info)
+{
+    asset->type = info->type;
+    asset->tag = info->tag;
+    asset->tag_length = get_length(asset->tag);
+
+    // how to load the various assets
+    switch(asset->type)
+    {
+        case ASSET_TYPE_FONT:   asset->font   = load_font(info->filename); break;
+        case ASSET_TYPE_BITMAP: asset->bitmap = load_bitmap(info->filename); break;
+        case ASSET_TYPE_SHADER:
+        {
+            for (u32 i = 0; i < SHADER_TYPE_AMOUNT; i++) {
+                asset->shader.files[i].path = info->file_paths[i];
+            }
+            load_shader(&asset->shader);
+        } break;         
+        case ASSET_TYPE_AUDIO:  asset->audio = load_audio(info->filename);
+        case ASSET_TYPE_MODEL:  asset->model = load_obj(info->filename); break;
+    }
+}
+
+function void
+add_asset(void *data, void *args)
+{
+    Assets *assets = (Assets*)data;
+    Asset_Load_Info *info = (Asset_Load_Info*)args;
+
+    u32 asset_array_index = info->indexes[info->type]++;
+    Asset *asset = &assets->types[info->type].data[asset_array_index];
+    load_asset(asset, info);
+}
+
+function void
+count_asset(void *data, void *args)
+{
+    Assets *assets = (Assets*)data;
+    Asset_Load_Info *info = (Asset_Load_Info*)args;
+
+    assets->num_of_assets++;
+    assets->types[info->type].num_of_assets++;
 }
 
 function void
@@ -1649,13 +1686,14 @@ load_saved_assets(Assets *assets, const char *filename) // returns 0 on success
         asset->tag = (const char*)SDL_malloc(asset->tag_length + 1);
         fread((void*)asset->tag, asset->tag_length + 1, 1, file);
         
-        switch(asset->type)
-        {
+        switch(asset->type) {
             case ASSET_TYPE_FONT: {
                 asset->font.file.memory = SDL_malloc(asset->font.file.size);
                 fread(asset->font.file.memory, asset->font.file.size, 1, file);
             } break;
+
             case ASSET_TYPE_BITMAP: load_bitmap_memory(&asset->bitmap, file); break;
+
             case ASSET_TYPE_SHADER: {
                 for (u32 i = 0; i < SHADER_TYPE_AMOUNT; i++) {
                     if (asset->shader.files[i].size) {

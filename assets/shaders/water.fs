@@ -1,12 +1,18 @@
 #version 420 core
+#extension GL_NV_uniform_buffer_std430_layout : enable
 
-uniform vec3 lightPos;
-uniform vec3 lightColor;
-uniform vec3 cameraPos;
-uniform vec4 objectColor;
+struct Light_Source {
+    vec3 position;
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+    vec4 color;
+};
 
-uniform sampler2D normal_map;
-uniform float time;
+struct Light {
+    float f[16];
+};
+
 
 in vec3 frag_normal;
 in vec3 frag_tangent;
@@ -16,22 +22,40 @@ in vec2 uv_coords;
 
 out vec4 FragColor;
 
+uniform vec3 cameraPos;
+uniform vec4 objectColor;
+uniform sampler2D normal_map;
+uniform float time;
+
+layout (std430) uniform Lights
+{
+    Light lights;
+};
+
+Light_Source get_light(float a[16]) {
+    Light_Source l;
+    l.position = vec3(a[0],  a[1],  a[2]);
+    l.ambient  = vec3(a[3],  a[4],  a[5]);
+    l.diffuse  = vec3(a[6],  a[7],  a[8]);
+    l.specular = vec3(a[9],  a[10], a[11]);
+    l.color    = vec4(a[12], a[13], a[14], a[15]);
+    return l;
+}
+
+Light_Source light = get_light(lights.f);
+
 float random(float x) {
- 
     return fract(sin(x) * 10000.);
-          
 }
 
 float noise(vec2 p) {
-
-    return random(p.x + p.y * 10000.);
-            
+    return random(p.x + p.y * 10000.);       
 }
 
 vec2 sw(vec2 p) { return vec2(floor(p.x), floor(p.y)); }
-vec2 se(vec2 p) { return vec2(ceil(p.x), floor(p.y)); }
-vec2 nw(vec2 p) { return vec2(floor(p.x), ceil(p.y)); }
-vec2 ne(vec2 p) { return vec2(ceil(p.x), ceil(p.y)); }
+vec2 se(vec2 p) { return vec2(ceil(p.x),  floor(p.y)); }
+vec2 nw(vec2 p) { return vec2(floor(p.x), ceil(p.y) ); }
+vec2 ne(vec2 p) { return vec2(ceil(p.x),  ceil(p.y) ); }
 
 float smoothNoise(vec2 p) {
 
@@ -81,34 +105,31 @@ float distance(vec3 a, vec3 b)
 void main()
 {
 	vec4 tex = texture(normal_map, uv_coords);
-	mat3 TBN = transpose(mat3(frag_tangent, frag_bitangent, frag_normal));
+	//mat3 TBN = transpose(mat3(frag_tangent, frag_bitangent, frag_normal));
 
 	vec3 normal = frag_normal;
-	//normal = tex.rgb;
 
 	// ambient
-	float ambientStrength = 0.3f;
-	vec3 ambient = ambientStrength * lightColor;
+	vec3 ambient = light.ambient * light.color.rgb;
 
 	// diffuse
-    vec3 lightDir = normalize(lightPos - frag_position);
+    vec3 lightDir = normalize(light.position - frag_position);
 	float diff = max(dot(normal, lightDir), 0.0);
-	vec3 diffuse = diff * lightColor;
+	vec3 diffuse = light.diffuse * (diff * light.color.rgb);
 
 	// secular
-	float specular_strength = 0.5;
 	vec3 view_dir = normalize(cameraPos - frag_position);
 	vec3 reflect_dir = reflect(-lightDir, normal);
 	float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 16);
-	vec3 specular = specular_strength * spec * lightColor;
+	vec3 specular = light.specular * (spec * light.color.rgb);
 
 	vec4 color = objectColor;
 	color.xyz -= 0.2;
 	
 	if (distance(frag_position, cameraPos) < 20)
 	{
-		float n = nestedNoise(uv_coords * 6.);
-		color = vec4(mix(objectColor.xyz, objectColor.xyz - 0.5, n), 1);
+		//float n = nestedNoise(uv_coords * 6.);
+		//color = vec4(mix(objectColor.xyz, objectColor.xyz - 0.5, n), 1);
 	}
 
 	vec3 result = (ambient + diffuse + specular) * color.xyz;

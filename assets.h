@@ -100,9 +100,12 @@ void init_mesh(Mesh *mesh);
 void draw_mesh(Mesh *mesh);
 void draw_mesh_patches(Mesh *mesh);
 
-struct Light_Source
+struct Light
 {
     v3 position;
+    v3 ambient;
+    v3 diffuse;
+    v3 specular;
     v4 color;
 };
 
@@ -127,7 +130,7 @@ struct Model
 };
 
 Model load_obj(const char *filename);
-void draw_model(Shader *shader, Shader *tex_shader, Model *model, Light_Source light, Camera camera, v3 position, quat rotation);
+void draw_model(Shader *shader, Shader *tex_shader, Model *model, Light light, Camera camera, v3 position, quat rotation);
 
 struct Font_Char
 {

@@ -341,7 +341,7 @@ update_time(Time *time)
     time->frame_time_ms = time->run_time_ms - last_run_time_ms;
     time->frame_time_s = (f32)time->frame_time_ms / 1000.0f;
     
-    if (time->frame_time_s == 0.0f) time->frame_time_s = 0.0001f;
+    if (time->frame_time_s == 0.0f) time->frame_time_s = 0.001f;
     
     // get fps
     time->frames_per_s = 1000.0f;

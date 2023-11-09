@@ -167,27 +167,6 @@ update_boat_3D(Boat3D *boat,   v3 target, v3 up,
     //if (is_down(right))    boat->coords += normalized(cross_product(target, up)) * move_vector;
 }
 
-function void
-draw_water(Assets *assets, Mesh mesh, r32 seconds, Wave *waves, u32 waves_count, Light_Source light, Camera camera)
-{
-    u32 active_shader = use_shader(find_shader(assets, "WATER"));
-    
-    v4 color = {30.0f/255.0f, 144.0f/255.0f, 255.0f/255.0f, 0.9};
-    m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {0, 1, 0}), {50, 1, 50});
-
-    platform_uniform_m4x4(active_shader, "model", &model);
-    platform_uniform_f32(active_shader, "time", seconds);
-    platform_uniform_v3(active_shader, "lightPos", light.position);
-    platform_uniform_v3(active_shader, "lightColor", light.color.rgb);
-    platform_uniform_v3(active_shader, "cameraPos", camera.position);
-    platform_uniform_v4(active_shader, "objectColor", color);
-    
-    //Bitmap *perlin = find_bitmap(assets, "NORMAL");
-    //platform_set_texture(perlin);
-
-    draw_mesh_patches(&mesh);
-}
-
 internal void
 update_boat_3D_draw_coord(Boat3D *boat, Wave *waves, u32 waves_count, r32 run_time_s)
 {
@@ -313,10 +292,34 @@ draw_skybox(Assets *assets, Cubemap *cubemap, Mesh *cube)
     platform_set_depth_mask(true);
 }
 
+function void
+draw_water(Assets *assets, Mesh mesh, r32 seconds, Wave *waves, u32 waves_count, Light light, Camera camera)
+{
+    u32 active_shader = use_shader(find_shader(assets, "WATER"));
+    
+    v4 color = {30.0f/255.0f, 144.0f/255.0f, 255.0f/255.0f, 0.9};
+    m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {0, 1, 0}), {50, 1, 50});
+
+    platform_uniform_m4x4(active_shader, "model", &model);
+    platform_uniform_f32(active_shader, "time", seconds);
+    //platform_uniform_v3(active_shader, "lightPos", light.position);
+    //platform_uniform_v3(active_shader, "lightColor", light.color.rgb);
+    platform_uniform_v3(active_shader, "cameraPos", camera.position);
+    platform_uniform_v4(active_shader, "objectColor", color);
+    
+    //Bitmap *perlin = find_bitmap(assets, "NORMAL");
+    //platform_set_texture(perlin);
+
+    draw_mesh_patches(&mesh);
+}
+
+
 internal void
 draw_game_3D(Application *app, Game_Data *data)
 {
 	Controller *menu_controller = app->input.active_controller;
+
+
 
 	app->matrices.view_matrix = get_view(data->camera);
 	perspective(data->matrices_ubo, &app->matrices); // 3D

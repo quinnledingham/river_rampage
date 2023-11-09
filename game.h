@@ -101,7 +101,7 @@ struct Game_Data
     r32 game_run_time_s;
 
     // 3D
-    Light_Source light;
+    Light light;
     Camera camera;
     Mesh water;
     Mesh cube;
@@ -109,6 +109,7 @@ struct Game_Data
     
     u32 matrices_ubo; // uniform buffer object
     u32 wave_ubo; 
+    u32 lights_ubo;
     
     Boat3D boat3D;
     u32 camera_mode;
