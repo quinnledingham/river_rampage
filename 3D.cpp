@@ -237,7 +237,7 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
         }
 
         Button null_button = {};
-        f32 m_per_s = 5.0f; 
+        f32 m_per_s = 2.5f; 
         f32 move_speed = m_per_s * time.frame_time_s;
 
         f32 boat_rotation_speed = 50.0f * time.frame_time_s;
@@ -293,7 +293,7 @@ draw_skybox(Assets *assets, Cubemap *cubemap, Mesh *cube)
 }
 
 function void
-draw_water(Assets *assets, Mesh mesh, r32 seconds, Wave *waves, u32 waves_count, Light light, Camera camera)
+draw_water(Assets *assets, Mesh mesh, r32 seconds, Camera camera)
 {
     u32 active_shader = use_shader(find_shader(assets, "WATER"));
     
@@ -302,24 +302,16 @@ draw_water(Assets *assets, Mesh mesh, r32 seconds, Wave *waves, u32 waves_count,
 
     platform_uniform_m4x4(active_shader, "model", &model);
     platform_uniform_f32(active_shader, "time", seconds);
-    //platform_uniform_v3(active_shader, "lightPos", light.position);
-    //platform_uniform_v3(active_shader, "lightColor", light.color.rgb);
-    platform_uniform_v3(active_shader, "cameraPos", camera.position);
-    platform_uniform_v4(active_shader, "objectColor", color);
-    
-    //Bitmap *perlin = find_bitmap(assets, "NORMAL");
-    //platform_set_texture(perlin);
+    platform_uniform_v3(active_shader, "camera_pos", camera.position);
+    platform_uniform_v4(active_shader, "user_color", color);
 
     draw_mesh_patches(&mesh);
 }
-
 
 internal void
 draw_game_3D(Application *app, Game_Data *data)
 {
 	Controller *menu_controller = app->input.active_controller;
-
-
 
 	app->matrices.view_matrix = get_view(data->camera);
 	perspective(data->matrices_ubo, &app->matrices); // 3D
@@ -331,9 +323,12 @@ draw_game_3D(Application *app, Game_Data *data)
 	platform_set_capability(PLATFORM_CAPABILITY_DEPTH_TEST, true);
 	platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, true);
     
-    draw_water(&app->assets, data->water, data->game_run_time_s, data->waves, 5, data->light, data->camera);
-    draw_model(find_shader(&app->assets, "MATERIAL"), find_shader(&app->assets, "MATERIAL_TEX"),
-        find_model(&app->assets, "TAILS"), data->light, data->camera, {0, 0, 0}, get_rotation(0, {0, 1, 0}));
+    draw_water(&app->assets, data->water, data->game_run_time_s, data->camera);
+
+    Model *tails = find_model(&app->assets, "TAILS");
+    tails->color_shader = find_shader(&app->assets, "MATERIAL");
+    tails->texture_shader = find_shader(&app->assets, "MATERIAL_TEX");
+    draw_model(tails, data->camera, {0, 0, 0}, get_rotation(0, {0, 1, 0}));
     draw_cube(data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
 
     //draw_cube({1, 5, 1}, 0, { 1, 1, 1 }, find_bitmap(&app->assets, "BOAT"));
@@ -342,8 +337,11 @@ draw_game_3D(Application *app, Game_Data *data)
     r32 angle = v2_to_angle({data->boat3D.direction.x, data->boat3D.direction.z});
     //log("x: %f, y: %f, %f", data->boat3D.direction.x, data->boat3D.direction.z, angle);
     quat rot = get_rotation(-angle, {0, 1, 0});
-    draw_model(find_shader(&app->assets, "MATERIAL"), find_shader(&app->assets, "MATERIAL_TEX"),
-        find_model(&app->assets, "BOAT2"), data->light, data->camera, data->boat3D.draw_coords, rot);
+
+    Model *boat = find_model(&app->assets, "BOAT2");
+    boat->color_shader = find_shader(&app->assets, "MATERIAL");
+    boat->texture_shader = find_shader(&app->assets, "MATERIAL_TEX");
+    draw_model(boat, data->camera, data->boat3D.draw_coords, rot);
     
 	orthographic(data->matrices_ubo, &app->matrices); // 2D
 

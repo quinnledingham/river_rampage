@@ -1,0 +1,88 @@
+#version 420 core
+
+layout(vertices=4) out;
+
+in vec3 v_position[];
+in vec2 tex_coords[];
+
+out vec3 tc_position[];
+out vec2 texture_coord[];
+
+layout (std140) uniform Matrices
+{
+	mat4 projection;
+	mat4 view;
+};
+uniform mat4 model;
+
+#define ID gl_InvocationID
+
+float GetTessLevel(float Distance0, float Distance1)
+{
+    float AvgDistance = (Distance0 + Distance1) / 2.0;
+
+    if (AvgDistance <= 2.0) {
+        return 10.0;
+    } else if (AvgDistance <= 5.0) {
+        return 7.0;
+    } else {
+        return 3.0;
+    }
+} 
+
+void main() {
+	//gl_out[ID].gl_Position = gl_in[ID].gl_Position;
+	tc_position[ID] = v_position[ID];
+	texture_coord[ID] = tex_coords[ID];
+
+	if (ID == 0) {
+		/*
+        gl_TessLevelInner[0] = 6;
+        gl_TessLevelInner[1] = 6;
+        gl_TessLevelOuter[0] = 6;
+        gl_TessLevelOuter[1] = 6;
+        gl_TessLevelOuter[2] = 6;
+        gl_TessLevelOuter[3] = 6;
+        
+	    float EyeToVertexDistance0 = distance(gEyeWorldPos, WorldPos_ES_in[0]);
+	    float EyeToVertexDistance1 = distance(gEyeWorldPos, WorldPos_ES_in[1]);
+	    float EyeToVertexDistance2 = distance(gEyeWorldPos, WorldPos_ES_in[2]);
+
+	    // Calculate the tessellation levels
+	    gl_TessLevelOuter[0] = GetTessLevel(EyeToVertexDistance1, EyeToVertexDistance2);
+	    gl_TessLevelOuter[1] = GetTessLevel(EyeToVertexDistance2, EyeToVertexDistance0);
+	    gl_TessLevelOuter[2] = GetTessLevel(EyeToVertexDistance0, EyeToVertexDistance1);
+	    gl_TessLevelInner[0] = gl_TessLevelOuter[2];
+	    */
+
+	    const int MIN_TESS_LEVEL = 2;
+        const int MAX_TESS_LEVEL = 16;
+        const float MIN_DISTANCE = 10;
+        const float MAX_DISTANCE = 20;
+
+        vec4 eyeSpacePos00 = view * model * vec4(v_position[0], 1);
+        vec4 eyeSpacePos01 = view * model * vec4(v_position[1], 1);
+        vec4 eyeSpacePos10 = view * model * vec4(v_position[2], 1);
+        vec4 eyeSpacePos11 = view * model * vec4(v_position[3], 1);
+
+        // "distance" from camera scaled between 0 and 1
+        float distance00 = clamp( (abs(eyeSpacePos00.z) - MIN_DISTANCE) / (MAX_DISTANCE-MIN_DISTANCE), 0.0, 1.0 );
+        float distance01 = clamp( (abs(eyeSpacePos01.z) - MIN_DISTANCE) / (MAX_DISTANCE-MIN_DISTANCE), 0.0, 1.0 );
+        float distance10 = clamp( (abs(eyeSpacePos10.z) - MIN_DISTANCE) / (MAX_DISTANCE-MIN_DISTANCE), 0.0, 1.0 );
+        float distance11 = clamp( (abs(eyeSpacePos11.z) - MIN_DISTANCE) / (MAX_DISTANCE-MIN_DISTANCE), 0.0, 1.0 );
+
+        float tessLevel0 = mix( MAX_TESS_LEVEL, MIN_TESS_LEVEL, min(distance10, distance00) );
+        float tessLevel1 = mix( MAX_TESS_LEVEL, MIN_TESS_LEVEL, min(distance00, distance01) );
+        float tessLevel2 = mix( MAX_TESS_LEVEL, MIN_TESS_LEVEL, min(distance01, distance11) );
+        float tessLevel3 = mix( MAX_TESS_LEVEL, MIN_TESS_LEVEL, min(distance11, distance10) );
+
+        gl_TessLevelOuter[0] = tessLevel0;
+        gl_TessLevelOuter[1] = tessLevel1;
+        gl_TessLevelOuter[2] = tessLevel2;
+        gl_TessLevelOuter[3] = tessLevel3;
+
+        gl_TessLevelInner[0] = max(tessLevel1, tessLevel3);
+        gl_TessLevelInner[1] = max(tessLevel0, tessLevel2);
+
+	}
+}

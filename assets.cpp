@@ -773,49 +773,32 @@ mix_audio(Audio_Player *player, r32 frame_time_s)
 // Model
 //
 
-void draw_model(Shader *shader, Shader *tex_shader, Model *model, Light light, Camera camera, v3 position, quat rotation)
+void draw_model(Model *model, Camera camera, v3 position, quat rotation)
 {
-    //v3 light_ambient = { 0.2, 0.2, 0.2 };
-    //v3 light_diffuse = { 0.9, 0.9, 0.9 };
-    //v3 light_specular = { 1, 1, 1 };
-
     u32 shader_enabled = 0; // 0 no shader, 1 shader, 2 tex_shader
     u32 handle = 0;
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    for (s32 i = 0; i < model->meshes_count; i++)
-    {
-        if (shader_enabled != 1 && model->meshes[i].material.diffuse_map.memory == 0)
-        {
+    for (s32 i = 0; i < model->meshes_count; i++) {
+        if (shader_enabled != 1 && model->meshes[i].material.diffuse_map.memory == 0) {
             shader_enabled = 1;
-            handle = use_shader(shader);
-
-            m4x4 model_matrix = create_transform_m4x4(position, rotation, {1, 1, 1});
-            glUniformMatrix4fv(glGetUniformLocation(handle, "model"), (GLsizei)1, false, (float*)&model_matrix);
-            glUniform3fv(glGetUniformLocation(handle, "viewPos"), (GLsizei)1, (float*)&camera.position);  
-        }
-        else if (shader_enabled != 2 && model->meshes[i].material.diffuse_map.memory != 0)
-        {
+            handle = use_shader(model->color_shader);
+        } else if (shader_enabled != 2 && model->meshes[i].material.diffuse_map.memory != 0) {
             shader_enabled = 2;
-            handle = use_shader(tex_shader);
-
-            m4x4 model_matrix = create_transform_m4x4(position, rotation, {1, 1, 1});
-            glUniformMatrix4fv(glGetUniformLocation(handle, "model"), (GLsizei)1, false, (float*)&model_matrix);
-            glUniform3fv(glGetUniformLocation(handle, "viewPos"), (GLsizei)1, (float*)&camera.position);    
+            handle = use_shader(model->texture_shader);
         }
 
-        glUniform3fv(glGetUniformLocation(handle, "material.ambient"), (GLsizei)1, (float*)&model->meshes[i].material.ambient);
-        glUniform3fv(glGetUniformLocation(handle, "material.diffuse"), (GLsizei)1, (float*)&model->meshes[i].material.diffuse);
+        m4x4 model_matrix = create_transform_m4x4(position, rotation, {1, 1, 1});
+        glUniformMatrix4fv(glGetUniformLocation(handle, "model"), (GLsizei)1, false, (float*)&model_matrix);
+        glUniform3fv(glGetUniformLocation(handle, "viewPos"), (GLsizei)1, (float*)&camera.position);   
+
+        glUniform3fv(glGetUniformLocation(handle, "material.ambient"),  (GLsizei)1, (float*)&model->meshes[i].material.ambient);
+        glUniform3fv(glGetUniformLocation(handle, "material.diffuse"),  (GLsizei)1, (float*)&model->meshes[i].material.diffuse);
         glUniform3fv(glGetUniformLocation(handle, "material.specular"), (GLsizei)1, (float*)&model->meshes[i].material.specular);
-        glUniform1f(glGetUniformLocation(handle, "material.shininess"), model->meshes[i].material.specular_exponent);
-        
-        //glUniform3fv(glGetUniformLocation(handle, "light.position"), (GLsizei)1, (float*)&light.position);
-        //glUniform3fv(glGetUniformLocation(handle, "light.ambient"), (GLsizei)1, (float*)&light_ambient);
-        //glUniform3fv(glGetUniformLocation(handle, "light.diffuse"), (GLsizei)1, (float*)&light_diffuse);
-        //glUniform3fv(glGetUniformLocation(handle, "light.specular"), (GLsizei)1, (float*)&light_specular);
-        
+        glUniform1f (glGetUniformLocation(handle, "material.shininess"), model->meshes[i].material.specular_exponent);
+
         if (model->meshes[i].material.diffuse_map.memory != 0)
         {
             glActiveTexture(GL_TEXTURE0);
@@ -825,8 +808,17 @@ void draw_model(Shader *shader, Shader *tex_shader, Model *model, Light light, C
         draw_mesh(&model->meshes[i]);
         glBindTexture(GL_TEXTURE_2D, 0);
     }
-    
 }
+
+internal void
+init_model(Model *model) {
+    for (s32 mesh_index = 0; mesh_index < model->meshes_count; mesh_index++) {
+        Mesh *mesh = &model->meshes[mesh_index];
+        init_mesh(mesh);
+        init_bitmap_handle(&mesh->material.diffuse_map);
+    }
+}
+
 
 // OBJ
 
@@ -1250,15 +1242,6 @@ Model load_obj(const char *filename)
     SDL_free(obj.meshes_face_count);
     
     return model;
-}
-
-internal void
-init_model(Model *model) {
-    for (s32 mesh_index = 0; mesh_index < model->meshes_count; mesh_index++) {
-        Mesh *mesh = &model->meshes[mesh_index];
-        init_mesh(mesh);
-        init_bitmap_handle(&mesh->material.diffuse_map);
-    }
 }
 
 //

@@ -14,17 +14,14 @@ struct Light {
 };
 
 
-in vec3 frag_normal;
-in vec3 frag_tangent;
-in vec3 frag_bitangent;
-in vec3 frag_position;
 in vec2 uv_coords;
+in vec3 frag_normal;
+in vec3 frag_position;
 
 out vec4 FragColor;
 
-uniform vec3 cameraPos;
-uniform vec4 objectColor;
-uniform sampler2D normal_map;
+uniform vec3 camera_pos;
+uniform vec4 user_color;
 uniform float time;
 
 layout (std430) uniform Lights
@@ -43,6 +40,11 @@ Light_Source get_light(float a[16]) {
 }
 
 Light_Source light = get_light(lights.f);
+
+
+//
+// Noise
+//
 
 float random(float x) {
     return fract(sin(x) * 10000.);
@@ -95,6 +97,10 @@ float nestedNoise(vec2 p) {
     
 }
 
+//
+// End of Noise
+//
+
 // distance of b from a
 float distance(vec3 a, vec3 b)
 {
@@ -102,12 +108,8 @@ float distance(vec3 a, vec3 b)
 	return sqrt(temp.x * temp.x + temp.y * temp.y + temp.z * temp.z);
 }
 
-void main()
-{
-	vec4 tex = texture(normal_map, uv_coords);
-	//mat3 TBN = transpose(mat3(frag_tangent, frag_bitangent, frag_normal));
-
-	vec3 normal = frag_normal;
+void main() {
+	vec3 normal = -normalize(frag_normal);
 
 	// ambient
 	vec3 ambient = light.ambient * light.color.rgb;
@@ -118,20 +120,20 @@ void main()
 	vec3 diffuse = light.diffuse * (diff * light.color.rgb);
 
 	// secular
-	vec3 view_dir = normalize(cameraPos - frag_position);
+	vec3 view_dir = normalize(camera_pos - frag_position);
 	vec3 reflect_dir = reflect(-lightDir, normal);
 	float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 16);
 	vec3 specular = light.specular * (spec * light.color.rgb);
-
-	vec4 color = objectColor;
+	
+	vec4 color = user_color;
 	color.xyz -= 0.2;
 	
-	if (distance(frag_position, cameraPos) < 20)
+	if (distance(frag_position, camera_pos) < 20)
 	{
 		//float n = nestedNoise(uv_coords * 6.);
-		//color = vec4(mix(objectColor.xyz, objectColor.xyz - 0.5, n), 1);
+		//color = vec4(mix(user_color.xyz, user_color.xyz - 0.5, n), 1);
 	}
 
 	vec3 result = (ambient + diffuse + specular) * color.xyz;
-	FragColor = vec4(result, objectColor.w);
+	FragColor = vec4(result, user_color.w);
 }

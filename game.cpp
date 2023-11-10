@@ -103,14 +103,14 @@ void* init_data(Assets *assets)
     data->camera.fov      = 80.0f;
     
     data->light.position = { 5.0f, 20.0f, 10.0f };
-    data->light.ambient =  { 0.3f, 0.3f, 0.3f };
-    data->light.diffuse =  { 0.9, 0.9, 0.9 };
+    data->light.ambient  = { 0.3f, 0.3f, 0.3f };
+    data->light.diffuse  = { 0.9, 0.9, 0.9 };
     data->light.specular = { 0.5f, 0.5f, 0.5f };
-    data->light.color = { 1.0f, 1.0f, 1.0f, 1.0f };
+    data->light.color    = { 1.0f, 1.0f, 1.0f, 1.0f };
     
-    Mesh temp_square_mesh = create_square_mesh(100, 100);
-    Mesh temp_patch_mesh = make_square_mesh_into_patches(&temp_square_mesh, 100, 100);
-    data->water = temp_patch_mesh;
+    data->triangle_mesh = create_square_mesh(100, 100);
+    //init_mesh(&data->triangle_mesh);
+    data->water = make_square_mesh_into_patches(&data->triangle_mesh, 100, 100);
     
     data->game_mode = IN_GAME_3D;
     data->cube = get_cube_mesh();

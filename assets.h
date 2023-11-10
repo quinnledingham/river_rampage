@@ -127,10 +127,13 @@ struct Model
 {
     Mesh *meshes;
     u32 meshes_count;
+
+    Shader *color_shader;
+    Shader *texture_shader;
 };
 
 Model load_obj(const char *filename);
-void draw_model(Shader *shader, Shader *tex_shader, Model *model, Light light, Camera camera, v3 position, quat rotation);
+void draw_model(Model *model, Camera camera, v3 position, quat rotation);
 
 struct Font_Char
 {

@@ -89,20 +89,37 @@ const global Pair camera_modes[2] = {
     };
 
 
+struct Dev_Tools
+{
+
+};
+
+struct Game_Data_3D
+{
+
+};
+
 struct Game_Data
 {
+    // Game
     b8 paused;
+    r32 game_run_time_s;
+
+    // Menus
+    u32 game_mode;
+    s32 active;
+
+    // Dev Tools
     b8 wire_frame;
     b8 show_fps;
     b8 show_console;
     Console console;
     Onscreen_Notifications onscreen_notifications;
 
-    r32 game_run_time_s;
-
     // 3D
     Light light;
     Camera camera;
+    Mesh triangle_mesh;
     Mesh water;
     Mesh cube;
     Wave waves[5];
@@ -120,9 +137,6 @@ struct Game_Data
     // 2D
     Boat boat;
     r32 water_force;
-    
-    u32 game_mode;
-    s32 active;
 };
 
 b8 update(void *application);
