@@ -139,7 +139,7 @@ struct Game_Data
     r32 water_force;
 };
 
-b8 update(void *application);
-void* init_data(Assets *assets);
+function s32 draw_main_menu(Application *app, Game_Data *data);
+function s32 draw_pause_menu(Assets *assets, v2 window_dim, b32 select, s32 active);
 
 #endif //GAME_H

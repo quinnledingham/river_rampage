@@ -6,6 +6,14 @@
 #include "types.h"
 #include "types_math.h"
 #include "char_array.h"
+#include "assets.h"
+#include "renderer.h"
+#include "data_structures.h"
+#include "shapes.h"
+#include "application.h"
+
+#include "log.cpp"
+#include "data_structures.cpp"
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
@@ -14,18 +22,13 @@
 #include <stb_image_resize.h>
 #include <stb_truetype.h>
 
-#include "assets.h"
-#include "shapes.h"
-#include "data_structures.h"
-#include "gui.h"
-#include "game.h"
-#include "application.h"
-
-#include "log.cpp"
-#include "data_structures.cpp"
 #include "assets.cpp"
+#include "renderer.cpp"
 #include "shapes.cpp"
 
+// function that are defined in the game code
+b8 update(void *application);
+void* init_data(Assets *assets);
 
 void *platform_malloc(u32 size)
 {
@@ -36,180 +39,6 @@ void platform_free(void *ptr)
 {
     SDL_free(ptr);
 }
-
-//
-// Renderer
-//
-
-static GLsizei IndexCount;
-static const GLuint PositionSlot = 0;
-
-internal void 
-create_icosahedron()
-{
-    const int Faces[] = {
-        2, 1, 0,
-        3, 2, 0,
-        4, 3, 0,
-        5, 4, 0,
-        1, 5, 0,
-        11, 6,  7,
-        11, 7,  8,
-        11, 8,  9,
-        11, 9,  10,
-        11, 10, 6,
-        1, 2, 6,
-        2, 3, 7,
-        3, 4, 8,
-        4, 5, 9,
-        5, 1, 10,
-        2,  7, 6,
-        3,  8, 7,
-        4,  9, 8,
-        5, 10, 9,
-        1, 6, 10 };
-
-    const float Verts[] = {
-         0.000f,  0.000f,  1.000f,
-         0.894f,  0.000f,  0.447f,
-         0.276f,  0.851f,  0.447f,
-        -0.724f,  0.526f,  0.447f,
-        -0.724f, -0.526f,  0.447f,
-         0.276f, -0.851f,  0.447f,
-         0.724f,  0.526f, -0.447f,
-        -0.276f,  0.851f, -0.447f,
-        -0.894f,  0.000f, -0.447f,
-        -0.276f, -0.851f, -0.447f,
-         0.724f, -0.526f, -0.447f,
-         0.000f,  0.000f, -1.000f };
-
-    IndexCount = sizeof(Faces) / sizeof(Faces[0]);
-
-    // Create the VAO:
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
-    // Create the VBO for positions:
-    GLuint positions;
-    GLsizei stride = 3 * sizeof(float);
-    glGenBuffers(1, &positions);
-    glBindBuffer(GL_ARRAY_BUFFER, positions);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(Verts), Verts, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(PositionSlot);
-    glVertexAttribPointer(PositionSlot, 3, GL_FLOAT, GL_FALSE, stride, 0);
-
-    // Create the VBO for indices:
-    GLuint indices;
-    glGenBuffers(1, &indices);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Faces), Faces, GL_STATIC_DRAW);
-}
-
-// block index is from glUniformBlockBinding or binding == #
-u32 init_uniform_buffer_object(u32 block_size, u32 block_index)
-{
-    u32 uniform_buffer_object;
-    glGenBuffers(1, &uniform_buffer_object);
-    
-    glBindBuffer(GL_UNIFORM_BUFFER, uniform_buffer_object);
-    glBufferData(GL_UNIFORM_BUFFER, block_size, NULL, GL_STATIC_DRAW);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
-    
-    glBindBufferBase(GL_UNIFORM_BUFFER, block_index, uniform_buffer_object);
-    
-    return uniform_buffer_object;
-}
-
-void platform_set_uniform_block_binding(u32 shader_handle, const char *tag, u32 index)
-{
-    u32 tag_uniform_block_index = glGetUniformBlockIndex(shader_handle, tag);
-    glUniformBlockBinding(shader_handle, tag_uniform_block_index, index);
-}
-
-void platform_set_uniform_buffer_data(u32 ubo, u32 size, void *data)
-{
-    glBindBuffer(GL_UNIFORM_BUFFER, ubo);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0, size, data);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
-}
-
-// functions to set matrices in uniform buffer
-void orthographic(u32 ubo, Matrices *matrices)
-{
-    glBindBuffer(GL_UNIFORM_BUFFER, ubo);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0,            sizeof(m4x4), (void*)&matrices->orthographic_matrix);
-    glBufferSubData(GL_UNIFORM_BUFFER, sizeof(m4x4), sizeof(m4x4), (void*)&identity_m4x4());
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
-}
-
-void perspective(u32 ubo, Matrices *matrices)
-{
-    GLenum target = GL_UNIFORM_BUFFER;
-    glBindBuffer(target, ubo);
-    glBufferSubData(target, 0,            sizeof(m4x4), (void*)&matrices->perspective_matrix);
-    glBufferSubData(target, sizeof(m4x4), sizeof(m4x4), (void*)&matrices->view_matrix);
-    glBindBuffer(target, 0);
-}
-
-void platform_uniform_m4x4(u32 shader_handle, const char *tag, m4x4 *m) { glUniformMatrix4fv(glGetUniformLocation(shader_handle, tag), (GLsizei)1, false, (float*) m); }
-void platform_uniform_f32 (u32 shader_handle, const char *tag, f32   f) { glUniform1f       (glGetUniformLocation(shader_handle, tag),                             f); }
-void platform_uniform_v3  (u32 shader_handle, const char *tag, v3    v) { glUniform3fv      (glGetUniformLocation(shader_handle, tag), (GLsizei)1,        (float*)&v); }
-void platform_uniform_v4  (u32 shader_handle, const char *tag, v4    v) { glUniform4fv      (glGetUniformLocation(shader_handle, tag), (GLsizei)1,        (float*)&v); }
-
-void platform_set_texture(Bitmap *bitmap)
-{
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, bitmap->handle);
-}
-
-void platform_set_texture_cube_map(Cubemap *cubemap, u32 shader)
-{
-    //glDepthFunc(GL_LEQUAL);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap->handle);
-    glUniform1i(glGetUniformLocation(shader, "skybox"), 0);
-}
-
-void platform_blend_function(u32 source_factor, u32 destination_factor)
-{
-    glBlendFunc(source_factor, destination_factor);
-}
-
-void platform_set_polygon_mode(u32 mode)
-{
-    switch(mode)
-    {
-        case PLATFORM_POLYGON_MODE_POINT: glPolygonMode(GL_FRONT_AND_BACK, GL_POINT); break;
-        case PLATFORM_POLYGON_MODE_LINE:  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); break;
-        case PLATFORM_POLYGON_MODE_FILL:  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); break;
-    }
-}
-
-void opengl_set_capability(GLenum capability, b32 state)
-{
-    if (state) glEnable(capability);
-    else       glDisable(capability);
-}
-
-void platform_set_capability(u32 capability, b32 state)
-{
-    switch(capability)
-    {
-        case PLATFORM_CAPABILITY_DEPTH_TEST: opengl_set_capability(GL_DEPTH_TEST, state); break;
-        case PLATFORM_CAPABILITY_CULL_FACE:  opengl_set_capability(GL_CULL_FACE, state);  break;
-    }
-}
-
-void platform_set_depth_mask(b32 state)
-{
-    if (state) glDepthMask(GL_TRUE);
-    else       glDepthMask(GL_FALSE);
-}
-
-//
-//
-//
 
 function void
 update_window(Window *window)
@@ -255,44 +84,7 @@ internal void
 keyboard_input_to_char_array(s32 id, char *buffer, u32 *buffer_index, b32 shift)
 {
     s32 ch = 0;
-/*
-    if      (id == SDLK_a) ch = 'a';
-    else if (id == SDLK_b) ch = 'b';
-    else if (id == SDLK_c) ch = 'c';
-    else if (id == SDLK_d) ch = 'd';
-    else if (id == SDLK_e) ch = 'e';
-    else if (id == SDLK_f) ch = 'f';
-    else if (id == SDLK_g) ch = 'g';
-    else if (id == SDLK_h) ch = 'h';
-    else if (id == SDLK_i) ch = 'i';
-    else if (id == SDLK_j) ch = 'j';
-    else if (id == SDLK_k) ch = 'k';
-    else if (id == SDLK_l) ch = 'l';
-    else if (id == SDLK_m) ch = 'm';
-    else if (id == SDLK_n) ch = 'n';
-    else if (id == SDLK_o) ch = 'o';
-    else if (id == SDLK_p) ch = 'p';
-    else if (id == SDLK_q) ch = 'q';
-    else if (id == SDLK_r) ch = 'r';
-    else if (id == SDLK_s) ch = 's';
-    else if (id == SDLK_t) ch = 't';
-    else if (id == SDLK_u) ch = 'u';
-    else if (id == SDLK_v) ch = 'v';
-    else if (id == SDLK_w) ch = 'w';
-    else if (id == SDLK_x) ch = 'x';
-    else if (id == SDLK_y) ch = 'y';
-    else if (id == SDLK_z) ch = 'z';
 
-    else if (id == SDLK_SLASH) ch = '/';
-    else if (id == SDLK_MINUS && shift) ch = '_';
-
-    else if (id == SDLK_TAB)       ch = 9;
-    else if (id == SDLK_BACKSPACE) ch = 8;
-    else if (id == SDLK_RETURN)    ch = 13;
-    else if (id == SDLK_ESCAPE)    ch = 27;
-
-
-*/
     if (is_ascii(id)) {
         ch = id;
         if (isalpha(ch) && shift) ch -= 32;
@@ -423,21 +215,11 @@ update_relative_mouse_mode(Flag *flag)
     }
 }
 
-function void
-update_matrices(Matrices *m, r32 fov, r32 aspect_ratio, v2s window_dim)
-{
-    m->perspective_matrix = perspective_projection(fov, aspect_ratio, 0.01f, 1000.0f);
-    m->orthographic_matrix = orthographic_projection(0.0f, (r32)window_dim.width, (r32)window_dim.height, 0.0f, -3.0f, 3.0f);
-    m->update = false;
-}
-
 function void swap_window(SDL_Window *sdl_window) { SDL_GL_SwapWindow(sdl_window); }
 
 function int
 main_loop(Application *app, SDL_Window *sdl_window)
 {
-    Game_Data *data = (Game_Data*)app->data;
-
     Bitmap *icon = find_bitmap(&app->assets, "ICON");
     SDL_Surface *icon_surface = SDL_CreateRGBSurfaceFrom(icon->memory, icon->dim.width, icon->dim.height, 32, icon->pitch, 0x00000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
     SDL_SetWindowIcon(sdl_window, icon_surface);
@@ -446,7 +228,6 @@ main_loop(Application *app, SDL_Window *sdl_window)
     {
         if (process_input(&app->window, &app->input)) return 0; // quit if process_input returns false
 
-        if (app->matrices.update) update_matrices(&app->matrices, data->camera.fov, app->window.aspect_ratio, app->window.dim);
         update_time(&app->time);
 
         if (update(app)) return 0;

@@ -12,7 +12,6 @@ enum Shape_Draw_Types
     SHAPE_TEXT,
 };
 
-
 struct Shape // container for all the information needed to draw the shape
 {
     u32 type;

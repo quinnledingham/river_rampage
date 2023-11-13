@@ -19,17 +19,17 @@ update_camera_with_mouse(Camera *camera, v2s delta_mouse, v2 move_speed)
 }
 
 function void
-update_camera_with_keys(Camera *camera, v3 target, v3 up_v, v3 move_vector,
+update_camera_with_keys(Camera *camera, v3 target, v3 up_v, v3 magnitude,
                         Button forward, Button backward,
                         Button left, Button right,
                         Button up, Button down)
 {
-    if (is_down(forward))  camera->position += target * move_vector;
-    if (is_down(backward)) camera->position -= target * move_vector;
-    if (is_down(left))     camera->position -= normalized(cross_product(target, up_v)) * move_vector;
-    if (is_down(right))    camera->position += normalized(cross_product(target, up_v)) * move_vector;
-    if (is_down(up))       camera->position.y += move_vector.y;
-    if (is_down(down))     camera->position.y -= move_vector.y;
+    if (is_down(forward))  camera->position += target * magnitude;
+    if (is_down(backward)) camera->position -= target * magnitude;
+    if (is_down(left))     camera->position -= normalized(cross_product(target, up_v)) * magnitude;
+    if (is_down(right))    camera->position += normalized(cross_product(target, up_v)) * magnitude;
+    if (is_down(up))       camera->position.y += magnitude.y;
+    if (is_down(down))     camera->position.y -= magnitude.y;
 }
 
 function Mesh

@@ -3,24 +3,17 @@
 #include "types_math.h"
 #include "char_array.h"
 #include "assets.h"
-#include "shapes.h"
+#include "renderer.h"
 #include "data_structures.h"
-#include "gui.h"
-#include "game.h"
+#include "shapes.h"
 #include "application.h"
 
+#include "gui.h"
+#include "game.h"
+
 #include "menu.cpp"
-
-/*
-TODO
-
-Clean up obj file loader
-Clean up mtl file loader
-Improve rendering of models
-
-Make boat movement better
-Add pitch and yaw to boat
-*/
+#include "2D.cpp"
+#include "3D.cpp"
 
 // returns game mode
 function s32
@@ -81,9 +74,6 @@ draw_pause_menu(Assets *assets, v2 window_dim, b32 select, s32 active)
     if (menu_button(&pause_menu, "Main Menu", index++, active, select)) return 2;
     return 0;
 }
-
-#include "2D.cpp"
-#include "3D.cpp"
 
 void* init_data(Assets *assets)
 {
@@ -152,12 +142,22 @@ void* init_data(Assets *assets)
     return (void*)data;
 }
 
+function void
+update_matrices(Matrices *m, r32 fov, r32 aspect_ratio, v2s window_dim)
+{
+    m->perspective_matrix = perspective_projection(fov, aspect_ratio, 0.01f, 1000.0f);
+    m->orthographic_matrix = orthographic_projection(0.0f, (r32)window_dim.width, (r32)window_dim.height, 0.0f, -3.0f, 3.0f);
+    m->update = false;
+}
+
 // returns true if the application should quit
 b8 update(void *application)
 {
     Application *app = (Application*)application;
     Game_Data *data = (Game_Data*)app->data;
     Controller *controller = app->input.active_controller;
+
+    if (app->matrices.update) update_matrices(&app->matrices, data->camera.fov, app->window.aspect_ratio, app->window.dim);
 
     if (console_command(&data->console, TOGGLE_WIREFRAME))
     {
@@ -232,7 +232,5 @@ b8 update(void *application)
         } break;
     }
     
-
-
     return false;
 }
