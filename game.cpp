@@ -104,7 +104,7 @@ void* init_data(Assets *assets)
     
     data->light.position = { 5.0f, 20.0f, 10.0f };
     data->light.ambient  = { 0.3f, 0.3f, 0.3f };
-    data->light.diffuse  = { 0.9, 0.9, 0.9 };
+    data->light.diffuse  = { 0.9f, 0.9f, 0.9f };
     data->light.specular = { 0.5f, 0.5f, 0.5f };
     data->light.color    = { 1.0f, 1.0f, 1.0f, 1.0f };
     
@@ -134,8 +134,8 @@ void* init_data(Assets *assets)
     
     data->waves[0] = get_wave({ 1.0, 0.0 }, 20.0f, 0.2f);
     data->waves[1] = get_wave({ 1.0, 1.0 }, 5.0f, 0.2f);
-    data->waves[2] = get_wave({ 0.0, 0.4 }, 5.0f, 0.1f);
-    data->waves[3] = get_wave({ 0.7, 0.9 }, 9.0f, 0.05f);
+    data->waves[2] = get_wave({ 0.0f, 0.4f }, 5.0f, 0.1f);
+    data->waves[3] = get_wave({ 0.7f, 0.9f }, 9.0f, 0.05f);
     data->waves[4] = get_wave({ 0.0, -1.0 }, 10.0f, 0.25f);
 
     platform_set_uniform_buffer_data(data->wave_ubo, sizeof(Wave) * 5, (void*)&data->waves);

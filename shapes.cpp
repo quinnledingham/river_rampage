@@ -1,3 +1,54 @@
+enum Shape_Types
+{
+    SHAPE_RECT,
+    SHAPE_CIRCLE,
+    SHAPE_CUBE,
+};
+
+enum Shape_Draw_Types
+{
+    SHAPE_COLOR,
+    SHAPE_TEXTURE,
+    SHAPE_TEXT,
+};
+
+
+struct Shape // container for all the information needed to draw the shape
+{
+    u32 type;
+    v3 coords;
+    quat rotation;
+    v3 dim;
+    
+    u32 draw_type;
+    v4 color;
+    Bitmap *bitmap;
+};
+
+void init_shapes(Shader *color, Shader *texture, Shader *text);
+void draw_shape(Shape shape);
+
+struct Shapes {
+    Shader *test_color;
+    Shader *test_texture;
+    Shader *test_text;
+
+    Shader color;
+    Shader texture;
+    Shader text;
+
+    Mesh rect;
+    Mesh circle;
+    Mesh cube;
+};
+
+Shapes shapes = {};
+
+const char *basic_vs = "#version 330 core\nlayout (location = 0) in vec3 position;layout (location = 1) in vec3 normal;layout (location = 2) in vec2 texture_coords;out vec2 uv;layout (std140) uniform Matrices{mat4 projection;mat4 view;};uniform mat4 model; void main(void) { gl_Position = projection * view * model * vec4(position, 1.0f); uv = texture_coords;}";
+const char *color_fs = "#version 330 core\nuniform vec4 user_color;in vec2 uv; out vec4 FragColor;void main() { FragColor  = vec4(user_color.x/255, user_color.y/255, user_color.z/255, user_color.w);}";
+const char *tex_fs   = "#version 330 core\nuniform sampler2D tex0;in vec2 uv;out vec4 FragColor;void main() { vec4 tex = texture(tex0, uv); FragColor = tex;}";
+const char *text_fs  = "#version 330 core\nin vec2 uv;out vec4 FragColor;uniform sampler2D tex0;uniform vec4 text_color;void main() { vec3 norm_text_color = vec3(text_color.x/255, text_color.y/255, text_color.z/255);float alpha = texture(tex0, uv).r * text_color.a;vec4 tex = vec4(1.0, 1.0, 1.0, alpha); FragColor = vec4(norm_text_color, 1.0) * tex;}";
+
 //
 // drawing
 // 
@@ -264,26 +315,38 @@ void draw_cube(v3 coords, r32 rotation, v3 dim, Bitmap *bitmap)
 // shapes
 //
 
-void init_shapes(Shader *color, Shader *texture, Shader *text)
-{
-    init_rect_mesh(&shape_rect);
-    init_circle_mesh(&shape_circle);
-    shape_cube = get_cube_mesh();
+void init_shapes(Shader *color, Shader *texture, Shader *text) {
+    init_rect_mesh(&shapes.rect);
+    init_circle_mesh(&shapes.circle);
+    shapes.cube = get_cube_mesh();
     
-    shape_color_shader   = color;
-    shape_texture_shader = texture;
-    shape_text_shader    = text;
-    
-    /*
-    shape_color_shader.vs_file = basic_vs;
-    shape_color_shader.fs_file = color_fs;
-    compile_shader(&shape_color_shader);
-    
-    shape_texture_shader.vs_file = basic_vs;
-    shape_texture_shader.fs_file = tex_fs;
-    compile_shader(&shape_texture_shader);
-*/
+    shapes.test_color   = color;
+    shapes.test_texture = texture;
+    shapes.test_text    = text;
 }
+
+void init_shapes() {
+    init_rect_mesh(&shapes.rect);
+    init_circle_mesh(&shapes.circle);
+    shapes.cube = get_cube_mesh();
+
+    shapes.color.files[VERTEX_SHADER].memory   = (void*)basic_vs;
+    shapes.texture.files[VERTEX_SHADER].memory = (void*)basic_vs;
+    shapes.text.files[VERTEX_SHADER].memory    = (void*)basic_vs;    
+
+    shapes.color.files[FRAGMENT_SHADER].memory   = (void*)color_fs;
+    shapes.texture.files[FRAGMENT_SHADER].memory = (void*)tex_fs;
+    shapes.text.files[FRAGMENT_SHADER].memory    = (void*)text_fs;
+
+    compile_shader(&shapes.color);
+    compile_shader(&shapes.texture);
+    compile_shader(&shapes.text);
+
+    platform_set_uniform_block_binding(shapes.text.handle,    "Matrices", 0);
+    platform_set_uniform_block_binding(shapes.texture.handle, "Matrices", 0);
+    platform_set_uniform_block_binding(shapes.color.handle,   "Matrices", 0);
+}
+
 
 function void
 draw_shape(Shape shape)
@@ -292,22 +355,20 @@ draw_shape(Shape shape)
     
     switch(shape.draw_type)
     {
-        case SHAPE_COLOR:
-        {
-            handle = use_shader(shape_color_shader);
+        case SHAPE_COLOR: {
+            handle = use_shader(&shapes.color);
             glUniform4fv(glGetUniformLocation(handle, "user_color"), (GLsizei)1, (float*)&shape.color);
         } break;
         
-        case SHAPE_TEXTURE:
-        {
-            handle = use_shader(shape_texture_shader);
+        case SHAPE_TEXTURE: {
+            handle = use_shader(&shapes.texture);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, shape.bitmap->handle);
             glUniform1i(glGetUniformLocation(handle, "tex0"), 0);
         } break;
 
         case SHAPE_TEXT: {
-            handle = use_shader(shape_text_shader);
+            handle = use_shader(&shapes.text);
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, shape.bitmap->handle);
             glUniform1i(glGetUniformLocation(handle, "tex0"), 0);
@@ -320,13 +381,13 @@ draw_shape(Shape shape)
     shape.coords += shape.dim / 2.0f; // coords = top left corner
     
     m4x4 model = create_transform_m4x4(shape.coords, shape.rotation, shape.dim);
-    glUniformMatrix4fv(glGetUniformLocation(handle, "model"),      (GLsizei)1, false, (float*)&model);
+    glUniformMatrix4fv(glGetUniformLocation(handle, "model"), (GLsizei)1, false, (float*)&model);
     
     switch(shape.type)
     {
-        case SHAPE_RECT:   draw_mesh(&shape_rect);   break;
-        case SHAPE_CIRCLE: draw_mesh(&shape_circle); break;
-        case SHAPE_CUBE:   draw_mesh(&shape_cube); break;
+        case SHAPE_RECT:   draw_mesh(&shapes.rect);   break;
+        case SHAPE_CIRCLE: draw_mesh(&shapes.circle); break;
+        case SHAPE_CUBE:   draw_mesh(&shapes.cube);   break;
         default: error("draw_shape(): Not valid shape type");
     }
 }

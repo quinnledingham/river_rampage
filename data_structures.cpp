@@ -76,7 +76,7 @@ ast_traverse_left_to_right(s32 level, void *args, AST_Node *node, void (action)(
 {
     action(level, node, args);
     
-    for (s32 i = 0; i < node->num_of_children; i++)
+    for (u32 i = 0; i < node->num_of_children; i++)
     {
         ast_traverse_left_to_right(level + 1, args, node->children[i], action);
     }

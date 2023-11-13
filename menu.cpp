@@ -285,7 +285,7 @@ function void
 draw_console(Console *console, v2s window_dim)
 {
     console->textbox.coords.y = window_dim.y - console->textbox.dim.y;
-    console->textbox.dim.x = window_dim.x;
+    console->textbox.dim.x = (r32)window_dim.x;
 
     draw_textbox(&console->textbox);
 }

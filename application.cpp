@@ -399,7 +399,7 @@ get_seconds(u64 start, u64 end)
 function void
 update_time(Time *time)
 {
-    u32 last_run_time_ms = time->run_time_ms;
+    u64 last_run_time_ms = time->run_time_ms;
     
     time->run_time_ms = SDL_GetTicks64();
     time->run_time_s = (f32)time->run_time_ms / 1000.0f;
@@ -569,7 +569,8 @@ int main(int argc, char *argv[])
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glPatchParameteri(GL_PATCH_VERTICES, 4); 
 
-    init_shapes(find_shader(&app.assets, "COLOR"), find_shader(&app.assets, "TEX"), find_shader(&app.assets, "TEXT"));
+    //init_shapes(find_shader(&app.assets, "COLOR"), find_shader(&app.assets, "TEX"), find_shader(&app.assets, "TEXT"));
+    init_shapes();
 
     return main_loop(&app, sdl_window);
 }

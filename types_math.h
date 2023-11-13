@@ -50,7 +50,7 @@ magnitude(const v2 &v)
 {
     f32 len_sq = length_squared(v);
     if (len_sq < EPSILON) return 1;
-    return sqrt(len_sq);
+    return (f32)sqrt(len_sq);
 }
 
 inline f32
@@ -158,7 +158,7 @@ inline f32
 magnitude(const v3 &v)
 {
     f32 len_sq = length_squared(v);
-    return sqrt(len_sq);
+    return (f32)sqrt(len_sq);
 }
 
 inline f32

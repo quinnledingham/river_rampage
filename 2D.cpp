@@ -45,7 +45,7 @@ init_boat(Boat *boat)
     boat->direction = { 1, 0 };
     
     r32 speed_feet_per_s = 1.34f * sqrtf(boat->water_line_length);
-    boat->maximum_speed  = speed_feet_per_s * 0.3048; // ft to m
+    boat->maximum_speed  = speed_feet_per_s * 0.3048f; // ft to m
     
     boat->acceleration_magnitude   = boat->engine_force / boat->mass;
     boat->water_acceleration_magnitude = boat->rudder_force / boat->mass;

@@ -23,6 +23,23 @@ read_file(const char *filename)
     return result;
 }
 
+// returns the file with a 0 at the end of the memory.
+// useful if you want to read the file like a string immediately.
+function File
+read_file_terminated(const char *filename) {
+    File result = {};
+    File file = read_file(filename);
+
+    result = file;    
+    result.memory = platform_malloc(file.size + 1);
+    SDL_memcpy(result.memory, file.memory, file.size);
+
+    char *r = (char*)result.memory;
+    r[file.size] = 0; // last byte in result.memory
+    
+    return result;
+}
+
 function s32
 get_char(File *file)
 {
@@ -64,10 +81,10 @@ function const char*
 copy_last_num_of_chars(File *file, u32 length)
 {
     char *string = (char*)SDL_malloc(length + 1);
-    memset(string, 0, length + 1);
+    SDL_memset(string, 0, length + 1);
     
     const char *ptr = file->ch - length;
-    for (int i = 0; i < length; i++)
+    for (u32 i = 0; i < length; i++)
     {
         int ch = *ptr++;
         if (ch == EOF)
@@ -84,8 +101,8 @@ copy_last_num_of_chars(File *file, u32 length)
 function void
 free_file(File *file)
 {
-    SDL_free(file->memory);
-    *file = {};
+    if (file->memory != 0) SDL_free(file->memory);
+    *file = {}; // sets file-memory to 0
 }
 
 function void
@@ -149,23 +166,23 @@ init_bitmap_handle(Bitmap *bitmap, u32 texture_parameters)
     
     switch(bitmap->channels)
     {
-        case 1:
-        internal_format = GL_RED,
-        data_format = GL_RED,
-        pixel_unpack_alignment = 1; 
-        break;
+        case 1: {
+            internal_format = GL_RED,
+            data_format = GL_RED,
+            pixel_unpack_alignment = 1; 
+        } break;
 
-        case 3:
-        internal_format = GL_RGB;
-        data_format = GL_RGB;
-        pixel_unpack_alignment = 1; // because RGB is weird case unpack alignment can't be 3
-        break;
+        case 3: {
+            internal_format = GL_RGB;
+            data_format = GL_RGB;
+            pixel_unpack_alignment = 1; // because RGB is weird case unpack alignment can't be 3
+        } break;
         
-        case 4:
-        internal_format = GL_RGBA;
-        data_format = GL_RGBA;
-        pixel_unpack_alignment = 4;
-        break;
+        case 4: {
+            internal_format = GL_RGBA;
+            data_format = GL_RGBA;
+            pixel_unpack_alignment = 4;
+        } break;
     }
     
     glPixelStorei(GL_UNPACK_ALIGNMENT, pixel_unpack_alignment);
@@ -251,30 +268,6 @@ load_cubemap()
 // Shader
 //
 
-function const char*
-load_shader_file(const char* filename, u32 *file_size)
-{
-    FILE *file = fopen(filename, "rb");
-    if (file == 0)
-    {
-        error("load_shader_file() could not open file");
-        return 0;
-    }
-    
-    fseek(file, 0, SEEK_END);
-    u32 size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-    
-    char* shader_file = (char*)malloc(size + 1);
-    fread(shader_file, size, 1, file);
-    shader_file[size] = 0;
-    fclose(file);
-    
-    *file_size = size + 1; // file_size includes the terminator
-    
-    return shader_file;
-}
-
 // loads the files
 void load_shader(Shader *shader)
 {
@@ -285,17 +278,9 @@ void load_shader(Shader *shader)
 
     printf("loaded shader: ");
     for (u32 i = 0; i < SHADER_TYPE_AMOUNT; i++) {
-        // free the existing files if there are any
-        if (shader->files[i].memory != 0) {
-            free((void*)shader->files[i].memory);
-            shader->files[i].memory = 0;
-        }
-
-        // load the files from the shader file
-        if (shader->files[i].path != 0) {
-            shader->files[i].memory = (void*)load_shader_file(shader->files[i].path, &shader->files[i].size);
-            printf("%s ", get_filename(shader->files[i].path));
-        }
+        free_file(&shader->files[i]);
+        if (shader->files[i].path != 0) 
+            shader->files[i] = read_file_terminated(shader->files[i].path);
     }
     printf("\n");
 }
@@ -781,7 +766,7 @@ void draw_model(Model *model, Camera camera, v3 position, quat rotation)
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    for (s32 i = 0; i < model->meshes_count; i++) {
+    for (u32 i = 0; i < model->meshes_count; i++) {
         if (shader_enabled != 1 && model->meshes[i].material.diffuse_map.memory == 0) {
             shader_enabled = 1;
             handle = use_shader(model->color_shader);
@@ -812,7 +797,7 @@ void draw_model(Model *model, Camera camera, v3 position, quat rotation)
 
 internal void
 init_model(Model *model) {
-    for (s32 mesh_index = 0; mesh_index < model->meshes_count; mesh_index++) {
+    for (u32 mesh_index = 0; mesh_index < model->meshes_count; mesh_index++) {
         Mesh *mesh = &model->meshes[mesh_index];
         init_mesh(mesh);
         init_bitmap_handle(&mesh->material.diffuse_map);
@@ -1196,7 +1181,7 @@ Model load_obj(const char *filename)
     // creating the model's meshes
     {
         s32 lower_range = 0;
-        for (s32 mesh_index = 0; mesh_index < model.meshes_count; mesh_index++)
+        for (u32 mesh_index = 0; mesh_index < model.meshes_count; mesh_index++)
         {
             Mesh *mesh = &model.meshes[mesh_index];
             mesh->vertices_count = 0;
@@ -1223,7 +1208,7 @@ Model load_obj(const char *filename)
             }
             
             // assign material
-            for (s32 i = 0; i < mtl.materials_count; i++)
+            for (u32 i = 0; i < mtl.materials_count; i++)
             {
                 if (equal(mesh->material.id, mtl.materials[i].id)) 
                     mesh->material = mtl.materials[i];
@@ -1507,7 +1492,7 @@ load_asset(Asset *asset, Asset_Load_Info *info)
             }
             load_shader(&asset->shader);
         } break;         
-        case ASSET_TYPE_AUDIO:  asset->audio = load_audio(info->filename);
+        case ASSET_TYPE_AUDIO:  asset->audio = load_audio(info->filename); break;
         case ASSET_TYPE_MODEL:  asset->model = load_obj(info->filename); break;
     }
 }

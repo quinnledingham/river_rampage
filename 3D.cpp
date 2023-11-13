@@ -120,7 +120,7 @@ function v3
 apply_wave(Wave wave, v3 position, f32 time)
 {
     f32 k = 2.0f * PI / wave.wave_length;
-    f32 c = sqrt(9.8f / k);
+    f32 c = (f32)sqrt(9.8f / k);
     v2 d = normalized(wave.direction);
     f32 f = k * (dot_product(d, { position.x, position.z }) - c * time);
     f32 a = wave.steepness / k;
@@ -138,7 +138,7 @@ apply_waves(const v3 position, Wave *waves, u32 waves_count, f32 time)
     v3 result = position;
     for (u32 wave_index = 0; wave_index < waves_count; wave_index++)
     {
-        result += apply_wave(waves[wave_index], position, time / 5.0);
+        result += apply_wave(waves[wave_index], position, time / 5.0f);
     }
     return result;
 }
@@ -184,7 +184,7 @@ update_boat_3D_draw_coord(Boat3D *boat, Wave *waves, u32 waves_count, r32 run_ti
         if (index >= ARRAY_COUNT(boat->draw_coords_history)) index = 0;
     }
     
-    boat->draw_coords = sum / indices_added;
+    boat->draw_coords = sum / (f32)indices_added;
 
     boat->newest_draw_coord_index++;
     if (boat->newest_draw_coord_index >= ARRAY_COUNT(boat->draw_coords_history)) boat->newest_draw_coord_index = 0;
@@ -297,7 +297,7 @@ draw_water(Assets *assets, Mesh mesh, r32 seconds, Camera camera)
 {
     u32 active_shader = use_shader(find_shader(assets, "WATER"));
     
-    v4 color = {30.0f/255.0f, 144.0f/255.0f, 255.0f/255.0f, 0.9};
+    v4 color = {30.0f/255.0f, 144.0f/255.0f, 255.0f/255.0f, 0.9f};
     m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {0, 1, 0}), {50, 1, 50});
 
     platform_uniform_m4x4(active_shader, "model", &model);
