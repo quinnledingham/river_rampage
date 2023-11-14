@@ -1,3 +1,6 @@
+#ifndef RENDERER_H
+#define RENDERER_H
+
 struct Matrices // for rendering
 {
     b32 update;
@@ -17,6 +20,7 @@ void platform_set_uniform_buffer_data(u32 ubo, u32 size, void *data);
 
 void platform_uniform_m4x4(u32 shader_handle, const char *tag, m4x4 *m);
 void platform_uniform_f32(u32 shader_handle, const char *tag, f32 f);
+void platform_uniform_s32(u32 shader_handle, const char *tag, s32 i);
 void platform_uniform_v3(u32 shader_handle, const char *tag, v3 v);
 void platform_uniform_v4(u32 shader_handle, const char *tag, v4 v);
 void platform_set_texture(Bitmap *bitmap);
@@ -37,3 +41,5 @@ enum
 void platform_set_polygon_mode(u32 mode);
 void platform_set_capability(u32 capability, b32 state);
 void platform_set_depth_mask(b32 state);
+
+#endif // RENDERER_H

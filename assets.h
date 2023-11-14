@@ -182,6 +182,10 @@ v2 get_font_dim(Font *font, f32 pixel_height);
 v2 get_string_dim(Font *font, const char *string, f32 pixel_height, v4 color);
 v2 get_string_dim(Font *font, const char *string, s32 length, f32 pixel_height, v4 color);
 
+Font_Char_Bitmap* load_font_char_bitmap(Font *font, u32 codepoint, f32 scale);
+f32 get_scale_for_pixel_height(void *info, f32 pixel_height);
+s32 get_codepoint_kern_advance(void *info, s32 ch1, s32 ch2);
+
 struct Audio
 {
     //SDL_AudioSpec spec;

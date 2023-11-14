@@ -1,6 +1,8 @@
 #ifndef SHAPES_H
 #define SHAPES_H
 
+void init_shapes();
+
 // Shapes for the game code to use
 struct Circle
 {

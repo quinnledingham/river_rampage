@@ -1,3 +1,6 @@
+#ifndef TYPES_MATH_H
+#define TYPES_MATH_H
+
 //
 // v2
 //
@@ -376,3 +379,5 @@ create_transform_m4x4(v3 position, quat rotation, v3 scale)
         position.x, position.y, position.z, 1
     };
 }
+
+#endif // TYPES_MATH_H

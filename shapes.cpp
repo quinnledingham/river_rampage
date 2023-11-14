@@ -1,3 +1,13 @@
+#include "log.h"
+#include "types.h"
+#include "types_math.h"
+#include "char_array.h"
+#include "assets.h"
+#include "renderer.h"
+#include "data_structures.h"
+#include "shapes.h"
+#include "application.h"
+
 enum Shape_Types
 {
     SHAPE_RECT,
@@ -356,22 +366,20 @@ draw_shape(Shape shape)
     {
         case SHAPE_COLOR: {
             handle = use_shader(&shapes.color);
-            glUniform4fv(glGetUniformLocation(handle, "user_color"), (GLsizei)1, (float*)&shape.color);
+            platform_uniform_v4(handle, "user_color", shape.color);
         } break;
         
         case SHAPE_TEXTURE: {
             handle = use_shader(&shapes.texture);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, shape.bitmap->handle);
-            glUniform1i(glGetUniformLocation(handle, "tex0"), 0);
+            platform_set_texture(shape.bitmap);
+            platform_uniform_s32(handle, "tex0", 0);
         } break;
 
         case SHAPE_TEXT: {
             handle = use_shader(&shapes.text);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, shape.bitmap->handle);
-            glUniform1i(glGetUniformLocation(handle, "tex0"), 0);
-            glUniform4fv(glGetUniformLocation(handle, "text_color"), (GLsizei)1, (float*)&shape.color);
+            platform_set_texture(shape.bitmap);
+            platform_uniform_s32(handle, "tex0", 0);
+            platform_uniform_v4(handle, "text_color", shape.color);
         } break;
         
         default: error("draw_shape(): Not valid shape draw type");
@@ -380,7 +388,7 @@ draw_shape(Shape shape)
     shape.coords += shape.dim / 2.0f; // coords = top left corner
     
     m4x4 model = create_transform_m4x4(shape.coords, shape.rotation, shape.dim);
-    glUniformMatrix4fv(glGetUniformLocation(handle, "model"), (GLsizei)1, false, (float*)&model);
+    platform_uniform_m4x4(handle, "model", &model);
     
     switch(shape.type)
     {
@@ -402,8 +410,8 @@ draw_shape(Shape shape)
 // uses draw_rect
 void draw_string(Font *font, const char *string, v2 coords, f32 pixel_height, v4 color)
 {
-    stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
-    f32 scale = stbtt_ScaleForPixelHeight(info, pixel_height);
+    //stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
+    f32 scale = get_scale_for_pixel_height(font->info, pixel_height);
     f32 string_x_coord = 0.0f;
 
     u32 i = 0;
@@ -419,7 +427,7 @@ void draw_string(Font *font, const char *string, v2 coords, f32 pixel_height, v4
         v2 scaled_dim    = char_dim    * scale;
         draw_rect(coords + scaled_coords, 0, scaled_dim, &bitmap->bitmap, color);
         
-        int kern = stbtt_GetCodepointKernAdvance(info, string[i], string[i + 1]);
+        s32 kern = get_codepoint_kern_advance(font->info, string[i], string[i + 1]);
         string_x_coord += kern + font_char->ax;
         
         i++;

@@ -1,3 +1,6 @@
+#ifndef CHAR_ARRAY_H
+#define CHAR_ARRAY_H
+
 //
 // string
 //
@@ -335,3 +338,5 @@ pair_get_key(const Pair *pairs, u32 num_of_pairs, const char *value)
     }
     return num_of_pairs; // returns out of range int
 }
+
+#endif // CHAR_ARRAY_H

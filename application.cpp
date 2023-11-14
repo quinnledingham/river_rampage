@@ -350,7 +350,6 @@ int main(int argc, char *argv[])
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glPatchParameteri(GL_PATCH_VERTICES, 4); 
 
-    //init_shapes(find_shader(&app.assets, "COLOR"), find_shader(&app.assets, "TEX"), find_shader(&app.assets, "TEXT"));
     init_shapes();
 
     return main_loop(&app, sdl_window);

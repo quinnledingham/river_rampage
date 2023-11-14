@@ -1,5 +1,4 @@
-struct MTL_Token
-{
+struct MTL_Token {
     s32 type;
     union
     {
@@ -10,15 +9,13 @@ struct MTL_Token
     s32 ch;
 };
 
-
-struct Mtl
-{
+// stores information taken from .mtl file
+struct MTL {
     Material *materials; // loaded from the corresponding material file
     u32 materials_count;
 };
 
-enum MTL_Token_Type
-{
+enum MTL_Token_Type {
     MTL_TOKEN_KEYWORD,
     MTL_TOKEN_NUMBER,
     MTL_TOKEN_STRING,
@@ -26,6 +23,23 @@ enum MTL_Token_Type
     MTL_TOKEN_EOF
 };
 
+enum MTL_SETTINGS {
+    MTL_NEWMTL,
+    MTL_SPECULAR_EXPONENT,
+    MTL_AMBIENT,
+    MTL_DIFFUSE,
+    MTL_SPECULAR,
+    MTL_MAP_DIFFUSE,
+};
+
+const Pair material_settings[6] = {
+    { MTL_NEWMTL,            "newmtl"},
+    { MTL_SPECULAR_EXPONENT, "Ns"    },
+    { MTL_AMBIENT,           "Ka"    },
+    { MTL_DIFFUSE,           "Kd"    },
+    { MTL_SPECULAR,          "Ks"    },
+    { MTL_MAP_DIFFUSE,       "map_Kd"},
+};
 
 static const s32 mtl_valid_chars[5] = { '-', '.', '_', ':', '/' };
 
@@ -102,97 +116,77 @@ scan_mtl(File *file, s32 *line_num)
     return (void*)create_mtl_token({ MTL_TOKEN_ERROR, 0, ch });
 }
 
-function v3
-parse_v3(Lexer *lexer)
+function void
+parse_v3(Lexer *lexer, v3 *v)
 {
-    v3 result = {};
     MTL_Token *token = 0;
-    token = (MTL_Token*)lex(lexer);
-    result.x = std::stof(token->lexeme);
-    token = (MTL_Token*)lex(lexer);
-    result.y = std::stof(token->lexeme);
-    token = (MTL_Token*)lex(lexer);
-    result.z = std::stof(token->lexeme);
-    return result;
+    for (u32 i = 0; i < 3; i++) {
+        token = (MTL_Token*)lex(lexer);
+        char_array_to_f32(token->lexeme, &v->E[i]);
+    }
 }
 
-function Mtl
+function MTL
 load_mtl(const char *path, const char *filename)
 {
-    Mtl mtl = {};
-    
-    //char filepath[80];
-    //memset(filepath, 0, 80);
-    //strcat(strcat(filepath, path), filename);
-    const char *filepath = char_array_insert(path, get_length(path), filename);
-
+    MTL mtl = {};
     Lexer lexer = {};
-    lexer.file = read_file(filepath);
+    const char *filepath = char_array_insert(path, get_length(path), filename);
+    MTL_Token *token = 0;
+    Material material = {};
+    u32 material_index = 0;
 
+    // init lexer
+    lexer.file = read_file(filepath);
     if (!lexer.file.size) { error("load_mtl: could not read material file"); return mtl; }
     lexer.scan = &scan_mtl;
     lexer.token_size = sizeof(MTL_Token);
     
     // count new materials
-    MTL_Token *token = (MTL_Token*)lex(&lexer);
-    while (token->type != MTL_TOKEN_EOF)
-    {
-        if (equal(token->lexeme, "newmtl")) mtl.materials_count++;
+    token = (MTL_Token*)lex(&lexer);
+    while (token->type != MTL_TOKEN_EOF) {
+        if (equal(token->lexeme, "newmtl")) 
+            mtl.materials_count++;
         token = (MTL_Token*)lex(&lexer);
     }
-    
-    //print_ll(&lexer.tokens);
-    
+    // declare materials memory now that we know how many there are to load
     mtl.materials = ARRAY_MALLOC(Material, mtl.materials_count);
     reset_lex(&lexer);
     
-    u32 material_index = 0;
-    Material material = {};
+    // fill in mtl.materials array
     token = 0;
-    do
-    {
+    do {
         token = (MTL_Token*)lex(&lexer);
         
-        if (equal(token->lexeme, "newmtl"))
-        {
-            if (material.id != 0)
-            {
-                mtl.materials[material_index++] = material;
-            }
-            
-            material = {};
-            token = (MTL_Token*)lex(&lexer);
-            material.id = token->lexeme;
-        }
-        else if (equal(token->lexeme, "Ns"))
-        {
-            token = (MTL_Token*)lex(&lexer);
-            material.specular_exponent = std::stof(token->lexeme, 0);
-        }
-        else if (equal(token->lexeme, "Ka"))
-        {
-            material.ambient = parse_v3(&lexer);
-        }
-        else if (equal(token->lexeme, "Kd"))
-        {
-            material.diffuse = parse_v3(&lexer);
-        }
-        else if (equal(token->lexeme, "Ks"))
-        {
-            material.specular = parse_v3(&lexer);
-        }
-        else if (equal(token->lexeme, "map_Kd"))
-        {
-            token = (MTL_Token*)lex(&lexer);
-            const char *diffuse_map_filepath = char_array_insert(path, get_length(path), token->lexeme);
-            material.diffuse_map = load_bitmap(diffuse_map_filepath);
+        switch(pair_get_key(material_settings, 6, token->lexeme)) {
+            case MTL_NEWMTL: {
+                if (material.id != 0)
+                    mtl.materials[material_index++] = material;
+
+                material = {};
+                token = (MTL_Token*)lex(&lexer);
+                material.id = token->lexeme;
+            } break;
+
+            case MTL_SPECULAR_EXPONENT: {
+                token = (MTL_Token*)lex(&lexer);
+                char_array_to_f32(token->lexeme, &material.specular_exponent);
+            } break;
+
+            case MTL_AMBIENT:  parse_v3(&lexer, &material.ambient);  break;
+            case MTL_DIFFUSE:  parse_v3(&lexer, &material.diffuse);  break;
+            case MTL_SPECULAR: parse_v3(&lexer, &material.specular); break;
+
+            case MTL_MAP_DIFFUSE: {
+                token = (MTL_Token*)lex(&lexer);
+                const char *diffuse_map_filepath = char_array_insert(path, get_length(path), token->lexeme);
+                material.diffuse_map = load_bitmap(diffuse_map_filepath);
+            } break;
         }
     } while(token->type != MTL_TOKEN_EOF);
     
     if (material.id != 0)
-    {
         mtl.materials[material_index++] = material;
-    }
     
     platform_free((void*)filepath);
     free_file(&lexer.file);
