@@ -109,14 +109,17 @@ struct Light
     v4 color;
 };
 
-struct Camera
+union Camera
 {
-    v3 position;
-    v3 target;
-    v3 up;
-    r32 fov;
-    r32 yaw;
-    r32 pitch;
+    struct {
+        v3 position;
+        v3 target;
+        v3 up;
+        r32 fov;
+        r32 yaw;
+        r32 pitch;
+    };
+    r32 E[12];
 };
 inline m4x4 get_view(Camera camera) 
 { 

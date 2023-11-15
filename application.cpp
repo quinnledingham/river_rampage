@@ -52,6 +52,7 @@ function void
 reset_controller(Controller *controller)
 {
     controller->mouse = {};
+    controller->mouse_rel = {};
     for (u32 j = 0; j < ARRAY_COUNT(controller->buttons); j++)
     {
         controller->buttons[j].current_state = 0;
@@ -63,6 +64,7 @@ function void
 prepare_controller_for_input(Controller *controller)
 {
     controller->mouse = {};
+    controller->mouse_rel = {};
     for (u32 j = 0; j < ARRAY_COUNT(controller->buttons); j++)
         controller->buttons[j].previous_state = controller->buttons[j].current_state;
 }
@@ -89,6 +91,7 @@ keyboard_input_to_char_array(s32 id, char *buffer, u32 *buffer_index, b32 shift)
         ch = id;
         if (isalpha(ch) && shift) ch -= 32;
         if (ch == '3'   && shift) ch = '#';
+        if (ch == '-'   && shift) ch = '_';
     }
     else if (id == SDLK_LEFT)  ch = 37;
     else if (id == SDLK_UP)    ch = 38;
@@ -146,10 +149,26 @@ process_input(Window *window, Input *input)
             {
                 input->active_controller = &input->controllers[0];
                 SDL_MouseMotionEvent *mouse_motion_event = &event.motion;
-                input->active_controller->mouse.x = mouse_motion_event->xrel;
-                input->active_controller->mouse.y = mouse_motion_event->yrel;
+                input->active_controller->mouse_rel.x = mouse_motion_event->xrel;
+                input->active_controller->mouse_rel.y = mouse_motion_event->yrel;
             } break;
             
+            case SDL_MOUSEBUTTONDOWN:
+            case SDL_MOUSEBUTTONUP: 
+            {
+                input->active_controller = &input->controllers[0];
+                SDL_MouseButtonEvent *mouse_button_event = &event.button;
+                
+                s32 button_id = mouse_button_event->button;
+                b32 state = false;
+                if (mouse_button_event->state == SDL_PRESSED) state = true;
+
+                controller_process_input(&input->controllers[0], button_id, state);
+
+                input->active_controller->mouse.x = mouse_button_event->x;
+                input->active_controller->mouse.y = mouse_button_event->y;
+            } break;
+
             // keyboard input
             case SDL_KEYDOWN:
             case SDL_KEYUP:
@@ -263,6 +282,7 @@ init_controllers(Input *input)
     set(&keyboard->reload_shaders, SDLK_r);
     set(&keyboard->toggle_camera_mode, SDLK_c);
     set(&keyboard->toggle_console, SDLK_t);
+    set(&keyboard->mouse_left, SDL_BUTTON_LEFT);
     
     input->num_of_controllers = 1;
 }

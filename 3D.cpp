@@ -1,3 +1,14 @@
+internal void
+update_camera_target(Camera *camera) {
+    v3 camera_direction = 
+    {
+        cosf(DEG2RAD * camera->yaw) * cosf(DEG2RAD * camera->pitch),
+        sinf(DEG2RAD * camera->pitch),
+        sinf(DEG2RAD * camera->yaw) * cosf(DEG2RAD * camera->pitch)
+    };
+    camera->target = normalized(camera_direction);
+}
+
 // delta_mouse is a relative mouse movement amount
 // as opposed to the screen coords of the mouse
 function void
@@ -6,16 +17,9 @@ update_camera_with_mouse(Camera *camera, v2s delta_mouse, v2 move_speed)
     camera->yaw   += (f32)delta_mouse.x * move_speed.x;
     camera->pitch -= (f32)delta_mouse.y * move_speed.y;
     
-    if (camera->pitch > 89.0f) camera->pitch = 89.0f;
-    if (camera->pitch < -89.0f) camera->pitch = -89.0f;
-    
-    v3 camera_direction = 
-    {
-        cosf(DEG2RAD * camera->yaw) * cosf(DEG2RAD * camera->pitch),
-        sinf(DEG2RAD * camera->pitch),
-        sinf(DEG2RAD * camera->yaw) * cosf(DEG2RAD * camera->pitch)
-    };
-    camera->target = normalized(camera_direction);
+    r32 max_pitch = 89.0f;
+    if (camera->pitch >  max_pitch) camera->pitch =  max_pitch;
+    if (camera->pitch < -max_pitch) camera->pitch = -max_pitch;
 }
 
 function void
@@ -30,6 +34,12 @@ update_camera_with_keys(Camera *camera, v3 target, v3 up_v, v3 magnitude,
     if (is_down(right))    camera->position += normalized(cross_product(target, up_v)) * magnitude;
     if (is_down(up))       camera->position.y += magnitude.y;
     if (is_down(down))     camera->position.y -= magnitude.y;
+}
+
+internal void
+align_camera_with_boat(Camera *camera, Boat3D *boat) {
+    camera->position.x = boat->coords.x;
+    camera->position.z = boat->coords.z;
 }
 
 function Mesh
@@ -205,8 +215,7 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
     if (data->show_console) {
         data->show_console = update_console(&data->console, input);
         if (!data->show_console && !data->paused) input->relative_mouse_mode.set(true);
-    }
-    else {
+    } else {
         if (on_down(controller->toggle_console))
         {
             data->show_console = !data->show_console;
@@ -215,16 +224,25 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
                 input->mode = INPUT_MODE_KEYBOARD;
                 input->relative_mouse_mode.set(false);
                 data->console.lines_up_index = data->console.lines;
-            }
-            else {
+            } else {
                 input->mode = INPUT_MODE_GAME;
                 input->relative_mouse_mode.set(true);
             }
         }
     }
 
-    if (!data->paused)
-    {
+    if (console_command(&data->console, ALIGN_CAMERA)) {
+        align_camera_with_boat(&data->camera, &data->boat3D);
+    }
+
+    if (console_command(&data->console, TOGGLE_CAMERA_MENU)) {
+        data->show_camera_menu = !data->show_camera_menu;
+    }
+    if (data->show_camera_menu) {
+        update_camera_menu(&data->camera_menu, camera, input, controller->mouse_left, controller->mouse);
+    }
+
+    if (!data->paused) {
         data->game_run_time_s += time.frame_time_s;
 
         // update camera
@@ -233,7 +251,13 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
             data->camera_mode++;
             if (data->camera_mode == CAMERA_MODES_COUNT) data->camera_mode = 0;
 
-            add_onscreen_notification(&data->onscreen_notifications, pair_get_value(camera_modes, 2, data->camera_mode));
+            add_onscreen_notification(&data->onscreen_notifications, pair_get_value(camera_modes, CAMERA_MODES_COUNT, data->camera_mode));
+
+            if (data->camera_mode == EDIT_CAMERA) {
+                input->relative_mouse_mode.set(false);
+            } else {
+                input->relative_mouse_mode.set(true);
+            }
         }
 
         Button null_button = {};
@@ -242,37 +266,37 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
 
         f32 boat_rotation_speed = 50.0f * time.frame_time_s;
 
-        if (data->camera_mode == FREE_CAMERA)
-        {
-            f32 mouse_m_per_s = 100.0f;
-            f32 mouse_move_speed = mouse_m_per_s * time.frame_time_s;
-            update_camera_with_mouse(camera, controller->mouse, {mouse_move_speed, mouse_move_speed});
-            
-            v3 move_vector = {move_speed, move_speed, move_speed};
-            update_camera_with_keys(&data->camera, data->camera.target, data->camera.up, move_vector,
-                                    controller->forward, controller->backward,
-    								controller->left,    controller->right,
-                                    controller->up,      controller->down);
-        }
-        else if (data->camera_mode == BOAT_CAMERA)
-        {
-            v3 move_vector = {move_speed, 0.0f, move_speed};
-            update_camera_with_keys(&data->camera, data->boat3D.direction, data->camera.up, move_vector,
-                                    controller->forward, controller->backward,
-                                    null_button, null_button,
-                                    null_button, null_button);
+        switch(data->camera_mode) {
+            case FREE_CAMERA: {
+                f32 mouse_m_per_s = 100.0f;
+                f32 mouse_move_speed = mouse_m_per_s * time.frame_time_s;
+                update_camera_with_mouse(camera, controller->mouse_rel, {mouse_move_speed, mouse_move_speed});
+                
+                v3 move_vector = {move_speed, move_speed, move_speed};
+                update_camera_with_keys(&data->camera, data->camera.target, data->camera.up, move_vector,
+                                        controller->forward, controller->backward,
+                                        controller->left,    controller->right,
+                                        controller->up,      controller->down);
+            } break;
 
-            update_boat_3D(&data->boat3D, data->boat3D.direction, {0, 1, 0}, 
-                           move_vector, boat_rotation_speed,
-                           controller->forward, controller->backward,
-                           controller->left,    controller->right);
+            case BOAT_CAMERA: {
+                v3 move_vector = {move_speed, 0.0f, move_speed};
+                update_camera_with_keys(&data->camera, data->boat3D.direction, data->camera.up, move_vector,
+                                        controller->forward, controller->backward,
+                                        null_button, null_button,
+                                        null_button, null_button);
 
+                update_boat_3D(&data->boat3D, data->boat3D.direction, {0, 1, 0}, 
+                               move_vector, boat_rotation_speed,
+                               controller->forward, controller->backward,
+                               controller->left,    controller->right);
+            } break;
         }
+
+        update_camera_target(&data->camera);
 
         update_boat_3D_draw_coord(&data->boat3D, data->waves, 5, data->game_run_time_s);
-    }
-    else
-    {
+    } else {
         menu_update_active(&data->active, 0, 1, controller->backward, controller->forward);
     }
 }
@@ -347,6 +371,8 @@ draw_game_3D(Application *app, Game_Data *data)
 
     platform_set_capability(PLATFORM_CAPABILITY_DEPTH_TEST, false);
     platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, false);
+
+    if (data->show_camera_menu) draw_camera_menu(&data->camera_menu, &data->camera);
     
     if (data->show_fps)
     {

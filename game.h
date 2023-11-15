@@ -79,13 +79,15 @@ enum Camera_Modes
 {
     BOAT_CAMERA,
     FREE_CAMERA,
+    EDIT_CAMERA,
 
     CAMERA_MODES_COUNT,
 };
 
-const global Pair camera_modes[2] = {
+const global Pair camera_modes[CAMERA_MODES_COUNT] = {
         { BOAT_CAMERA, "BOAT_CAMERA" },
         { FREE_CAMERA, "FREE_CAMERA" },
+        { EDIT_CAMERA, "EDIT_CAMERA" },
     };
 
 
@@ -115,6 +117,9 @@ struct Game_Data
     b8 show_console;
     Console console;
     Onscreen_Notifications onscreen_notifications;
+
+    b8 show_camera_menu;
+    Camera_Menu camera_menu;
 
     // 3D
     Light light;

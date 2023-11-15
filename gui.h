@@ -26,6 +26,7 @@ struct Draw_Textbox
     u32 buffer_size;
     v4 text_color;
 
+    u32 active; // if active draw cursor
     u32 cursor_position; // edit
     r32 cursor_width;
     v4 cursor_color;
@@ -40,7 +41,6 @@ struct Menu_Button_Style
     v4 default_text_color;
     v4 active_text_color;
 };
-
 
 struct Menu_Component
 {
@@ -62,6 +62,7 @@ struct Menu
 struct Console
 {
     char auto_complete[90];
+    u32 last_auto_complete_index;
 
     char memory[100][90]; // 100 lines, 90 chars per line
     u32 lines;
@@ -83,4 +84,11 @@ struct Onscreen_Notifications
 
     Font *font;
     v4 text_color;
+};
+
+struct Camera_Menu {
+    char memory[12][13];
+    v2 coords[12];
+    s32 active;
+    Draw_Textbox textbox;
 };

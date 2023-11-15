@@ -163,6 +163,16 @@ ftos(f32 f)
     return buffer;
 }
 
+inline void
+ftos(f32 f, char *buffer, u32 buffer_size) {
+    u32 ret = snprintf(buffer, buffer_size, "%f", f);
+    if (ret < 0) {
+        error(0, "ftos(): failed");
+        return;
+    }
+    if (ret >= buffer_size) warning(0, "ftos(): result was truncated");
+}
+
 // ptr must point to first char of int
 inline const char*
 char_array_to_s32(const char *ptr, s32 *result)

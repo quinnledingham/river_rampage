@@ -19,6 +19,17 @@ struct Time
     r32 frames_per_s;
 };
 
+struct Flag
+{
+    b8 state;
+    b8 updated;
+    
+    void toggle() { state = !state; updated = true; }
+    void set(b8 new_state) { state = new_state; updated = true; }
+    b8 get() {  updated = false; return state; }
+    b8 changed() { b8 up = updated; updated = false; return up; }
+};
+
 struct Button
 {
     s32 id;
@@ -53,6 +64,7 @@ inline b32 on_down(Button button)
 struct Controller
 {
     v2s mouse;
+    v2s mouse_rel;
     union
     {
         struct
@@ -69,21 +81,12 @@ struct Controller
             Button reload_shaders;
             Button toggle_camera_mode;
             Button toggle_console;
+            Button mouse_left;
         };
-        Button buttons[12];
+        Button buttons[13];
     };
 };
 
-struct Flag
-{
-    b8 state;
-    b8 updated;
-    
-    void toggle() { state = !state; updated = true; }
-    void set(b8 new_state) { state = new_state; updated = true; }
-    b8 get() {  updated = false; return state; }
-    b8 changed() { b8 up = updated; updated = false; return up; }
-};
 
 enum
 {

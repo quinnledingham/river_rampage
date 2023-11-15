@@ -43,7 +43,8 @@ draw_textbox(Draw_Textbox *box)
     //v2 text_dim = get_string_dim(box->font, box->buffer, pixel_height, box->text_color);
     v2 font_dim = get_font_loaded_dim(box->font, pixel_height);
     v2 text_coords = {};
-    //text_coords.x = box->coords.x + (box->dim.x / 2.0f) - (text_dim.x / 2.0f);
+    //text_coords.x = box->coords.x + (box->dim.x / 2.0f) - (font_dim.x / 2.0f);
+    text_coords.x = box->coords.x;
     text_coords.y = box->coords.y + (box->dim.y / 2.0f) + (font_dim.y / 2.0f);
 
     v2 text_dim_cursor = get_string_dim(box->font, box->buffer, box->cursor_position, pixel_height, box->text_color);
@@ -52,7 +53,7 @@ draw_textbox(Draw_Textbox *box)
     //cursor_coords.y -= box->dim.y;
 
     draw_rect(box->coords, 0.0f, box->dim, box->back_color);
-    draw_rect(cursor_coords, 0.0f, { box->cursor_width, box->dim.y }, box->cursor_color);
+    if (box->active) draw_rect(cursor_coords, 0.0f, { box->cursor_width, box->dim.y }, box->cursor_color);
     if (box->buffer != 0)
         draw_string(box->font, box->buffer, text_coords, pixel_height, box->text_color);
 }
@@ -123,6 +124,7 @@ init_console(Console *console, Assets *assets)
         4,
         { 255, 255, 255, 1.0f },
 
+        true,
         0,
         2.0f,
         { 200, 200, 200, 1.0f },
@@ -139,12 +141,24 @@ enum Console_Commands
 {
     DO_NOTHING,
     HIDE_CONSOLE,
-
     TOGGLE_WIREFRAME,
     RELOAD_SHADERS,
     TOGGLE_FPS,
+    ALIGN_CAMERA,
+    TOGGLE_CAMERA_MENU,
+
+    CONSOLE_COMMANDS_COUNT
 };
-global const char *console_commands[3] = { "/toggle_wireframe", "/reload_shaders", "/toggle_fps"};
+
+global const Pair console_commands[CONSOLE_COMMANDS_COUNT] = {
+    { DO_NOTHING,       "/do_nothing"       },
+    { HIDE_CONSOLE,     "/hide_console"     },
+    { TOGGLE_WIREFRAME, "/toggle_wireframe" },
+    { RELOAD_SHADERS,   "/reload_shaders"   },
+    { TOGGLE_FPS,       "/toggle_fps"       },
+    { ALIGN_CAMERA,     "/align_camera"     },
+    { TOGGLE_CAMERA_MENU, "/toggle_camera_menu" },
+};
 
 function b32
 console_command(Console *console, u32 looking_for)
@@ -168,6 +182,17 @@ function void
 console_clear_line(Console *console, u32 line)
 {
     console_clear_line(console, console->memory[line]);
+}
+
+internal u32
+console_auto_complete(const char *auto_complete, u32 last_auto_complete_index) {
+    for (u32 i = 0; i < CONSOLE_COMMANDS_COUNT; i++) {
+        const char *temp = pair_get_value(console_commands, CONSOLE_COMMANDS_COUNT, i);
+        if (equal_start(temp, auto_complete) && last_auto_complete_index < i) {
+            return i;
+        }
+    }
+    return 0;
 }
 
 function b32
@@ -201,24 +226,28 @@ update_console(Console *console, Input *input)
                 console->textbox.cursor_position--;
             break;
 
-            case 9: // Tab: Autocomplete
+            // Tab: Autocomplete
+            case 9:  {
                 if (console->auto_complete[0] == 0) copy_char_array(console->auto_complete, console->textbox.buffer);
 
-                for (u32 i = 0; i < ARRAY_COUNT(console_commands); i++)
-                {
-                    if (equal_start(console_commands[i], console->auto_complete) && !equal(console_commands[i], console->textbox.buffer))
-                    {
-                        console_clear_line(console, console->textbox.buffer);
-                        copy_char_array(console->textbox.buffer, console_commands[i]);
-                        console->textbox.cursor_position = get_length(console->textbox.buffer);
-                        break;
-                    }
-                }
-            break;
+                // index 0 is do_nothing
+                u32             index = console_auto_complete(console->auto_complete, console->last_auto_complete_index);
+                if (index == 0) index = console_auto_complete(console->auto_complete, 0); // grab the first option
 
-            case 13: // Enter/Return: Execute command
-                for (u32 i = 0; i < ARRAY_COUNT(console_commands); i++) {
-                    if (equal(console->textbox.buffer, console_commands[i])) console->command = i + 2;
+                if (index != 0) {
+                    const char *command = pair_get_value(console_commands, CONSOLE_COMMANDS_COUNT, index);
+                    console_clear_line(console, console->textbox.buffer);
+                    copy_char_array(console->textbox.buffer, command);
+                    console->textbox.cursor_position = get_length(console->textbox.buffer);
+                    console->last_auto_complete_index = index;
+                }
+            } break;
+
+            // Enter/Return: Execute command
+            case 13: {
+                for (u32 i = 0; i < CONSOLE_COMMANDS_COUNT; i++) {
+                    const char *command = pair_get_value(console_commands, CONSOLE_COMMANDS_COUNT, i);
+                    if (equal(console->textbox.buffer, command)) console->command = i;
                 }
 
                 if (console->lines < max_lines) // check if there are still lines available
@@ -238,7 +267,7 @@ update_console(Console *console, Input *input)
 
                 input->mode = INPUT_MODE_GAME;
                 return false;
-            break;
+            } break;
 
             case 27: // Esc: Close consle
                 input->mode = INPUT_MODE_GAME;
@@ -348,5 +377,151 @@ draw_onscreen_notifications(Onscreen_Notifications *n, v2s window_dim, r32 frame
         draw_string(n->font, n->memory[i], text_coords, pixel_height, n->colors[i]);
 
         above_text_coord = text_coords.y;
+    }
+}
+
+
+internal void
+init_camera_menu(Camera_Menu *menu, Assets *assets) {
+    menu->textbox = {
+        { 0, 0 },
+        { 200, 40 },
+        { 50, 50, 50, 0.5f },
+
+        find_font(assets, "CASLON"),
+        0,
+        4,
+        { 255, 255, 255, 1.0f },
+
+        false,
+        0,
+        2.0f,
+        { 200, 200, 200, 1.0f },
+    };
+
+    menu->active = -1;
+}
+
+internal void
+update_textbox(char *buffer, u32 max_length, u32 *cursor_position, Input *input) {
+    u32 current_length = get_length(buffer);
+
+    const char *ptr = input->buffer;
+    while(*ptr != 0) {
+        s32 ch = *ptr++;
+        if (!is_ascii(ch)) continue;
+
+        switch(ch) {
+            case 8: // Backspace: delete char
+                if (*cursor_position == 0) continue;
+
+                for(u32 i = *cursor_position; i < current_length; i++) {
+                    buffer[i - 1] = buffer[i];
+                }
+                buffer[current_length - 1] = 0;
+                (*cursor_position)--;
+            break;
+
+            case 37: // Left
+                if (*cursor_position != 0)
+                    (*cursor_position)--; // Left
+            break;
+
+            case 39: // Right
+                if (*cursor_position != current_length)
+                    (*cursor_position)++; // Right
+            break;
+
+            default: // Add char to char_array in textbox
+                if (current_length >= max_length) continue;
+
+                for(s32 i = current_length - 1; i > (s32)(*cursor_position); i--) {
+                    buffer[i + 1] = buffer[i];
+                }
+                buffer[*cursor_position] = ch;
+                buffer[current_length + 1] = 0;
+                (*cursor_position)++;
+            break;
+        }
+    }
+}
+
+internal b8
+inside_box(v2 coords, v2 box_coords, v2 box_dim) {
+    if (box_coords.x <= coords.x && coords.x <= box_coords.x + box_dim.x &&
+        box_coords.y <= coords.y && coords.y <= box_coords.y + box_dim.y)
+        return true;
+
+    return false;
+}
+
+internal void
+get_v3_textbox(Camera_Menu *menu, v2 start, v2 dim, u32 index) {
+    menu->coords[index + 0] = start;
+    start.x += dim.x;
+    menu->coords[index + 1] = start;
+    start.x += dim.x;
+    menu->coords[index + 2] = start;
+}
+
+internal void
+update_camera_menu(Camera_Menu *menu, Camera *camera, Input *input, Button mouse_left, v2s mouse_coords) {
+    v2 box = menu->textbox.coords;
+
+    get_v3_textbox(menu, box, menu->textbox.dim, 0);
+    box.y += menu->textbox.dim.y;
+    get_v3_textbox(menu, box, menu->textbox.dim, 3);
+    box.y += menu->textbox.dim.y;
+    get_v3_textbox(menu, box, menu->textbox.dim, 6);
+    box.y += menu->textbox.dim.y;
+
+    menu->coords[9] = box;
+    box.y += menu->textbox.dim.y;
+    menu->coords[10] = box;
+    box.y += menu->textbox.dim.y;
+    menu->coords[11] = box;
+
+    if (on_down(mouse_left)) {
+        s32 new_active = -1;
+        for (u32 i = 0; i < ARRAY_COUNT(menu->coords); i++) {
+            if (inside_box(cv2(mouse_coords), menu->coords[i], menu->textbox.dim)) {
+                new_active = i;
+                menu->textbox.cursor_position = get_length(menu->memory[i]);
+                input->mode = INPUT_MODE_KEYBOARD;
+                break;
+            }
+        }
+
+        if (new_active == -1) {
+            input->mode = INPUT_MODE_GAME;
+            char_array_to_f32(menu->memory[menu->active], &camera->E[menu->active]);
+        } 
+
+        menu->active = new_active;
+        //printf("ACTIVE: %d\n", menu->active);
+    }
+
+    if (menu->active != -1) update_textbox(menu->memory[menu->active], 13, &menu->textbox.cursor_position, input);
+
+    for (u32 i = 0; i < 12; i++) {
+        const char *temp = ftos(camera->E[i]);
+        if (menu->active == i) continue;
+        for (u32 j = 0; j < 13; j++) {
+            menu->memory[i][j] = temp[j];
+        }
+        platform_free((void*)temp);
+    }
+}
+
+internal void
+draw_camera_menu(Camera_Menu *menu, Camera *camera) {
+    for (u32 i = 0; i < ARRAY_COUNT(menu->coords); i++) {
+        menu->textbox.coords = menu->coords[i];
+        menu->textbox.buffer = menu->memory[i];
+        if (menu->active == i) menu->textbox.active = true;
+        draw_textbox(&menu->textbox);
+        menu->textbox.coords = { 0, 0 };
+        menu->textbox.buffer = 0;
+        menu->textbox.active = false;
     }
 }
