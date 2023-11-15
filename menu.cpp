@@ -32,6 +32,57 @@ draw_button(Draw_Button button)
     draw_string(button.font, button.text, text_coords, pixel_height, text_color);
 }
 
+internal char
+get_keyboard_input(Input *input) {
+    return input->buffer[input->buffer_index++];
+}
+
+// default textbox updates
+internal b32
+update_textbox(char *buffer, u32 max_length, u32 *cursor_position, s32 input) {
+    u32 current_length = get_length(buffer);
+
+    switch(input) {
+        
+        case 8: { // Backspace: delete char
+            if (*cursor_position == 0) return false;
+
+            for(u32 i = *cursor_position; i < current_length; i++) {
+                buffer[i - 1] = buffer[i];
+            }
+            buffer[current_length - 1] = 0;
+            (*cursor_position)--;
+        } break;
+
+        case 13: { // Enter/Return: return true to tell calling code to do something
+            return true;
+        } break;
+
+        case 37: { // Left
+            if (*cursor_position != 0)
+                (*cursor_position)--; // Left
+        } break;
+
+        case 39: { // Right
+            if (*cursor_position != current_length)
+                (*cursor_position)++; // Right
+        } break;
+        
+        default: { // Add char to char_array in textbox
+            if (current_length >= max_length) return false;
+
+            for(s32 i = current_length - 1; i >= (s32)(*cursor_position); i--) {
+                buffer[i + 1] = buffer[i];
+            }
+            buffer[*cursor_position] = input;
+            buffer[current_length + 1] = 0;
+            (*cursor_position)++;
+        } break;
+    }
+
+    return false;
+}
+
 // buffer is the text that is in the textbox
 function void
 draw_textbox(Draw_Textbox *box)
@@ -204,28 +255,15 @@ update_console(Console *console, Input *input)
     u32 max_length = ARRAY_COUNT(console->memory[0]) - 1;
     u32 current_length = get_length(console->textbox.buffer);
 
-    const char *ptr = input->buffer;
-    while(*ptr != 0)
+    s32 ch = 0;
+    while((ch = get_keyboard_input(input)) != 0)
     {
-        s32 ch = *ptr++;
-
         if (!is_ascii(ch)) continue;
 
         if (ch != 9) console_clear_line(console, console->auto_complete); // any other input than autocomplete clear the search buffer
 
         switch(ch)
         {
-            case 8: // Backspace: delete char
-                if (console->textbox.cursor_position == 0) continue;
-
-                for(u32 i = console->textbox.cursor_position; i < current_length; i++)
-                {
-                    console->textbox.buffer[i - 1] = console->textbox.buffer[i];
-                }
-                console->textbox.buffer[current_length - 1] = 0;
-                console->textbox.cursor_position--;
-            break;
-
             // Tab: Autocomplete
             case 9:  {
                 if (console->auto_complete[0] == 0) copy_char_array(console->auto_complete, console->textbox.buffer);
@@ -243,45 +281,9 @@ update_console(Console *console, Input *input)
                 }
             } break;
 
-            // Enter/Return: Execute command
-            case 13: {
-                for (u32 i = 0; i < CONSOLE_COMMANDS_COUNT; i++) {
-                    const char *command = pair_get_value(console_commands, CONSOLE_COMMANDS_COUNT, i);
-                    if (equal(console->textbox.buffer, command)) console->command = i;
-                }
-
-                if (console->lines < max_lines) // check if there are still lines available
-                {
-                    if (console->lines_up_index == console->lines) console->lines++;
-                }
-                else 
-                {
-                    log("update_console(): ran out of lines. console reset.");
-                    for (u32 i = 0; i < max_lines + 1; i++) console_clear_line(console, i);
-                    console->lines = 0;
-                }
-
-                console->lines_up_index = console->lines;
-                console->textbox.buffer = console->memory[console->lines];
-                console->textbox.cursor_position = get_length(console->textbox.buffer);
-
-                input->mode = INPUT_MODE_GAME;
-                return false;
-            } break;
-
             case 27: // Esc: Close consle
                 input->mode = INPUT_MODE_GAME;
                 return false;
-            break;
-
-            case 37: // Left
-                if (console->textbox.cursor_position != 0)
-                    console->textbox.cursor_position--; // Left
-            break;
-
-            case 39: // Right
-                if (console->textbox.cursor_position != current_length)
-                    console->textbox.cursor_position++; // Right
             break;
 
             case 38: // Up
@@ -293,17 +295,31 @@ update_console(Console *console, Input *input)
                 console->textbox.cursor_position = get_length(console->textbox.buffer);
             break;
 
-            default: // Add char to char_array in textbox
-                if (current_length >= max_length) continue;
+            default: {
+                // update_textbox returns true when enter/return is inputed
+                if (update_textbox(console->textbox.buffer, max_length, &console->textbox.cursor_position, ch)) {
+                    for (u32 i = 0; i < CONSOLE_COMMANDS_COUNT; i++) {
+                        const char *command = pair_get_value(console_commands, CONSOLE_COMMANDS_COUNT, i);
+                        if (equal(console->textbox.buffer, command)) console->command = i;
+                    }
 
-                for(s32 i = current_length - 1; i > (s32)console->textbox.cursor_position; i--)
-                {
-                    console->textbox.buffer[i + 1] = console->textbox.buffer[i];
+                    if (console->lines < max_lines) // check if there are still lines available
+                    {
+                        if (console->lines_up_index == console->lines) console->lines++;
+                    } else {
+                        log("update_console(): ran out of lines. console reset.");
+                        for (u32 i = 0; i < max_lines + 1; i++) console_clear_line(console, i);
+                        console->lines = 0;
+                    }
+
+                    console->lines_up_index = console->lines;
+                    console->textbox.buffer = console->memory[console->lines];
+                    console->textbox.cursor_position = get_length(console->textbox.buffer);
+
+                    input->mode = INPUT_MODE_GAME;
+                    return false;
                 }
-                console->textbox.buffer[console->textbox.cursor_position] = ch;
-                console->textbox.buffer[current_length + 1] = 0;
-                console->textbox.cursor_position++;
-            break;
+            } break;
         }
     }
 
@@ -385,7 +401,7 @@ internal void
 init_camera_menu(Camera_Menu *menu, Assets *assets) {
     menu->textbox = {
         { 0, 0 },
-        { 200, 40 },
+        { 125, 40 },
         { 50, 50, 50, 0.5f },
 
         find_font(assets, "CASLON"),
@@ -400,50 +416,6 @@ init_camera_menu(Camera_Menu *menu, Assets *assets) {
     };
 
     menu->active = -1;
-}
-
-internal void
-update_textbox(char *buffer, u32 max_length, u32 *cursor_position, Input *input) {
-    u32 current_length = get_length(buffer);
-
-    const char *ptr = input->buffer;
-    while(*ptr != 0) {
-        s32 ch = *ptr++;
-        if (!is_ascii(ch)) continue;
-
-        switch(ch) {
-            case 8: // Backspace: delete char
-                if (*cursor_position == 0) continue;
-
-                for(u32 i = *cursor_position; i < current_length; i++) {
-                    buffer[i - 1] = buffer[i];
-                }
-                buffer[current_length - 1] = 0;
-                (*cursor_position)--;
-            break;
-
-            case 37: // Left
-                if (*cursor_position != 0)
-                    (*cursor_position)--; // Left
-            break;
-
-            case 39: // Right
-                if (*cursor_position != current_length)
-                    (*cursor_position)++; // Right
-            break;
-
-            default: // Add char to char_array in textbox
-                if (current_length >= max_length) continue;
-
-                for(s32 i = current_length - 1; i > (s32)(*cursor_position); i--) {
-                    buffer[i + 1] = buffer[i];
-                }
-                buffer[*cursor_position] = ch;
-                buffer[current_length + 1] = 0;
-                (*cursor_position)++;
-            break;
-        }
-    }
 }
 
 internal b8
@@ -465,6 +437,12 @@ get_v3_textbox(Camera_Menu *menu, v2 start, v2 dim, u32 index) {
 }
 
 internal void
+update_camera_menu_textbox(char *buffer, u32 max_length, u32 *cursor_position, Input *input) {
+
+
+}
+
+internal void
 update_camera_menu(Camera_Menu *menu, Camera *camera, Input *input, Button mouse_left, v2s mouse_coords) {
     v2 box = menu->textbox.coords;
 
@@ -482,7 +460,9 @@ update_camera_menu(Camera_Menu *menu, Camera *camera, Input *input, Button mouse
     menu->coords[11] = box;
 
     if (on_down(mouse_left)) {
-        s32 new_active = -1;
+        s32 new_active = -1; // default assume that a box was not clicked
+
+        // find if a box had been clicked on
         for (u32 i = 0; i < ARRAY_COUNT(menu->coords); i++) {
             if (inside_box(cv2(mouse_coords), menu->coords[i], menu->textbox.dim)) {
                 new_active = i;
@@ -492,21 +472,42 @@ update_camera_menu(Camera_Menu *menu, Camera *camera, Input *input, Button mouse
             }
         }
 
-        if (new_active == -1) {
+        if (new_active == -1) // no longer is there a active textbox
             input->mode = INPUT_MODE_GAME;
+        if (new_active != menu->active) // switch textboxes or left all textboxes so save written value
             char_array_to_f32(menu->memory[menu->active], &camera->E[menu->active]);
-        } 
 
         menu->active = new_active;
         //printf("ACTIVE: %d\n", menu->active);
     }
 
-    if (menu->active != -1) update_textbox(menu->memory[menu->active], 13, &menu->textbox.cursor_position, input);
+    if (menu->active != -1) {
+        s32 ch = 0;
+        while((ch = get_keyboard_input(input)) != 0) {
+            if (!is_ascii(ch)) continue;
+
+            switch(ch) {
+                case 27: // Esc: leave textbox the same
+                    menu->active = -1;
+                    input->mode = INPUT_MODE_GAME;
+                break;
+
+                default: {
+                    if (update_textbox(menu->memory[menu->active], float_digit_size - 1, &menu->textbox.cursor_position, ch)) {
+                        char_array_to_f32(menu->memory[menu->active], &camera->E[menu->active]);
+                        //menu->active = -1;
+                        //input->mode = INPUT_MODE_GAME;
+                    }
+                } break;
+            }
+            
+        }
+    }
 
     for (u32 i = 0; i < 12; i++) {
         const char *temp = ftos(camera->E[i]);
-        if (menu->active == i) continue;
-        for (u32 j = 0; j < 13; j++) {
+        if (menu->active == i) continue; // don't update box being written to
+        for (u32 j = 0; j < float_digit_size - 1; j++) {
             menu->memory[i][j] = temp[j];
         }
         platform_free((void*)temp);
@@ -519,9 +520,80 @@ draw_camera_menu(Camera_Menu *menu, Camera *camera) {
         menu->textbox.coords = menu->coords[i];
         menu->textbox.buffer = menu->memory[i];
         if (menu->active == i) menu->textbox.active = true;
-        draw_textbox(&menu->textbox);
-        menu->textbox.coords = { 0, 0 };
-        menu->textbox.buffer = 0;
-        menu->textbox.active = false;
+        else                   menu->textbox.active = false;
+        draw_textbox(&menu->textbox);        
+    }
+
+    // back to defaults
+    menu->textbox.coords = { 0, 0 }; 
+}
+
+internal void
+v3_textbox(Textbox_V3 *tb_v3, Input *input, Button mouse_left, v2s mouse_coords) {
+    // check if active textbox should change
+    if (on_down(mouse_left)) {
+        s32 new_active = -1; // default assume that a box was not clicked
+
+        // find if a box had been clicked on
+        for (u32 i = 0; i < 3; i++) {
+            v2 coords = tb_v3->coords;
+            coords.x += tb_v3->individual_dim.x * (f32)i;
+            if (inside_box(cv2(mouse_coords), coords, tb_v3->individual_dim)) {
+                new_active = i;
+                tb_v3->textbox.cursor_position = get_length(tb_v3->memory[i]);
+                input->mode = INPUT_MODE_KEYBOARD;
+                break;
+            }
+        }
+
+        if (new_active == -1) // no longer is there a active textbox
+            input->mode = INPUT_MODE_GAME;
+        if (new_active != tb_v3->active) // switch textboxes or left all textboxes so save written value
+            char_array_to_f32(tb_v3->memory[tb_v3->active], &tb_v3->src->E[tb_v3->active]);
+
+        tb_v3->active = new_active;
+        printf("ACTIVE: %d\n", tb_v3->active);
+    }
+
+    // process input
+    if (tb_v3->active != -1) {
+        s32 ch = 0;
+        while((ch = get_keyboard_input(input)) != 0) {
+            if (!is_ascii(ch)) continue;
+
+            switch(ch) {
+                case 27: // Esc: leave textbox the same
+                    tb_v3->active = -1;
+                    input->mode = INPUT_MODE_GAME;
+                break;
+
+                default: {
+                    if (update_textbox(tb_v3->memory[tb_v3->active], float_digit_size - 1, &tb_v3->textbox.cursor_position, ch)) {
+                        char_array_to_f32(tb_v3->memory[tb_v3->active], &tb_v3->src->E[tb_v3->active]);
+                    }
+                } break;
+            }
+            
+        }
+    }
+
+    // load new values from v3
+    for (u32 i = 0; i < 3; i++) {
+        const char *temp = ftos(tb_v3->src->E[i]);
+        if (tb_v3->active == i) continue; // don't update box being written to
+        for (u32 j = 0; j < float_digit_size - 1; j++) {
+            tb_v3->memory[i][j] = temp[j];
+        }
+        platform_free((void*)temp);
+    }
+
+    // draw textboxes to screen
+    for (u32 i = 0; i < 3; i++) {
+        tb_v3->textbox.coords = tb_v3->coords;
+        tb_v3->textbox.coords.x += tb_v3->individual_dim.x * (f32)i;
+        tb_v3->textbox.buffer = tb_v3->memory[i];
+        if (tb_v3->active == i) tb_v3->textbox.active = true;
+        else                    tb_v3->textbox.active = false;
+        draw_textbox(&tb_v3->textbox);
     }
 }

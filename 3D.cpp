@@ -280,6 +280,7 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
             } break;
 
             case BOAT_CAMERA: {
+                //printf("move_speed: %f\n", move_speed);
                 v3 move_vector = {move_speed, 0.0f, move_speed};
                 update_camera_with_keys(&data->camera, data->boat3D.direction, data->camera.up, move_vector,
                                         controller->forward, controller->backward,
@@ -372,7 +373,15 @@ draw_game_3D(Application *app, Game_Data *data)
     platform_set_capability(PLATFORM_CAPABILITY_DEPTH_TEST, false);
     platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, false);
 
-    if (data->show_camera_menu) draw_camera_menu(&data->camera_menu, &data->camera);
+    if (data->show_camera_menu) {
+        draw_camera_menu(&data->camera_menu, &data->camera);
+    
+        data->test.coords = {0, 400};
+        data->test.individual_dim = data->test.textbox.dim;
+        data->test.src = &data->camera.position;
+        v3_textbox(&data->test, &app->input, menu_controller->mouse_left, menu_controller->mouse);
+        
+    }
     
     if (data->show_fps)
     {

@@ -107,6 +107,7 @@ process_input(Window *window, Input *input)
     for (u32 i = 0; i < input->num_of_controllers; i++) prepare_controller_for_input(&input->controllers[i]);
     
     u32 buffer_index = 0;
+    input->buffer_index = 0;
     SDL_memset(input->buffer, 0, 10);
 
     // Clear the controllers if the input mode is switch from game to keyboard.
@@ -216,8 +217,8 @@ update_time(Time *time)
     time->run_time_s = (f32)time->run_time_ms / 1000.0f;
     time->frame_time_ms = time->run_time_ms - last_run_time_ms;
     time->frame_time_s = (f32)time->frame_time_ms / 1000.0f;
-    
-    if (time->frame_time_s == 0.0f) time->frame_time_s = 0.001f;
+    //printf("%lld %f\n", time->frame_time_ms, time->frame_time_s);
+    if (time->frame_time_ms == 0) time->frame_time_s = 0.001f;
     
     // get fps
     time->frames_per_s = 1000.0f;

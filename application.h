@@ -98,11 +98,15 @@ enum
 // pass all of the inputs from application to game
 struct Input
 {
+    // game mode
     Controller controllers[5];
     u32 num_of_controllers;
     Controller *active_controller;
     
+    // keyboard mode
     char buffer[10];
+    u32 buffer_index;
+
     u32 mode; // game or keyboard
 
     Flag relative_mouse_mode;

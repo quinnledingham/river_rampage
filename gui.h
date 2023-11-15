@@ -86,9 +86,25 @@ struct Onscreen_Notifications
     v4 text_color;
 };
 
+global const u32 float_digit_size = 15;
+
+struct Textbox_V3 {
+    v3 *src; // points to the v3 to edit with textbox
+    v2 coords;
+    v2 individual_dim; // how big each one of the 3 are
+    char memory[3][float_digit_size];
+    s32 active = -1;
+
+    Draw_Textbox textbox;
+};
+
 struct Camera_Menu {
-    char memory[12][13];
+    char memory[12][float_digit_size];
     v2 coords[12];
     s32 active;
     Draw_Textbox textbox;
+
+    Textbox_V3 position;
+    Textbox_V3 target;
+    Textbox_V3 up;
 };

@@ -86,6 +86,7 @@ void* init_data(Assets *assets)
     data->onscreen_notifications.text_color = { 255, 255, 255, 1 };
 
     init_camera_menu(&data->camera_menu, assets);
+    data->test.textbox = data->camera_menu.textbox;
     
     // 3D
     data->camera.position = { 0, 5, 10 };
