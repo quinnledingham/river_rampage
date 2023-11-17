@@ -9,6 +9,7 @@ struct Matrices // for rendering
     m4x4 orthographic_matrix;
     m4x4 view_matrix;
 };
+global v2s renderer_window_dim;
 
 // functions to set matrices in uniform buffer
 void orthographic(u32 ubo, Matrices *matrices);
@@ -34,12 +35,15 @@ enum
     PLATFORM_POLYGON_MODE_LINE,
     PLATFORM_POLYGON_MODE_FILL,
 
+    PLATFORM_CAPABILITY_SCISSOR_TEST,
     PLATFORM_CAPABILITY_DEPTH_TEST,
     PLATFORM_CAPABILITY_CULL_FACE,
 };
 
 void platform_set_polygon_mode(u32 mode);
 void platform_set_capability(u32 capability, b32 state);
+b32 platform_capability_enabled(u32 capability);
 void platform_set_depth_mask(b32 state);
+void platform_set_scissor_box(v2s bottom_left, v2s dim);
 
 #endif // RENDERER_H

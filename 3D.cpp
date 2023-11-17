@@ -17,6 +17,12 @@ update_camera_with_mouse(Camera *camera, v2s delta_mouse, v2 move_speed)
     camera->yaw   += (f32)delta_mouse.x * move_speed.x;
     camera->pitch -= (f32)delta_mouse.y * move_speed.y;
     
+    // doesnt require this
+    r32 max_yaw = 360.0f;
+    if (camera->yaw >  max_yaw) camera->yaw = 0;
+    if (camera->yaw < 0) camera->yaw = max_yaw;
+
+    // breaks with out this check
     r32 max_pitch = 89.0f;
     if (camera->pitch >  max_pitch) camera->pitch =  max_pitch;
     if (camera->pitch < -max_pitch) camera->pitch = -max_pitch;
@@ -379,7 +385,7 @@ draw_game_3D(Application *app, Game_Data *data)
         data->test.coords = {0, 400};
         data->test.individual_dim = data->test.textbox.dim;
         data->test.src = &data->camera.position;
-        v3_textbox(&data->test, &app->input, menu_controller->mouse_left, menu_controller->mouse);
+        //v3_textbox(&data->test, &app->input, menu_controller->mouse_left, menu_controller->mouse);
         
     }
     

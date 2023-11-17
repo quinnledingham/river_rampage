@@ -28,8 +28,8 @@ draw_button(Draw_Button button)
     text_coords.x = button.coords.x + (button.dim.x / 2.0f) - (text_dim.x / 2.0f);
     text_coords.y = button.coords.y + (button.dim.y / 2.0f) + (text_dim.y / 2.0f);
 
-    draw_rect(button.coords, 0, button.dim, back_color);
-    draw_string(button.font, button.text, text_coords, pixel_height, text_color);
+    draw_rect(button.coords, 0, button.dim, back_color);                                           // back
+    if (button.text) draw_string(button.font, button.text, text_coords, pixel_height, text_color); // text
 }
 
 internal char
@@ -87,6 +87,12 @@ update_textbox(char *buffer, u32 max_length, u32 *cursor_position, s32 input) {
 function void
 draw_textbox(Draw_Textbox *box)
 {
+    platform_set_capability(PLATFORM_CAPABILITY_SCISSOR_TEST, true);
+    v2 scissor_box_coords = box->coords;
+    scissor_box_coords.y += box->dim.y;
+    scissor_box_coords.y = (r32)renderer_window_dim.y - scissor_box_coords.y;
+    platform_set_scissor_box(cv2(scissor_box_coords), cv2(box->dim));
+
     f32 pixel_height = box->dim.y;
     if (box->dim.x < box->dim.y) pixel_height = box->dim.x;
     pixel_height *= 0.8f;
@@ -94,19 +100,21 @@ draw_textbox(Draw_Textbox *box)
     //v2 text_dim = get_string_dim(box->font, box->buffer, pixel_height, box->text_color);
     v2 font_dim = get_font_loaded_dim(box->font, pixel_height);
     v2 text_coords = {};
-    //text_coords.x = box->coords.x + (box->dim.x / 2.0f) - (font_dim.x / 2.0f);
     text_coords.x = box->coords.x;
     text_coords.y = box->coords.y + (box->dim.y / 2.0f) + (font_dim.y / 2.0f);
 
     v2 text_dim_cursor = get_string_dim(box->font, box->buffer, box->cursor_position, pixel_height, box->text_color);
     v2 cursor_coords = box->coords;
     cursor_coords.x += text_dim_cursor.x;
-    //cursor_coords.y -= box->dim.y;
 
-    draw_rect(box->coords, 0.0f, box->dim, box->back_color);
-    if (box->active) draw_rect(cursor_coords, 0.0f, { box->cursor_width, box->dim.y }, box->cursor_color);
-    if (box->buffer != 0)
-        draw_string(box->font, box->buffer, text_coords, pixel_height, box->text_color);
+    
+    draw_rect(box->coords, 0.0f, box->dim, box->back_color);                                  // back
+    if (box->active) // clicked on
+        draw_rect(cursor_coords, 0.0f, { box->cursor_width, box->dim.y }, box->cursor_color); // cursor
+    if (box->buffer) // contains text
+        draw_string(box->font, box->buffer, text_coords, pixel_height, box->text_color);      // text
+
+    platform_set_capability(PLATFORM_CAPABILITY_SCISSOR_TEST, false);
 }
 
 

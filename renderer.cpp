@@ -79,19 +79,29 @@ void platform_set_polygon_mode(u32 mode)
     }
 }
 
+u32 capability_to_gl(u32 capability) {
+    switch(capability)
+    {
+        case PLATFORM_CAPABILITY_DEPTH_TEST:   return GL_DEPTH_TEST;
+        case PLATFORM_CAPABILITY_CULL_FACE:    return GL_CULL_FACE;
+        case PLATFORM_CAPABILITY_SCISSOR_TEST: return GL_SCISSOR_TEST;
+    }
+    error("capability_to_gl(): No conversion available");
+    return 0;
+}
+
 void opengl_set_capability(GLenum capability, b32 state)
 {
     if (state) glEnable(capability);
     else       glDisable(capability);
 }
 
-void platform_set_capability(u32 capability, b32 state)
-{
-    switch(capability)
-    {
-        case PLATFORM_CAPABILITY_DEPTH_TEST: opengl_set_capability(GL_DEPTH_TEST, state); break;
-        case PLATFORM_CAPABILITY_CULL_FACE:  opengl_set_capability(GL_CULL_FACE, state);  break;
-    }
+void platform_set_capability(u32 capability, b32 state) {
+    return opengl_set_capability(capability_to_gl(capability), state);
+}
+
+b32 platform_capability_enabled(u32 capability) {
+    return glIsEnabled(capability_to_gl(capability));
 }
 
 void platform_set_depth_mask(b32 state)
@@ -99,3 +109,8 @@ void platform_set_depth_mask(b32 state)
     if (state) glDepthMask(GL_TRUE);
     else       glDepthMask(GL_FALSE);
 }
+
+void platform_set_scissor_box(v2s bottom_left, v2s dim) {
+    glScissor(bottom_left.x, bottom_left.y, dim.x, dim.y);
+}
+

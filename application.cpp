@@ -30,13 +30,11 @@
 b8 update(void *application);
 void* init_data(Assets *assets);
 
-void *platform_malloc(u32 size)
-{
+void *platform_malloc(u32 size) {
     return SDL_malloc(size);
 }
 
-void platform_free(void *ptr)
-{
+void platform_free(void *ptr) {
     SDL_free(ptr);
 }
 

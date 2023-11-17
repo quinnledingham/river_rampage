@@ -92,7 +92,7 @@ void* init_data(Assets *assets)
     data->camera.position = { 0, 5, 10 };
     data->camera.up       = { 0, 1, 0 };
     data->camera.target   = { 0, 0, -2 };
-    data->camera.yaw      = -90.0f;
+    data->camera.yaw      = 270.0f;
     data->camera.fov      = 80.0f;
     
     data->light.position = { 5.0f, 20.0f, 10.0f };
@@ -148,7 +148,7 @@ void* init_data(Assets *assets)
 function void
 update_matrices(Matrices *m, r32 fov, r32 aspect_ratio, v2s window_dim)
 {
-    m->perspective_matrix = perspective_projection(fov, aspect_ratio, 0.01f, 1000.0f);
+    m->perspective_matrix = perspective_projection(fov, aspect_ratio, 0.1f, 1000.0f);
     m->orthographic_matrix = orthographic_projection(0.0f, (r32)window_dim.width, (r32)window_dim.height, 0.0f, -3.0f, 3.0f);
     m->update = false;
 }
@@ -160,7 +160,10 @@ b8 update(void *application)
     Game_Data *data = (Game_Data*)app->data;
     Controller *controller = app->input.active_controller;
 
-    if (app->matrices.update) update_matrices(&app->matrices, data->camera.fov, app->window.aspect_ratio, app->window.dim);
+    renderer_window_dim = app->window.dim;
+
+    //if (app->matrices.update) 
+    update_matrices(&app->matrices, data->camera.fov, app->window.aspect_ratio, app->window.dim);
 
     if (console_command(&data->console, TOGGLE_WIREFRAME))
     {

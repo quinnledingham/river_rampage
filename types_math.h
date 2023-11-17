@@ -24,6 +24,7 @@ inline void operator/=(v2 &l, const r32 &r) { l.x = l.x / r;   l.y = l.y / r;   
 inline r32 dot_product(const v2 &l, const v2 &r) { return (l.x * r.x) + (l.y * r.y); }
 inline r32 length_squared(const v2 &v) { return (v.x * v.x) + (v.y * v.y); }
 inline void log(const v2 &v) { log("v2: %f, %f", v.x, v.y); }
+inline v2s cv2(v2 v) { return { (s32)v.x, (s32)v.y }; }
 
 inline 
 v2 pow(const v2 &v, u32 exponent)
