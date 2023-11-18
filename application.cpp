@@ -49,10 +49,13 @@ update_window(Window *window)
 function void
 reset_controller(Controller *controller)
 {
-    controller->mouse = {};
+    //controller->mouse = {};
     controller->mouse_rel = {};
     for (u32 j = 0; j < ARRAY_COUNT(controller->buttons); j++)
     {
+        if (j == 11) { 
+            continue;
+        }
         controller->buttons[j].current_state = 0;
         controller->buttons[j].previous_state = 0;
     }
@@ -61,7 +64,7 @@ reset_controller(Controller *controller)
 function void
 prepare_controller_for_input(Controller *controller)
 {
-    controller->mouse = {};
+    //controller->mouse = {};
     controller->mouse_rel = {};
     for (u32 j = 0; j < ARRAY_COUNT(controller->buttons); j++)
         controller->buttons[j].previous_state = controller->buttons[j].current_state;
@@ -116,7 +119,7 @@ process_input(Window *window, Input *input)
         last_input_mode = input->mode;
         if (input->mode == INPUT_MODE_KEYBOARD)
         {
-            for (u32 i = 0; i < input->num_of_controllers; i++) reset_controller(&input->controllers[i]);
+            //for (u32 i = 0; i < input->num_of_controllers; i++) reset_controller(&input->controllers[i]);
         }
     }
 
@@ -148,6 +151,8 @@ process_input(Window *window, Input *input)
             {
                 input->active_controller = &input->controllers[0];
                 SDL_MouseMotionEvent *mouse_motion_event = &event.motion;
+                input->active_controller->mouse.x = mouse_motion_event->x;
+                input->active_controller->mouse.y = mouse_motion_event->y;
                 input->active_controller->mouse_rel.x = mouse_motion_event->xrel;
                 input->active_controller->mouse_rel.y = mouse_motion_event->yrel;
             } break;
@@ -179,11 +184,9 @@ process_input(Window *window, Input *input)
                 b32 state = false;
                 if (keyboard_event->state == SDL_PRESSED) state = true;
 
-                if (input->mode == INPUT_MODE_GAME)
-                {
-                    controller_process_input(&input->controllers[0], key_id, state);
-                }
-                else if (input->mode == INPUT_MODE_KEYBOARD && state)
+                controller_process_input(&input->controllers[0], key_id, state);
+            
+                if (input->mode == INPUT_MODE_KEYBOARD && state)
                 {
                     if (buffer_index >= 10) {
                         error("process_input(): too many inputs for buffer in input_mode keyboard");

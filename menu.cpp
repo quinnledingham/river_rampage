@@ -83,6 +83,25 @@ update_textbox(char *buffer, u32 max_length, u32 *cursor_position, s32 input) {
     return false;
 }
 
+internal void
+update_textbox_cursor(Draw_Textbox *box, Button mouse_left, v2s mouse_coords) {
+    if (!is_down(mouse_left)) return;
+
+    // move cursor to mouse
+    u32 max_length = get_length(box->buffer);
+    u32 length = 0;
+    while(1) {
+        v2 cursor_dim = get_string_dim(box->font, box->buffer, length, box->dim.y, box->text_color);
+        if (mouse_coords.x <= (s32)cursor_dim.x + box->coords.x || length >= max_length)
+            break;
+        else
+            length++;
+    }
+    //log("%d", length);
+    box->cursor_position = length;
+}
+
+
 // buffer is the text that is in the textbox
 function void
 draw_textbox(Draw_Textbox *box)
@@ -210,12 +229,12 @@ enum Console_Commands
 };
 
 global const Pair console_commands[CONSOLE_COMMANDS_COUNT] = {
-    { DO_NOTHING,       "/do_nothing"       },
-    { HIDE_CONSOLE,     "/hide_console"     },
-    { TOGGLE_WIREFRAME, "/toggle_wireframe" },
-    { RELOAD_SHADERS,   "/reload_shaders"   },
-    { TOGGLE_FPS,       "/toggle_fps"       },
-    { ALIGN_CAMERA,     "/align_camera"     },
+    { DO_NOTHING,         "/do_nothing"       },
+    { HIDE_CONSOLE,       "/hide_console"     },
+    { TOGGLE_WIREFRAME,   "/toggle_wireframe" },
+    { RELOAD_SHADERS,     "/reload_shaders"   },
+    { TOGGLE_FPS,         "/toggle_fps"       },
+    { ALIGN_CAMERA,       "/align_camera"     },
     { TOGGLE_CAMERA_MENU, "/toggle_camera_menu" },
 };
 
@@ -335,11 +354,11 @@ update_console(Console *console, Input *input)
 }
 
 function void
-draw_console(Console *console, v2s window_dim)
+draw_console(Console *console, v2s window_dim, Button mouse_left, v2s mouse_coords)
 {
     console->textbox.coords.y = window_dim.y - console->textbox.dim.y;
     console->textbox.dim.x = (r32)window_dim.x;
-
+    update_textbox_cursor(&console->textbox, mouse_left, mouse_coords);
     draw_textbox(&console->textbox);
 }
 
@@ -474,7 +493,7 @@ update_camera_menu(Camera_Menu *menu, Camera *camera, Input *input, Button mouse
         for (u32 i = 0; i < ARRAY_COUNT(menu->coords); i++) {
             if (inside_box(cv2(mouse_coords), menu->coords[i], menu->textbox.dim)) {
                 new_active = i;
-                menu->textbox.cursor_position = get_length(menu->memory[i]);
+                //menu->textbox.cursor_position = get_length(menu->memory[i]);
                 input->mode = INPUT_MODE_KEYBOARD;
                 break;
             }
@@ -523,12 +542,16 @@ update_camera_menu(Camera_Menu *menu, Camera *camera, Input *input, Button mouse
 }
 
 internal void
-draw_camera_menu(Camera_Menu *menu, Camera *camera) {
+draw_camera_menu(Camera_Menu *menu, Camera *camera, Button mouse_left, v2s mouse_coords) {
     for (u32 i = 0; i < ARRAY_COUNT(menu->coords); i++) {
         menu->textbox.coords = menu->coords[i];
         menu->textbox.buffer = menu->memory[i];
-        if (menu->active == i) menu->textbox.active = true;
+        if (menu->active == i) {
+            menu->textbox.active = true;
+            update_textbox_cursor(&menu->textbox, mouse_left, mouse_coords);
+        }
         else                   menu->textbox.active = false;
+        
         draw_textbox(&menu->textbox);        
     }
 

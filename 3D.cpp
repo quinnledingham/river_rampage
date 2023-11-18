@@ -211,60 +211,64 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
 {
 	Controller *controller = input->active_controller;
 
-	if (on_down(controller->pause)) 
-    {
-        data->paused = !data->paused;
-        if (data->paused) input->relative_mouse_mode.set(false);
-        else              input->relative_mouse_mode.set(true);
-    }
-
-    if (data->show_console) {
-        data->show_console = update_console(&data->console, input);
-        if (!data->show_console && !data->paused) input->relative_mouse_mode.set(true);
-    } else {
-        if (on_down(controller->toggle_console))
-        {
-            data->show_console = !data->show_console;
-
+    switch(input->mode) {
+        case INPUT_MODE_KEYBOARD: {
             if (data->show_console) {
-                input->mode = INPUT_MODE_KEYBOARD;
-                input->relative_mouse_mode.set(false);
-                data->console.lines_up_index = data->console.lines;
-            } else {
-                input->mode = INPUT_MODE_GAME;
-                input->relative_mouse_mode.set(true);
+                data->show_console = update_console(&data->console, input);
             }
-        }
+
+            if (data->show_camera_menu) {
+                update_camera_menu(&data->camera_menu, camera, input, controller->mouse_left, controller->mouse);
+            }
+        } break;
+
+        case INPUT_MODE_GAME: {
+            // pause
+            if (on_down(controller->pause)) 
+            {
+                data->paused = !data->paused;
+                if (data->paused) input->relative_mouse_mode.set(false);
+                else              input->relative_mouse_mode.reset();
+            }
+
+            // console
+            if (!data->show_console && on_down(controller->toggle_console)) {
+                    data->show_console = true;
+                    input->mode = INPUT_MODE_KEYBOARD;
+                    //input->relative_mouse_mode.set(false);
+                    data->console.lines_up_index = data->console.lines;
+            }
+
+            // align camera
+            if (console_command(&data->console, ALIGN_CAMERA)) {
+                align_camera_with_boat(&data->camera, &data->boat3D);
+            }
+
+            // camera menu
+            if (console_command(&data->console, TOGGLE_CAMERA_MENU)) {
+                data->show_camera_menu = !data->show_camera_menu;
+            }
+
+            // update camera mode
+            if (on_down(controller->toggle_camera_mode))
+            {
+                data->camera_mode++;
+                if (data->camera_mode == CAMERA_MODES_COUNT) data->camera_mode = 0;
+
+                add_onscreen_notification(&data->onscreen_notifications, pair_get_value(camera_modes, CAMERA_MODES_COUNT, data->camera_mode));
+
+                if (data->camera_mode == EDIT_CAMERA) {
+                    input->relative_mouse_mode.set(false);
+                } else {
+                    input->relative_mouse_mode.set(true);
+                }
+            }
+        } break;
     }
 
-    if (console_command(&data->console, ALIGN_CAMERA)) {
-        align_camera_with_boat(&data->camera, &data->boat3D);
-    }
-
-    if (console_command(&data->console, TOGGLE_CAMERA_MENU)) {
-        data->show_camera_menu = !data->show_camera_menu;
-    }
-    if (data->show_camera_menu) {
-        update_camera_menu(&data->camera_menu, camera, input, controller->mouse_left, controller->mouse);
-    }
 
     if (!data->paused) {
         data->game_run_time_s += time.frame_time_s;
-
-        // update camera
-        if (on_down(controller->toggle_camera_mode))
-        {
-            data->camera_mode++;
-            if (data->camera_mode == CAMERA_MODES_COUNT) data->camera_mode = 0;
-
-            add_onscreen_notification(&data->onscreen_notifications, pair_get_value(camera_modes, CAMERA_MODES_COUNT, data->camera_mode));
-
-            if (data->camera_mode == EDIT_CAMERA) {
-                input->relative_mouse_mode.set(false);
-            } else {
-                input->relative_mouse_mode.set(true);
-            }
-        }
 
         Button null_button = {};
         f32 m_per_s = 2.5f; 
@@ -380,7 +384,7 @@ draw_game_3D(Application *app, Game_Data *data)
     platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, false);
 
     if (data->show_camera_menu) {
-        draw_camera_menu(&data->camera_menu, &data->camera);
+        draw_camera_menu(&data->camera_menu, &data->camera, menu_controller->mouse_left, menu_controller->mouse);
     
         data->test.coords = {0, 400};
         data->test.individual_dim = data->test.textbox.dim;
@@ -396,7 +400,7 @@ draw_game_3D(Application *app, Game_Data *data)
     }
     
     platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);  
-    if (data->show_console) draw_console(&data->console, app->window.dim);
+    if (data->show_console) draw_console(&data->console, app->window.dim, menu_controller->mouse_left, menu_controller->mouse);
     draw_onscreen_notifications(&data->onscreen_notifications, app->window.dim, app->time.frame_time_s);
     if (data->wire_frame) platform_set_polygon_mode(PLATFORM_POLYGON_MODE_LINE);
     else                  platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);

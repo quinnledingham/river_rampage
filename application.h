@@ -22,10 +22,23 @@ struct Time
 struct Flag
 {
     b8 state;
+    b8 last_state;
     b8 updated;
     
-    void toggle() { state = !state; updated = true; }
-    void set(b8 new_state) { state = new_state; updated = true; }
+    void toggle() { 
+        last_state = state; 
+        state = !state; 
+        updated = true; 
+    }
+    void set(b8 new_state) { 
+        last_state = state;
+        state = new_state; 
+        updated = true;
+    }
+    void reset() { 
+        state = last_state; 
+        updated = true;
+    }
     b8 get() {  updated = false; return state; }
     b8 changed() { b8 up = updated; updated = false; return up; }
 };
@@ -52,7 +65,9 @@ inline void set(Button *button, s32 id)
 
 inline b32 is_down(Button button) 
 { 
-    if (button.current_state) return true; return false; 
+    if (button.current_state) 
+        return true;
+    return false; 
 }
 
 inline b32 on_down(Button button)
@@ -83,7 +98,7 @@ struct Controller
             Button toggle_console;
             Button mouse_left;
         };
-        Button buttons[13];
+        Button buttons[12];
     };
 };
 
