@@ -1,3 +1,10 @@
+//
+// Draw_<> structs are meant to be structs to pass arguments for the draw functions.
+// Try not use them to store information about a button or textbox. This is because they
+// are meant to be shared between many draw calls, changing only what needs to be changed
+// between calls (coords).
+//
+
 struct Draw_Button
 {
     v4 default_back_color;
@@ -22,12 +29,13 @@ struct Draw_Textbox
     v4 back_color;
 
     Font *font;
-    char *buffer; // edit
+    char *buffer;
     u32 buffer_size;
     v4 text_color;
 
+    // Cursor
     u32 active; // if active draw cursor
-    u32 cursor_position; // edit
+    u32 cursor_position;
     r32 cursor_width;
     v4 cursor_color;
 };
@@ -58,6 +66,30 @@ struct Menu
     Rect rect; // coords and dim of menu
 };
 
+enum Console_Commands
+{
+    DO_NOTHING,
+    HIDE_CONSOLE,
+    TOGGLE_WIREFRAME,
+    RELOAD_SHADERS,
+    TOGGLE_FPS,
+    ALIGN_CAMERA,
+    TOGGLE_CAMERA_MENU,
+
+    CONSOLE_COMMANDS_COUNT
+};
+
+// make sure that the indices match up between the enum and char**
+// +2 convert from char** to enum
+global const Pair console_commands[CONSOLE_COMMANDS_COUNT] = {
+    { DO_NOTHING,         "/do_nothing"       },
+    { HIDE_CONSOLE,       "/hide_console"     },
+    { TOGGLE_WIREFRAME,   "/toggle_wireframe" },
+    { RELOAD_SHADERS,     "/reload_shaders"   },
+    { TOGGLE_FPS,         "/toggle_fps"       },
+    { ALIGN_CAMERA,       "/align_camera"     },
+    { TOGGLE_CAMERA_MENU, "/toggle_camera_menu" },
+};
 
 struct Console
 {
@@ -68,12 +100,23 @@ struct Console
     u32 lines;
     u32 lines_up_index;
 
-    Font *font;
+    char *edit; // points to the line in memory
+    u32 cursor_position; // cursor to edit
 
-    Draw_Textbox textbox;
+    Draw_Textbox textbox; // console textbox style
 
     u32 command; // the command to execute
 };
+
+inline b32
+console_command(Console *console, u32 looking_for)
+{
+    if (console->command == looking_for) {
+        console->command = 0;
+        return true;
+    }
+    else return false;
+}
 
 struct Onscreen_Notifications
 {
@@ -88,23 +131,24 @@ struct Onscreen_Notifications
 
 global const u32 float_digit_size = 15;
 
-struct Textbox_V3 {
-    v3 *src; // points to the v3 to edit with textbox
-    v2 coords;
-    v2 individual_dim; // how big each one of the 3 are
-    char memory[3][float_digit_size];
-    s32 active = -1;
+struct Float_Textbox {
+    void *src;
+    u32 src_elements;
+    u32 element_size;
 
-    Draw_Textbox textbox;
+    v2 coords;
+    v2 dim;
+
+    char memory[4][float_digit_size]; // 4 to fit up to a v4 type
+
+    s32 active = -1;
 };
 
 struct Camera_Menu {
-    char memory[12][float_digit_size];
-    v2 coords[12];
-    s32 active;
-    Draw_Textbox textbox;
+    Float_Textbox boxs[6];
 
-    Textbox_V3 position;
-    Textbox_V3 target;
-    Textbox_V3 up;
+    char buffer[float_digit_size];
+    u32 cursor_position;
+
+    Draw_Textbox draw; // the textbox design
 };

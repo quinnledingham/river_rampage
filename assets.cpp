@@ -551,7 +551,8 @@ v2 get_string_dim(Font *font, const char *string, s32 length, f32 pixel_height, 
 
         Font_Char *font_char = load_font_char(font, string[index]);
         
-        if (dim.y < (r32)font_char->bb_1.y) dim.y = (r32)font_char->bb_1.y;
+        if (dim.y < (r32)font_char->bb_1.y) 
+            dim.y = (r32)font_char->bb_1.y;
         
         int kern = stbtt_GetCodepointKernAdvance(info, string[index], string[index + 1]);
         dim.x += (kern + font_char->ax);

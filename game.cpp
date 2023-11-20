@@ -80,13 +80,12 @@ void* init_data(Assets *assets)
     Game_Data *data = (Game_Data*)malloc(sizeof(Game_Data));
     *data = {};
 
-    init_console(&data->console, assets);
+    init_console(&data->console, find_font(assets, "CASLON"));
 
     data->onscreen_notifications.font = find_font(assets, "CASLON");
     data->onscreen_notifications.text_color = { 255, 255, 255, 1 };
 
     init_camera_menu(&data->camera_menu, assets);
-    data->test.textbox = data->camera_menu.textbox;
     
     // 3D
     data->camera.position = { 0, 5, 10 };

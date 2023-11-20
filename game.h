@@ -120,7 +120,6 @@ struct Game_Data
 
     b8 show_camera_menu;
     Camera_Menu camera_menu;
-    Textbox_V3 test;
 
     // 3D
     Light light;

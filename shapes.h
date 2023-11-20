@@ -83,6 +83,15 @@ get_centered_square(Rect og, r32 percent)
     return rect;
 }
 
+internal b8
+inside_box(v2 coords, v2 box_coords, v2 box_dim) {
+    if (box_coords.x <= coords.x && coords.x <= box_coords.x + box_dim.x &&
+        box_coords.y <= coords.y && coords.y <= box_coords.y + box_dim.y)
+        return true;
+
+    return false;
+}
+
 void draw_rect(v2 coords, r32 rotation, v2 dim, v4 color);
 void draw_rect(v2 coords, r32 rotation, v2 dim, Bitmap *bitmap);
 void draw_rect(v2 coords, r32 rotation, v2 dim, Bitmap *bitmap, v4 color);
