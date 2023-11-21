@@ -6,6 +6,7 @@
 #include "renderer.h"
 #include "data_structures.h"
 #include "shapes.h"
+#include "particles.h"
 #include "application.h"
 
 #include "gui.h"
@@ -122,6 +123,10 @@ void* init_data(Assets *assets)
     platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
     platform_set_uniform_block_binding(shader->handle, "Wav",      1);
     platform_set_uniform_block_binding(shader->handle, "Lights",   2);
+
+    shader = find_shader(assets, "PARTICLE");
+    platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
+    platform_set_uniform_block_binding(shader->handle, "Wav",      1);
     
     data->matrices_ubo = init_uniform_buffer_object(2 * sizeof(m4x4), 0);
     data->wave_ubo = init_uniform_buffer_object(5 * sizeof(Wave), 1);
@@ -132,7 +137,7 @@ void* init_data(Assets *assets)
     data->waves[2] = get_wave({ 0.0f, 0.4f }, 5.0f, 0.1f);
     data->waves[3] = get_wave({ -0.7f, 0.9f }, 9.0f, 0.1f);
     data->waves[4] = get_wave({ 0.1f, -0.9f }, 15.0f, 0.25f);
-
+    
     platform_set_uniform_buffer_data(data->wave_ubo, sizeof(Wave) * 5, (void*)&data->waves);
     platform_set_uniform_buffer_data(data->lights_ubo, sizeof(Light), (void*)&data->light);
     
@@ -179,7 +184,6 @@ b8 update(void *application)
         Shader *shader = find_shader(&app->assets, "WATER");
         load_shader(shader);
         compile_shader(shader);
-        
         platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
         platform_set_uniform_block_binding(shader->handle, "Wav",      1);
         platform_set_uniform_block_binding(shader->handle, "Lights",   2);
@@ -193,9 +197,14 @@ b8 update(void *application)
         shader = find_shader(&app->assets, "MATERIAL_TEX");
         load_shader(shader);
         compile_shader(shader);
-        
         platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
         platform_set_uniform_block_binding(shader->handle, "Lights",   2);
+
+        shader = find_shader(&app->assets, "PARTICLE");
+        load_shader(shader);
+        compile_shader(shader);
+        platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
+        platform_set_uniform_block_binding(shader->handle, "Wav",      1);
     }
 
     if (console_command(&data->console, TOGGLE_FPS))

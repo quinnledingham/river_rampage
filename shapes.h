@@ -102,4 +102,6 @@ Mesh get_cube_mesh(b32 out);
 void draw_cube(v3 coords, r32 rotation, v3 dim, v4 color);
 void draw_cube(v3 coords, r32 rotation, v3 dim, Bitmap *bitmap);
 
+void draw_sphere(v3 coords, r32 rotation, v3 dim, v4 color);
+
 #endif //SHAPES_H

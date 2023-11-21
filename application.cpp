@@ -10,6 +10,7 @@
 #include "renderer.h"
 #include "data_structures.h"
 #include "shapes.h"
+#include "particles.h"
 #include "application.h"
 
 #include "log.cpp"
@@ -25,6 +26,7 @@
 #include "assets.cpp"
 #include "renderer.cpp"
 #include "shapes.cpp"
+#include "particles.cpp"
 
 // function that are defined in the game code
 b8 update(void *application);
@@ -375,6 +377,7 @@ int main(int argc, char *argv[])
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glPatchParameteri(GL_PATCH_VERTICES, 4); 
 
+    init_particles(&global_particles, 1000);
     init_shapes();
 
     return main_loop(&app, sdl_window);

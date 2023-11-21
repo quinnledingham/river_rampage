@@ -13,6 +13,7 @@ enum Shape_Types
     SHAPE_RECT,
     SHAPE_CIRCLE,
     SHAPE_CUBE,
+    SHAPE_SPHERE,
 };
 
 enum Shape_Draw_Types
@@ -49,6 +50,7 @@ struct Shapes {
     Mesh rect;
     Mesh circle;
     Mesh cube;
+    Mesh sphere;
 };
 
 Shapes shapes = {};
@@ -233,8 +235,7 @@ void draw_circle(v2 coords, r32 rotation, r32 radius, v4 color)
 // Cube
 //
  
-Mesh get_cube_mesh(b32 out)
-{
+Mesh get_cube_mesh(b32 out) {
     Mesh mesh = {};
     
     mesh.vertices_count = 8;
@@ -321,6 +322,85 @@ void draw_cube(v3 coords, r32 rotation, v3 dim, Bitmap *bitmap)
 }
 
 //
+// sphere
+//
+
+Mesh get_sphere_mesh(f32 radius, u32 u_subdivision, u32 v_subdivision) {
+    Mesh mesh = {};
+
+    f32 u_degrees = PI;
+    f32 v_degrees = 2.0f * PI;
+
+    f32 u_step = u_degrees / (f32)u_subdivision;
+    f32 v_step = v_degrees / (f32)v_subdivision;
+
+    mesh.vertices_count = (u_subdivision + 1) * (v_subdivision + 1);
+    mesh.vertices = ARRAY_MALLOC(Vertex, mesh.vertices_count);
+
+    u32 vertices_index = 0;
+    for (u32 u = 0; u <= u_subdivision; ++u) {
+        for (u32 v = 0; v <= v_subdivision; ++v) {
+            f32 u_f = (f32)u * u_step;
+            f32 v_f = (f32)v * v_step;
+
+            r32 inverse_radius = 1.0f / radius;
+            v3 position = { 
+                radius * sinf(u_f) * cosf(v_f), 
+                radius * sinf(u_f) * sinf(v_f), 
+                radius * cosf(u_f) 
+            };
+            v3 normal = position * inverse_radius;
+            v2 texture_coords = { 
+                1 - (v_f / v_degrees), 
+                u_f / u_degrees
+            };
+
+            mesh.vertices[vertices_index++] = { position, normal, texture_coords };
+        }
+    }
+
+    mesh.indices_count = (u_subdivision * v_subdivision * 6) - (u_subdivision * 6);
+    mesh.indices = ARRAY_MALLOC(u32, mesh.indices_count);
+
+    u32 indices_index = 0;
+    for (u32 u = 0; u < u_subdivision; u++) {
+        u32 p1 = u * (v_subdivision + 1);
+        u32 p2 = p1 + v_subdivision + 1;
+
+        for (u32 v = 0; v < v_subdivision; v++, p1++, p2++) {
+            if (u != 0) {
+                mesh.indices[indices_index++] = p1;
+                mesh.indices[indices_index++] = p2;
+                mesh.indices[indices_index++] = p1 + 1;
+            } 
+            if (u != (u_subdivision - 1)) {
+                mesh.indices[indices_index++] = p1 + 1;
+                mesh.indices[indices_index++] = p2;
+                mesh.indices[indices_index++] = p2 + 1;
+            }
+        }
+    }
+
+    init_mesh(&mesh);
+
+    return mesh;
+}
+
+void draw_sphere(v3 coords, r32 rotation, v3 dim, v4 color)
+{
+    quat rotation_quat = get_rotation(rotation, { 0, 0, 1 });
+    
+    Shape shape = {};
+    shape.type = SHAPE_SPHERE;
+    shape.coords = coords;
+    shape.rotation = rotation_quat;
+    shape.dim = dim;
+    shape.draw_type = SHAPE_COLOR;
+    shape.color = color;
+    draw_shape(shape);
+}
+
+//
 // shapes
 //
 
@@ -328,6 +408,7 @@ void init_shapes(Shader *color, Shader *texture, Shader *text) {
     init_rect_mesh(&shapes.rect);
     init_circle_mesh(&shapes.circle);
     shapes.cube = get_cube_mesh();
+    shapes.sphere = get_sphere_mesh(1.0f, 10, 10);
     
     shapes.test_color   = color;
     shapes.test_texture = texture;
@@ -338,6 +419,7 @@ void init_shapes() {
     init_rect_mesh(&shapes.rect);
     init_circle_mesh(&shapes.circle);
     shapes.cube = get_cube_mesh();
+    shapes.sphere = get_sphere_mesh(1.0f, 50, 50);
 
     shapes.color.files[VERTEX_SHADER].memory   = (void*)basic_vs;
     shapes.texture.files[VERTEX_SHADER].memory = (void*)basic_vs;
@@ -385,7 +467,8 @@ draw_shape(Shape shape)
         default: error("draw_shape(): Not valid shape draw type");
     };
     
-    shape.coords += shape.dim / 2.0f; // coords = top left corner
+    if (shape.type == SHAPE_RECT || shape.type == SHAPE_CIRCLE)
+        shape.coords += shape.dim / 2.0f; // coords = top left corner
     
     m4x4 model = create_transform_m4x4(shape.coords, shape.rotation, shape.dim);
     platform_uniform_m4x4(handle, "model", &model);
@@ -395,6 +478,7 @@ draw_shape(Shape shape)
         case SHAPE_RECT:   draw_mesh(&shapes.rect);   break;
         case SHAPE_CIRCLE: draw_mesh(&shapes.circle); break;
         case SHAPE_CUBE:   draw_mesh(&shapes.cube);   break;
+        case SHAPE_SPHERE: draw_mesh(&shapes.sphere); break;
         default: error("draw_shape(): Not valid shape type");
     }
 }

@@ -7,10 +7,8 @@ enum
     BACKWARD,      // 1
     LEFT,          // 2
     RIGHT,         // 3
-    DIRECTIONS_2D, // 4 directions needed for 2D
-    UP,            // 5
-    DIRECTIONS_3D, // 6 directions needed for 3D
-    DOWN,          // 7
+
+    DIRECTIONS_2D  // 4 directions needed for 2D
 };
 
 struct Wave
@@ -60,6 +58,35 @@ struct Boat
     f32 water_acceleration_magnitude;
 };
 
+struct Boat_Coords
+{
+    union
+    {
+        struct
+        {
+            v3 forward;
+            v3 backward;
+            v3 left;
+            v3 right;
+            v3 center;
+        };
+        v3 E[5];
+    };
+};
+
+inline Boat_Coords
+Create_Boat_Coords(v3 c, v3 f, v3 b, v3 l, v3 r) {
+    Boat_Coords result = {};
+
+    result.center   = c;
+    result.forward  = f;
+    result.backward = b;
+    result.left     = l;
+    result.right    = r;
+
+    return result;
+}
+
 struct Boat3D
 {
     v3 direction  = {1, 0, 0};
@@ -74,13 +101,15 @@ struct Boat3D
     r32 acceleration_magnitude = 0.2f; // always accelerates in the direction of the boat
     r32 drag_magnitude = 0.3f;
 
-    v3 draw_coords; // boat coords with waves applied
+    r32 draw_delta;
+
+    Boat_Coords base; // coords without waves applied
+    Boat_Coords wave; // coords with waves applied
 
     f32 lengths[4]; // how far from the center to edge of boat
-    v3 debug_straight_coords[4];
     v3 debug_wave_coords[4];
     
-    Easy_Textboxs easy;
+    Easy_Textboxs easy; // for editing debug values
 
     v3 draw_coords_history[500];
     u32 newest_draw_coord_index;

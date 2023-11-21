@@ -1,10 +1,10 @@
 #version 330 core
 
-uniform vec4 user_color;
-
 in vec2 uv; 
 
 out vec4 FragColor;
+
+uniform vec4 user_color;
 
 void main() 
 { 

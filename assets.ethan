@@ -26,6 +26,9 @@ TEXT|FRAGMENT, ../assets/shaders/text.fs
 SKYBOX|VERTEX, ../assets/shaders/skybox.vs
 SKYBOX|FRAGMENT, ../assets/shaders/skybox.fs
 
+PARTICLE|VERTEX,   ../assets/shaders/particle.vs
+PARTICLE|FRAGMENT, ../assets/shaders/particle.fs
+
 BITMAPS:
 BOAT, ../assets/bitmaps/boat.png
 ICON, ../assets/bitmaps/favicon.png

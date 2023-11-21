@@ -73,10 +73,8 @@ create_square_mesh(u32 u, u32 v, b32 rand)
     
     u32 vertex_count = 0;
     u32 s = 0, t = 0;
-    for (u32 i = 0; i < (u + 1); i++, s += 2)
-    {
-        for (u32 j = 0; j < (v + 1); j++, t += 2)
-        {
+    for (u32 i = 0; i < (u + 1); i++, s += 2) {
+        for (u32 j = 0; j < (v + 1); j++, t += 2) {
             s32 y = -1;
             if (rand)
                 y = random(-10, -1);
@@ -91,12 +89,10 @@ create_square_mesh(u32 u, u32 v, b32 rand)
     result.indices = (u32*)platform_malloc(sizeof(u32) * result.indices_count);
     
     u32 indices_count = 0;
-    for (u32 i = 0; i < u; i++)
-    {
+    for (u32 i = 0; i < u; i++) {
         u32 p1 = i * (v + 1);
         u32 p2 = p1 + (v + 1);
-        for (u32 j = 0; j < v; j++, p1++, p2++)
-        {
+        for (u32 j = 0; j < v; j++, p1++, p2++) {
             result.indices[indices_count++] = p1;
             result.indices[indices_count++] = p1 + 1;
             result.indices[indices_count++] = p2 + 1;
@@ -119,12 +115,10 @@ make_square_mesh_into_patches(Mesh *mesh, u32 u, u32 v)
     new_mesh.vertices = (Vertex*)platform_malloc(sizeof(Vertex) * new_mesh.vertices_count);
     
     u32 vertex_count = 0;
-    for (u32 i = 0; i < u; i++)
-    {
+    for (u32 i = 0; i < u; i++) {
         u32 p1 = i * (v + 1);
         u32 p2 = p1 + (v + 1);
-        for (u32 j = 0; j < v; j++, p1++, p2++)
-        {
+        for (u32 j = 0; j < v; j++, p1++, p2++) {
             new_mesh.vertices[vertex_count++] = mesh->vertices[p1];
             new_mesh.vertices[vertex_count++] = mesh->vertices[p1 + 1];
             new_mesh.vertices[vertex_count++] = mesh->vertices[p2];
@@ -136,8 +130,7 @@ make_square_mesh_into_patches(Mesh *mesh, u32 u, u32 v)
     new_mesh.indices = (u32*)platform_malloc(sizeof(u32) * new_mesh.indices_count);
     
     u32 indices_count = 0;
-    for (u32 i = 0; i < u * v * 4; i += 4)
-    {
+    for (u32 i = 0; i < u * v * 4; i += 4) {
         new_mesh.indices[indices_count++] = i;
         new_mesh.indices[indices_count++] = i + 1;
         new_mesh.indices[indices_count++] = i + 2;
@@ -234,63 +227,91 @@ update_boat_3D(Boat3D *boat,   v3 target, v3 up,
 
     v3 coords_delta = boat->velocity * move_vector;
     boat->coords += coords_delta;
+
     return coords_delta;
 }
 
-internal void
-apply_wave_rotation(Boat3D *boat, u32 index,
-                      Wave *waves, u32 waves_count, r32 run_time_s) {
-    v3 direction = {};
-    v3 perpendical = {};
-    r32 rotation_direction = 0.0f;
+// Left Hand because of OpenGL
+struct Left_Hand {
+    v3 forward;
+    v3 up;
+    v3 side;
+};
 
+internal Left_Hand
+get_Left_Hand(v3 forward, v3 up) {
+    Left_Hand hand = {};
+    hand.forward = forward;
+    hand.up = up;
+    hand.side = cross_product(forward, up);
+    return hand;
+}
+
+internal v3
+get_axis(u32 index, Left_Hand hand) {
     switch(index) {
-        case FORWARD: {
-            direction = boat->direction;
-            perpendical = cross_product(boat->direction, boat->up);
-            rotation_direction = 1.0f;
-        } break;
-
-        case BACKWARD: {
-            direction = boat->direction;
-            perpendical = cross_product(boat->direction, boat->up);
-            rotation_direction = -1.0f;
-        } break;
-
-        case LEFT: {
-            direction = cross_product(boat->direction, -boat->up);
-            perpendical = boat->direction;
-            rotation_direction = 1.0f;
-        } break;
-
-        case RIGHT: {
-            direction = cross_product(boat->direction, -boat->up);
-            perpendical = boat->direction;
-            rotation_direction = -1.0f;
-        } break;
+        case FORWARD:  return  hand.forward;
+        case BACKWARD: return -hand.forward;
+        case LEFT:     return -hand.side;
+        case RIGHT:    return  hand.side;
+        default:       return  hand.side;
     }
+}
 
+internal v3
+get_perpendical_axis(u32 index, Left_Hand hand) {
+    switch(index) {
+        case FORWARD:  return  hand.side;
+        case BACKWARD: return -hand.side;
+        case LEFT:     return  hand.forward;
+        case RIGHT:    return -hand.forward;
+        default:       return  hand.side;
+    }
+}
+
+internal void
+apply_wave_rotation(Boat3D *boat, u32 index, Left_Hand hand, Wave *waves, u32 waves_count, r32 run_time_s) {
     r32 length = boat->lengths[index];
-    v3 straight_pos = boat->draw_coords + (normalized(direction) * length) * rotation_direction;
+
+    v3 straight_pos = boat->wave.E[index];
     v3 wave_pos = apply_waves({straight_pos.x, -1.0f, straight_pos.z}, waves, waves_count, run_time_s);
 
     if (straight_pos.y < wave_pos.y) {
         r32 mag = wave_pos.y - straight_pos.y;
-        boat->rotation = boat->rotation * get_rotation(DEG2RAD * rotation_direction * mag, normalized(perpendical));
+        boat->rotation = boat->rotation * get_rotation(DEG2RAD * mag, normalized(get_perpendical_axis(index, hand)));
     }
 
     boat->direction = boat->rotation * v3{ 1, 0, 0 };
     boat->up        = boat->rotation * v3{ 0, 1, 0 };
 
-    boat->debug_straight_coords[index] = straight_pos;
     boat->debug_wave_coords[index] = wave_pos;
+}
+
+internal Boat_Coords
+Create_Boat_Coords(v3 coords, Left_Hand hand, f32 lengths[4]) {
+    Boat_Coords result = {};
+
+    result.forward  = coords + (normalized(get_axis(FORWARD,  hand)) * lengths[FORWARD]);
+    result.backward = coords + (normalized(get_axis(BACKWARD, hand)) * lengths[BACKWARD]);
+    result.left     = coords + (normalized(get_axis(LEFT,     hand)) * lengths[LEFT]);
+    result.right    = coords + (normalized(get_axis(RIGHT,    hand)) * lengths[RIGHT]);
+    result.center   = coords;
+
+    return result;
 }
 
 internal void
 update_boat_3D_draw_coord(Boat3D *boat, Wave *waves, u32 waves_count, r32 run_time_s)
 {
+    Left_Hand base = get_Left_Hand(boat->direction, { 0, 1, 0 });
+    Left_Hand wave = get_Left_Hand(boat->direction, boat->up);
+
+    boat->base = Create_Boat_Coords(boat->coords, base, boat->lengths);
+
     v3 draw_coords = apply_waves(boat->coords, waves, waves_count, run_time_s);
-    boat->draw_coords = draw_coords;
+    v3 last_draw_coords = boat->wave.center;
+
+    boat->wave = Create_Boat_Coords(draw_coords, wave, boat->lengths);
 /*
     boat->draw_coords_history[boat->newest_draw_coord_index] = draw_coords;
     
@@ -311,10 +332,15 @@ update_boat_3D_draw_coord(Boat3D *boat, Wave *waves, u32 waves_count, r32 run_ti
     if (boat->newest_draw_coord_index >= ARRAY_COUNT(boat->draw_coords_history)) 
         boat->newest_draw_coord_index = 0;
 */
-    apply_wave_rotation(boat, FORWARD, waves, waves_count, run_time_s);
-    apply_wave_rotation(boat, BACKWARD,  waves, waves_count, run_time_s);
-    apply_wave_rotation(boat, LEFT,  waves, waves_count, run_time_s); 
-    apply_wave_rotation(boat, RIGHT, waves, waves_count, run_time_s);
+
+    for (u32 i = 0; i < DIRECTIONS_2D; i++)
+        apply_wave_rotation(boat, i,  wave, waves, waves_count, run_time_s);
+
+    boat->draw_delta += magnitude(draw_coords - last_draw_coords);
+    if (boat->draw_delta >= 1.5f) {
+        add_particle(boat->base.E[BACKWARD], -boat->direction, 2.0f);
+        boat->draw_delta = 0.0f;
+    }
 }
 
 internal void
@@ -330,15 +356,15 @@ draw_boat(Boat3D *boat3D, Assets *assets, Camera camera) {
     Model *boat = find_model(assets, "BOAT2");
     boat->color_shader = find_shader(assets, "MATERIAL");
     boat->texture_shader = find_shader(assets, "MATERIAL_TEX");
-    draw_model(boat, camera, boat3D->draw_coords, boat3D->rotation);
+    draw_model(boat, camera, boat3D->wave.center, boat3D->rotation);
 
     v4 cube_color = { 255, 0, 0, 1 };
     v4 cube_color2 = { 255, 0, 255, 1 };
     v3 cube_scale = {0.2f, 0.2f, 0.2f};
-    draw_cube(boat3D->draw_coords, 0, cube_scale, cube_color);
+    draw_cube(boat3D->wave.center, 0, cube_scale, cube_color);
 
     for (u32 i = 0; i < DIRECTIONS_2D; i++)
-        draw_cube(boat3D->debug_straight_coords[i], 0, cube_scale, cube_color);
+        draw_cube(boat3D->wave.E[i], 0, cube_scale, cube_color);
     for (u32 i = 0; i < DIRECTIONS_2D; i++)
         draw_cube(boat3D->debug_wave_coords[i], 0, cube_scale, cube_color2);
 }
@@ -531,16 +557,21 @@ draw_game_3D(Application *app, Game_Data *data)
     //draw_cube({1, 5, 1}, 0, { 1, 1, 1 }, find_bitmap(&app->assets, "BOAT"));
     //draw_cube(data->boat3D.draw_coords, 0, { 1, 1, 1 }, { 255, 0, 255, 255 });
 
+    update_particles(app->time.frame_time_s);
+    draw_particles(&app->assets, data->game_run_time_s);
+
     draw_boat(&data->boat3D, &app->assets, data->camera);
 
     // ORIGIN CUBE
     {
         v4 cube_color2 = { 255, 0, 255, 1 };
-        v3 cube_scale = {0.2f, 0.2f, 0.2f};
-        v3 origin = apply_waves({0,  -1.0f, 0}, data->waves, 5, data->game_run_time_s);
-        draw_cube(origin, 0, cube_scale, cube_color2);
+        v3 cube_scale = {1.2f, 1.2f, 1.2f};
+        v3 origin = { 0, 0, 0 };
+        //v3 origin = apply_waves({0,  -1.0f, 0}, data->waves, 5, data->game_run_time_s);
+        //draw_cube(origin, 0, cube_scale, cube_color2);
+        draw_sphere(origin, 0, cube_scale, cube_color2);
     }
-    
+
 	orthographic(data->matrices_ubo, &app->matrices); // 2D
 
     platform_set_capability(PLATFORM_CAPABILITY_DEPTH_TEST, false);
