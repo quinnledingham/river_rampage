@@ -88,21 +88,24 @@ void* init_data(Assets *assets)
     init_camera_menu(&data->camera_menu, assets);
     
     // 3D
-    data->camera.position = { 0, 5, 10 };
-    data->camera.up       = { 0, 1, 0 };
+    data->camera.position = { 5, 40, 0 };
     data->camera.target   = { 0, 0, -2 };
-    data->camera.yaw      = 270.0f;
-    data->camera.fov      = 80.0f;
+    data->camera.up       = { 0, 1, 0 };
+    data->camera.fov      = 70.0f;
+    data->camera.yaw      = 0.0f;
+    data->camera.pitch    = -85.0f;
     
-    data->light.position = { 5.0f, 20.0f, 10.0f };
+    data->light.position = { 5.0f, 60.0f, 10.0f };
     data->light.ambient  = { 0.3f, 0.3f, 0.3f };
     data->light.diffuse  = { 0.9f, 0.9f, 0.9f };
     data->light.specular = { 0.5f, 0.5f, 0.5f };
     data->light.color    = { 1.0f, 1.0f, 1.0f, 1.0f };
     
-    data->triangle_mesh = create_square_mesh(100, 100);
-    //init_mesh(&data->triangle_mesh);
-    data->water = make_square_mesh_into_patches(&data->triangle_mesh, 100, 100);
+    data->triangle_mesh = create_square_mesh(100, 100, true);
+    init_mesh(&data->triangle_mesh);
+
+    Mesh temp = create_square_mesh(100, 100, false);
+    data->water = make_square_mesh_into_patches(&temp, 100, 100);
     
     data->game_mode = IN_GAME_3D;
     data->cube = get_cube_mesh();
@@ -124,11 +127,11 @@ void* init_data(Assets *assets)
     data->wave_ubo = init_uniform_buffer_object(5 * sizeof(Wave), 1);
     data->lights_ubo = init_uniform_buffer_object(sizeof(Light), 2);
     
-    data->waves[0] = get_wave({ 1.0, 0.0 }, 20.0f, 0.2f);
-    data->waves[1] = get_wave({ 1.0, 1.0 }, 5.0f, 0.2f);
+    data->waves[0] = get_wave({ 1.0f, 0.0f }, 20.0f, 0.2f);
+    data->waves[1] = get_wave({ 1.0f, 1.0f }, 50.0f, 0.3f);
     data->waves[2] = get_wave({ 0.0f, 0.4f }, 5.0f, 0.1f);
-    data->waves[3] = get_wave({ 0.7f, 0.9f }, 9.0f, 0.05f);
-    data->waves[4] = get_wave({ 0.0, -1.0 }, 10.0f, 0.25f);
+    data->waves[3] = get_wave({ -0.7f, 0.9f }, 9.0f, 0.1f);
+    data->waves[4] = get_wave({ 0.1f, -0.9f }, 15.0f, 0.25f);
 
     platform_set_uniform_buffer_data(data->wave_ubo, sizeof(Wave) * 5, (void*)&data->waves);
     platform_set_uniform_buffer_data(data->lights_ubo, sizeof(Light), (void*)&data->light);

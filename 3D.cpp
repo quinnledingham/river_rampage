@@ -46,10 +46,23 @@ internal void
 align_camera_with_boat(Camera *camera, Boat3D *boat) {
     camera->position.x = boat->coords.x;
     camera->position.z = boat->coords.z;
+    camera->position.y = 40.0f;
+
+    camera->fov      = 70.0f;
+    camera->yaw      = 0.0f;
+    camera->pitch    = -85.0f;
 }
 
+// srand at beginning of main_loop()
+function s32
+random(s32 lower, s32 upper)
+{
+    return lower + (rand() % (upper - lower));
+}
+
+
 function Mesh
-create_square_mesh(u32 u, u32 v)
+create_square_mesh(u32 u, u32 v, b32 rand)
 {
     Mesh result = {};
     result.vertices_count = (u + 1) * (v + 1);
@@ -64,7 +77,10 @@ create_square_mesh(u32 u, u32 v)
     {
         for (u32 j = 0; j < (v + 1); j++, t += 2)
         {
-            v3 vertex_pos = { (f32(i) * du) - 1.0f, (f32)-1, (f32(j) * dv) - 1.0f };
+            s32 y = -1;
+            if (rand)
+                y = random(-10, -1);
+            v3 vertex_pos = { (f32(i) * du) - 1.0f, (f32)y, (f32(j) * dv) - 1.0f };
             v2 tex_coords = { (f32)i / f32(u), 1.0f - (f32)j / f32(v) };
             Vertex vertex = { vertex_pos, {0, 1, 0}, tex_coords };
             result.vertices[vertex_count++] = vertex;
@@ -154,7 +170,7 @@ apply_waves(const v3 position, Wave *waves, u32 waves_count, f32 time)
     v3 result = position;
     for (u32 wave_index = 0; wave_index < waves_count; wave_index++)
     {
-        result += apply_wave(waves[wave_index], position, time / 5.0f);
+        result += apply_wave(waves[wave_index], position, time / 4.0f);
     }
     return result;
 }
@@ -188,6 +204,8 @@ update_boat_3D_draw_coord(Boat3D *boat, Wave *waves, u32 waves_count, r32 run_ti
 {
     v3 draw_coords = apply_waves(boat->coords, waves, waves_count, run_time_s);
 
+boat->draw_coords = draw_coords;
+/*
     boat->draw_coords_history[boat->newest_draw_coord_index] = draw_coords;
     
     v3 sum = draw_coords;
@@ -197,13 +215,16 @@ update_boat_3D_draw_coord(Boat3D *boat, Wave *waves, u32 waves_count, r32 run_ti
         sum += boat->draw_coords_history[index];
         index++;
         indices_added++;
-        if (index >= ARRAY_COUNT(boat->draw_coords_history)) index = 0;
+        if (index >= ARRAY_COUNT(boat->draw_coords_history)) 
+            index = 0;
     }
     
     boat->draw_coords = sum / (f32)indices_added;
 
     boat->newest_draw_coord_index++;
-    if (boat->newest_draw_coord_index >= ARRAY_COUNT(boat->draw_coords_history)) boat->newest_draw_coord_index = 0;
+    if (boat->newest_draw_coord_index >= ARRAY_COUNT(boat->draw_coords_history)) 
+        boat->newest_draw_coord_index = 0;
+*/
 }
 
 internal void
@@ -227,7 +248,7 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
     data->game_run_time_s += time.frame_time_s;
 
     Button null_button = {};
-    f32 m_per_s = 2.5f; 
+    f32 m_per_s = 6.0f; 
     f32 move_speed = m_per_s * time.frame_time_s;
     f32 boat_rotation_speed = 50.0f * time.frame_time_s;
 
@@ -330,8 +351,8 @@ draw_water(Assets *assets, Mesh mesh, r32 seconds, Camera camera)
 {
     u32 active_shader = use_shader(find_shader(assets, "WATER"));
     
-    v4 color = {30.0f/255.0f, 144.0f/255.0f, 255.0f/255.0f, 0.9f};
-    m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {0, 1, 0}), {50, 1, 50});
+    v4 color = {30.0f/255.0f, 144.0f/255.0f, 255.0f/255.0f, 0.7f};
+    m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {0, 1, 0}), {100, 1, 100});
 
     platform_uniform_m4x4(active_shader, "model", &model);
     platform_uniform_f32(active_shader, "time", seconds);
@@ -339,6 +360,30 @@ draw_water(Assets *assets, Mesh mesh, r32 seconds, Camera camera)
     platform_uniform_v4(active_shader, "user_color", color);
 
     draw_mesh_patches(&mesh);
+}
+
+function void
+draw_ground(Assets *assets, Mesh mesh, r32 seconds, Camera camera) {
+    u32 active_shader = use_shader(find_shader(assets, "MATERIAL"));
+    
+    v4 color = {255, 0, 0, 1};
+    m4x4 model = create_transform_m4x4({0, -5, 0}, get_rotation(0, {0, 1, 0}), {100, 1, 100});
+
+    platform_uniform_m4x4(active_shader, "model", &model);
+    platform_uniform_v3(active_shader, "viewPos", camera.position);
+
+    Material material = {};
+    material.ambient = { 0.01f, 0.01f, 0.01f };
+    material.diffuse = { 0.0f, 0.1f, 0.25f };
+    material.specular = { 0.1f, 0.1f, 0.1f };
+    material.specular_exponent = 15.0f;
+
+    platform_uniform_v3(active_shader, "material.ambient", material.ambient);
+    platform_uniform_v3(active_shader, "material.diffuse", material.diffuse);
+    platform_uniform_v3(active_shader, "material.specular", material.specular);
+    platform_uniform_f32(active_shader, "material.shininess", material.specular_exponent);
+
+    draw_mesh(&mesh);
 }
 
 internal void
@@ -355,13 +400,14 @@ draw_game_3D(Application *app, Game_Data *data)
 
 	platform_set_capability(PLATFORM_CAPABILITY_DEPTH_TEST, true);
 	platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, true);
-    
+
+    draw_ground(&app->assets, data->triangle_mesh, data->game_run_time_s, data->camera);
     draw_water(&app->assets, data->water, data->game_run_time_s, data->camera);
 
-    Model *tails = find_model(&app->assets, "TAILS");
-    tails->color_shader = find_shader(&app->assets, "MATERIAL");
-    tails->texture_shader = find_shader(&app->assets, "MATERIAL_TEX");
-    draw_model(tails, data->camera, {0, 0, 0}, get_rotation(0, {0, 1, 0}));
+    //Model *tails = find_model(&app->assets, "TAILS");
+    //tails->color_shader = find_shader(&app->assets, "MATERIAL");
+    //tails->texture_shader = find_shader(&app->assets, "MATERIAL_TEX");
+    //draw_model(tails, data->camera, {0, 0, 0}, get_rotation(0, {0, 1, 0}));
     draw_cube(data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
 
     //draw_cube({1, 5, 1}, 0, { 1, 1, 1 }, find_bitmap(&app->assets, "BOAT"));

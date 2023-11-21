@@ -285,7 +285,7 @@ void load_shader(Shader *shader)
 
         if (shader->files[i].path != 0) {
             shader->files[i] = read_file_terminated(shader->files[i].path);
-            printf("%s", shader->files[i].path);
+            printf("%s ", shader->files[i].path);
         }
     }
     printf("\n");

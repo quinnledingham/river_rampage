@@ -128,10 +128,10 @@ void main() {
 	vec4 color = user_color;
 	color.xyz -= 0.2;
 	
-	if (distance(frag_position, camera_pos) < 20)
+	if (distance(frag_position, camera_pos) < 100)
 	{
-		//float n = nestedNoise(uv_coords * 6.);
-		//color = vec4(mix(user_color.xyz, user_color.xyz - 0.5, n), 1);
+		float n = nestedNoise(uv_coords * 6.);
+		color = vec4(mix(user_color.xyz, user_color.xyz - 0.5, n), 0.1);
 	}
 
 	vec3 result = (ambient + diffuse + specular) * color.xyz;

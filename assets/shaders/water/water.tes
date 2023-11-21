@@ -49,6 +49,19 @@ vec3 apply_wave(vec3 pos, Wave wave, float time)
 				d.y * (a * cos(f)));
 }
 
+vec3 apply_wave(vec3 pos, vec4 wave, float time)
+{
+	float k = 2 * PI / wave.z;
+	float c = sqrt(9.8 / k);
+	vec2 d = normalize(wave.xy);
+	float f = k * (dot(d, pos.xz) - c * time);
+	float a = wave.w / k;
+
+	return vec3(d.x * (a * cos(f)),
+				a * sin(f),
+				d.y * (a * cos(f)));
+}
+
 void main() {
 	float u = gl_TessCoord.x;
 	float v = gl_TessCoord.y;
@@ -59,8 +72,16 @@ void main() {
 
 	te_position = vec3(model * vec4(te_position, 1));
 	vec3 const_pos = te_position;
-	for (int i = 0; i < 5; i++) te_position += apply_wave(const_pos, waves[i], time / 5.0);
+	for (int i = 0; i < 5; i++) te_position += apply_wave(const_pos, waves[i], time / 4.0);
 
+	float time_adj = time / 1.0;
+/*
+	te_position += apply_wave(const_pos, vec4(1.0, 0.0, 20, 0.2), time_adj);
+	te_position += apply_wave(const_pos, vec4(1.0, 1.0, 50, 0.3), time_adj);
+	te_position += apply_wave(const_pos, vec4(0.0, 0.4, 5, 0.1), time_adj);
+	te_position += apply_wave(const_pos, vec4(-0.7, 0.9, 9.0, 0.1), time_adj);
+	te_position += apply_wave(const_pos, vec4(0.1, -0.9, 15, 0.25), time_adj);
+*/
     //tePatchDistance = vec4(u, v, 1-u, 1-v);
 
 	vec3 c = mix(vec3(texture_coord[0], 1), vec3(texture_coord[1], 1), u);

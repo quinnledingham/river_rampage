@@ -224,6 +224,7 @@ update_time(Time *time)
     // get fps
     time->frames_per_s = 1000.0f;
     if (time->frame_time_s > 0.0f) time->frames_per_s = 1.0f / time->frame_time_s;
+    //log("frame seconds %f", time->frame_time_s);
 }
 
 function void
@@ -241,6 +242,8 @@ function void swap_window(SDL_Window *sdl_window) { SDL_GL_SwapWindow(sdl_window
 function int
 main_loop(Application *app, SDL_Window *sdl_window)
 {
+    srand(SDL_GetTicks());
+    
     Bitmap *icon = find_bitmap(&app->assets, "ICON");
     SDL_Surface *icon_surface = SDL_CreateRGBSurfaceFrom(icon->memory, icon->dim.width, icon->dim.height, 32, icon->pitch, 0x00000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
     SDL_SetWindowIcon(sdl_window, icon_surface);
