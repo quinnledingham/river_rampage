@@ -622,3 +622,61 @@ draw_camera_menu(Camera_Menu *menu, Camera *camera, Button mouse_left, v2s mouse
         coords.y += dim.y;
     }
 }
+
+
+
+internal void
+draw_float_texboxes(Easy_Textboxs *easy, Button mouse_left, v2s mouse_coords, Input *input) {
+    // figuring out which box is active
+    b32 active_changed = false;
+    for (u32 i = 0; i < easy->num_of_boxs; i++) {
+        b32 temp_active_changed = float_textbox_update_mouse(&easy->boxs[i], mouse_left, mouse_coords);
+        if (temp_active_changed) // if there is one active changed
+            active_changed = true;
+    }
+
+    // checking if a box is active and setting up the active box to be editted
+    s32 active_float_textbox = -1;
+    b8 active_textbox = false;
+    for (u32 i = 0; i < easy->num_of_boxs; i++) {// checking if any box is active
+        if (easy->boxs[i].active != -1) {
+            active_float_textbox = i;
+            active_textbox = true;
+
+            if (active_changed) {
+                // if there is a new box that is active load value into edit buffer
+                f32 *src = float_textbox_get_element(&easy->boxs[i], easy->boxs[i].active);
+                const char *temp = ftos((f32)*src);
+                for (u32 j = 0; j < float_digit_size - 1; j++) {
+                    easy->edit.buffer[j] = temp[j];
+                }
+                platform_free((void*)temp);
+
+                input->mode = INPUT_MODE_KEYBOARD;
+
+                break;
+            }
+        }
+    }
+    if (!active_textbox && active_changed) // no box is active
+        input->mode = INPUT_MODE_GAME;
+
+    // load input now that we know which box is active
+    if (active_textbox) {
+        // if true that means that the one active textbox was disabled
+        if (float_textbox_get_input(&easy->boxs[active_float_textbox], input, easy->edit.buffer, float_digit_size, &easy->edit.cursor_position))
+            input->mode = INPUT_MODE_GAME;
+    }
+
+    // the drawing
+    v2 coords = { 0, 0 };
+    v2 dim = { 125, 40 };
+    dim.x *= 3.0f;
+    for (u32 i = 0; i < easy->num_of_boxs; i++) {
+        easy->boxs[i].coords = coords;
+        easy->boxs[i].dim = dim;
+        float_textbox_load_src_values(&easy->boxs[i]);
+        float_textbox_draw(&easy->boxs[i], easy->draw, &easy->edit.cursor_position, easy->edit.buffer, mouse_left, mouse_coords);
+        coords.y += dim.y;
+    }
+}

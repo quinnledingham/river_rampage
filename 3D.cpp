@@ -168,11 +168,18 @@ function v3
 apply_waves(const v3 position, Wave *waves, u32 waves_count, f32 time)
 {
     v3 result = position;
-    for (u32 wave_index = 0; wave_index < waves_count; wave_index++)
-    {
+    for (u32 wave_index = 0; wave_index < waves_count; wave_index++) {
         result += apply_wave(waves[wave_index], position, time / 4.0f);
     }
     return result;
+}
+
+inline void
+go_towards(f32 *value, f32 target) {
+    if (*value > target)
+        *value -= 0.001f;
+    else if (*value < target)
+        *value += 0.001f;
 }
 
 function void
@@ -181,30 +188,84 @@ update_boat_3D(Boat3D *boat,   v3 target, v3 up,
                Button forward, Button backward,
                Button left,    Button right)
 {
-    if (is_down(left))
-    {
-        quat rot = get_rotation(DEG2RAD * rotation_speed, up);
-        boat->direction = rot * boat->direction;
+    if (is_down(left)) {
+        boat->rotation = boat->rotation * get_rotation(DEG2RAD *  rotation_speed, {0, 1, 0});
+    } else if (is_down(right)) {
+        boat->rotation = boat->rotation * get_rotation(DEG2RAD * -rotation_speed, {0, 1, 0});
     }
-    else if (is_down(right))
-    {
-        quat rot = get_rotation(DEG2RAD * -rotation_speed, up);
-        boat->direction = rot * boat->direction;
-    }
+
+    boat->direction = boat->rotation * v3{ 1, 0, 0 };
+    boat->up        = boat->rotation * v3{ 0, 1, 0 };
 
     if (is_down(forward))  boat->coords += target * move_vector;
     if (is_down(backward)) boat->coords -= target * move_vector;
+}
 
-    //if (is_down(left))     boat->coords -= normalized(cross_product(target, up)) * move_vector;
-    //if (is_down(right))    boat->coords += normalized(cross_product(target, up)) * move_vector;
+internal void
+apply_wave_rotation(Boat3D *boat, u32 index,
+                      Wave *waves, u32 waves_count, r32 run_time_s) {
+    v3 direction = {};
+    v3 perpendical = {};
+    r32 rotation_direction = 0.0f;
+
+    switch(index) {
+        case BOAT_FRONT: {
+            direction = boat->direction;
+            perpendical = cross_product(boat->direction, boat->up);
+            rotation_direction = 1.0f;
+        } break;
+
+        case BOAT_BACK: {
+            direction = boat->direction;
+            perpendical = cross_product(boat->direction, boat->up);
+            rotation_direction = -1.0f;
+        } break;
+
+        case BOAT_LEFT: {
+            direction = cross_product(boat->direction, -boat->up);
+            perpendical = boat->direction;
+            rotation_direction = 1.0f;
+        } break;
+
+        case BOAT_RIGHT: {
+            direction = cross_product(boat->direction, -boat->up);
+            perpendical = boat->direction;
+            rotation_direction = -1.0f;
+        } break;
+    }
+
+    r32 length = boat->lengths[index];
+    v3 straight_pos = boat->draw_coords + (normalized(direction) * length) * rotation_direction;
+    v3 wave_pos = apply_waves({straight_pos.x, -1.0f, straight_pos.z}, waves, waves_count, run_time_s);
+
+    if (straight_pos.y < wave_pos.y) {
+        r32 mag = wave_pos.y - straight_pos.y;
+        boat->rotation = boat->rotation * get_rotation(DEG2RAD * rotation_direction * mag, normalized(perpendical));
+    }
+
+    boat->direction = boat->rotation * v3{ 1, 0, 0 };
+    boat->up        = boat->rotation * v3{ 0, 1, 0 };
+
+    boat->debug_straight_coords[index] = straight_pos;
+    boat->debug_wave_coords[index] = wave_pos;
 }
 
 internal void
 update_boat_3D_draw_coord(Boat3D *boat, Wave *waves, u32 waves_count, r32 run_time_s)
 {
     v3 draw_coords = apply_waves(boat->coords, waves, waves_count, run_time_s);
+    boat->draw_coords = draw_coords;
 
-boat->draw_coords = draw_coords;
+    apply_wave_rotation(boat, BOAT_FRONT, waves, waves_count, run_time_s);
+    apply_wave_rotation(boat, BOAT_BACK,  waves, waves_count, run_time_s);
+    apply_wave_rotation(boat, BOAT_LEFT,  waves, waves_count, run_time_s); 
+    apply_wave_rotation(boat, BOAT_RIGHT, waves, waves_count, run_time_s);
+                  
+    //boat->draw_coords = average(boat->front, boat->back);
+
+    //v3 line = boat->front - boat->back;
+    //boat->draw_coords = projection_onto_line(boat->coords, line);
+    //boat->coords;
 /*
     boat->draw_coords_history[boat->newest_draw_coord_index] = draw_coords;
     
@@ -225,6 +286,32 @@ boat->draw_coords = draw_coords;
     if (boat->newest_draw_coord_index >= ARRAY_COUNT(boat->draw_coords_history)) 
         boat->newest_draw_coord_index = 0;
 */
+}
+
+internal void
+draw_v3(v3 position, v3 v) {
+    v4 cube_color = { 0, 255, 0, 1 };
+    v3 cube_scale = {0.2f, 0.2f, 0.2f};
+    draw_cube(position, 0, cube_scale, cube_color);
+    draw_cube(position + v, 0, cube_scale, cube_color);
+}
+
+internal void
+draw_boat(Boat3D *boat3D, Assets *assets, Camera camera) {
+    Model *boat = find_model(assets, "BOAT2");
+    boat->color_shader = find_shader(assets, "MATERIAL");
+    boat->texture_shader = find_shader(assets, "MATERIAL_TEX");
+    draw_model(boat, camera, boat3D->draw_coords, boat3D->rotation);
+
+    v4 cube_color = { 255, 0, 0, 1 };
+    v4 cube_color2 = { 255, 0, 255, 1 };
+    v3 cube_scale = {0.2f, 0.2f, 0.2f};
+    draw_cube(boat3D->draw_coords, 0, cube_scale, cube_color);
+
+    for (u32 i = 0; i < BOAT_DIRECTIONS; i++)
+        draw_cube(boat3D->debug_straight_coords[i], 0, cube_scale, cube_color);
+    for (u32 i = 0; i < BOAT_DIRECTIONS; i++)
+        draw_cube(boat3D->debug_wave_coords[i], 0, cube_scale, cube_color2);
 }
 
 internal void
@@ -413,19 +500,22 @@ draw_game_3D(Application *app, Game_Data *data)
     //draw_cube({1, 5, 1}, 0, { 1, 1, 1 }, find_bitmap(&app->assets, "BOAT"));
     //draw_cube(data->boat3D.draw_coords, 0, { 1, 1, 1 }, { 255, 0, 255, 255 });
 
-    r32 angle = v2_to_angle({data->boat3D.direction.x, data->boat3D.direction.z});
-    //log("x: %f, y: %f, %f", data->boat3D.direction.x, data->boat3D.direction.z, angle);
-    quat rot = get_rotation(-angle, {0, 1, 0});
+    draw_boat(&data->boat3D, &app->assets, data->camera);
 
-    Model *boat = find_model(&app->assets, "BOAT2");
-    boat->color_shader = find_shader(&app->assets, "MATERIAL");
-    boat->texture_shader = find_shader(&app->assets, "MATERIAL_TEX");
-    draw_model(boat, data->camera, data->boat3D.draw_coords, rot);
+    // ORIGIN CUBE
+    {
+        v4 cube_color2 = { 255, 0, 255, 1 };
+        v3 cube_scale = {0.2f, 0.2f, 0.2f};
+        v3 origin = apply_waves({0,  -1.0f, 0}, data->waves, 5, data->game_run_time_s);
+        draw_cube(origin, 0, cube_scale, cube_color2);
+    }
     
 	orthographic(data->matrices_ubo, &app->matrices); // 2D
 
     platform_set_capability(PLATFORM_CAPABILITY_DEPTH_TEST, false);
     platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, false);
+
+    draw_float_texboxes(&data->boat3D.easy, menu_controller->mouse_left, menu_controller->mouse, &app->input);
 
     if (data->show_camera_menu) {
         draw_camera_menu(&data->camera_menu, &data->camera, menu_controller->mouse_left, menu_controller->mouse, &app->input);

@@ -46,18 +46,35 @@ struct Boat
     v2 direction; // the way the ship is pointing 
     r32 acceleration_magnitude; // always accelerates in the direction of the boat
     f32 water_acceleration_magnitude;
-    
+};
+
+enum Boat_Directions
+{
+    BOAT_FRONT,
+    BOAT_BACK,
+    BOAT_LEFT,
+    BOAT_RIGHT,
+
+    BOAT_DIRECTIONS
 };
 
 struct Boat3D
 {
+    v3 direction = {1, 0, 0};
     v3 coords;
+    v3 up = {0, 1, 0};
+    quat rotation = {0, 0, 0, 1};
+
     v3 draw_coords; // boat coords with waves applied
+
+    f32 lengths[4]; // how far from the center to edge of boat
+    v3 debug_straight_coords[4];
+    v3 debug_wave_coords[4];
+    
+    Easy_Textboxs easy;
 
     v3 draw_coords_history[500];
     u32 newest_draw_coord_index;
-
-    v3 direction = {1, 0, 0};
 };
 
 enum Game_Modes

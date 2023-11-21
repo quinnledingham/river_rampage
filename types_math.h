@@ -115,6 +115,7 @@ inline v3 operator*(const v3 &l, const v3  &r) { return { l.x * r.x, l.y * r.y, 
 inline v3 operator*(const v3 &l, float      r) { return {l.x * r,    l.y * r,   l.z * r   }; }
 inline v3 operator/(const v3 &l, const v3  &r) { return { l.x / r.x, l.y / r.y, l.z / r.z }; }
 inline v3 operator/(const v3 &l, const r32 &r) { return { l.x / r,   l.y / r,   l.z / r   }; }
+inline v3 operator-(const v3 &v)               { return {-v.x    ,  -v.y    ,  -v.z       }; }
 
 inline void operator+=(v3 &l, const v3 &r)  { l.x = l.x + r.x; l.y = l.y + r.y; l.z = l.z + r.z; }
 inline void operator+=(v3 &l, const r32 &r) { l.x = l.x + r;   l.y = l.y + r;   l.z = l.z + r;   }
@@ -170,6 +171,22 @@ angle_between(const v3 &a, const v3 &b)
 {
     return acosf((dot_product(a, b)) / (magnitude(a) * magnitude(b)));
 }
+
+inline v3
+projection_onto_line(v3 v, v3 line)
+{
+    return line * (dot_product(v, line) / dot_product(line, line));
+}
+
+inline v3
+average(const v3 &l, const v3 &r) {
+    v3 result = {};
+    result.x = (l.x + r.x) / 2.0f;
+    result.y = (l.y + r.y) / 2.0f;
+    result.z = (l.x + r.z) / 2.0f;
+    return result;
+}
+
 
 //
 // v4

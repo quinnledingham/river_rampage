@@ -144,6 +144,35 @@ struct Float_Textbox {
     s32 active = -1;
 };
 
+struct Edit_Float_Textbox {
+    char buffer[float_digit_size];
+    u32 cursor_position;
+};
+
+struct Easy_Textboxs {
+    Float_Textbox boxs[10];
+    u32 num_of_boxs;
+
+    Edit_Float_Textbox edit;
+    Draw_Textbox draw;
+};
+
+global const Draw_Textbox default_draw_textbox = {
+    { 0, 0 },
+    { 125, 40 },
+    { 50, 50, 50, 0.5f },
+
+    0,
+    0,
+    4,
+    { 255, 255, 255, 1.0f },
+
+    false,
+    0,
+    2.0f,
+    { 200, 200, 200, 1.0f },
+};
+
 struct Camera_Menu {
     Float_Textbox boxs[6];
 
