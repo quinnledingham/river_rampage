@@ -1,6 +1,18 @@
 #ifndef GAME_H
 #define GAME_H
 
+enum
+{
+    FORWARD,       // 0
+    BACKWARD,      // 1
+    LEFT,          // 2
+    RIGHT,         // 3
+    DIRECTIONS_2D, // 4 directions needed for 2D
+    UP,            // 5
+    DIRECTIONS_3D, // 6 directions needed for 3D
+    DOWN,          // 7
+};
+
 struct Wave
 {
     v2 direction;
@@ -48,22 +60,19 @@ struct Boat
     f32 water_acceleration_magnitude;
 };
 
-enum Boat_Directions
-{
-    BOAT_FRONT,
-    BOAT_BACK,
-    BOAT_LEFT,
-    BOAT_RIGHT,
-
-    BOAT_DIRECTIONS
-};
-
 struct Boat3D
 {
-    v3 direction = {1, 0, 0};
-    v3 coords;
-    v3 up = {0, 1, 0};
+    v3 direction  = {1, 0, 0};
+    v3 up         = {0, 1, 0};
+    v3 side       = {0, 0, 1};
+    v3 coords     = { 0, -1.25f, 0 };
     quat rotation = {0, 0, 0, 1};
+
+    r32 speed;
+    r32 maximum_speed = 1.0f;
+    v3 velocity; // the direciton and mag of movement
+    r32 acceleration_magnitude = 0.2f; // always accelerates in the direction of the boat
+    r32 drag_magnitude = 0.3f;
 
     v3 draw_coords; // boat coords with waves applied
 

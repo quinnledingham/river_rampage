@@ -128,6 +128,18 @@ inline bool operator==(const v3 &v, float f)     { if (v.x == f   && v.y == f   
 inline r32 dot_product(const v3 &l, const v3 &r) { return (l.x * r.x) + (l.y * r.y) + (l.z * r.z); }
 inline r32 length_squared(const v3 &v) { return (v.x * v.x) + (v.y * v.y) + (v.z * v.z); }
 
+inline v3 
+pow(const v3 &v, u32 exponent)
+{
+    v3 result = v;
+    for (u32 i = 1; i < exponent; i++) { 
+        result.x *= v.x; 
+        result.y *= v.y;
+        result.z *= v.z;
+    }
+    return result;
+}
+
 inline void
 normalize(v3 &v)
 {

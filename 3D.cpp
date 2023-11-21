@@ -182,7 +182,23 @@ go_towards(f32 *value, f32 target) {
         *value += 0.001f;
 }
 
-function void
+internal void
+init_boat_3D(Boat3D *boat, Font *font) {
+    boat->lengths[FORWARD] = 4.0f;
+    boat->lengths[BACKWARD] = 4.0f;
+    boat->lengths[LEFT] = 2.0f;
+    boat->lengths[RIGHT] = 2.0f;
+
+    boat->easy.boxs[0] = f32_textbox();
+    boat->easy.boxs[1] = f32_textbox();
+    boat->easy.num_of_boxs = 0;
+    boat->easy.draw = default_draw_textbox;
+    boat->easy.draw.font = font;
+    //boat->easy.boxs[0].src = &boat->left_scale;
+    //boat->easy.boxs[1].src = &boat->right_scale;
+}
+
+function v3
 update_boat_3D(Boat3D *boat,   v3 target, v3 up,
                v3 move_vector, r32 rotation_speed,
                Button forward, Button backward,
@@ -197,8 +213,28 @@ update_boat_3D(Boat3D *boat,   v3 target, v3 up,
     boat->direction = boat->rotation * v3{ 1, 0, 0 };
     boat->up        = boat->rotation * v3{ 0, 1, 0 };
 
-    if (is_down(forward))  boat->coords += target * move_vector;
-    if (is_down(backward)) boat->coords -= target * move_vector;
+    //if (is_down(forward))  boat->coords += target * move_vector;
+    //if (is_down(backward)) boat->coords -= target * move_vector;
+
+    v3 acceleration_direction = {};
+    if (is_down(forward))
+            acceleration_direction = boat->direction;
+
+    v3 acceleration = acceleration_direction * boat->acceleration_magnitude;
+    if (boat->speed < boat->maximum_speed) {
+        boat->velocity += acceleration * move_vector;
+    }
+
+    boat->speed = magnitude(boat->velocity);
+    if (boat->speed > 0.0f) {
+        f32 angle_dir_to_velocity = angle_between(boat->direction, boat->velocity);
+        v3 drag_force = -normalized(boat->velocity) * (pow(boat->velocity, 2)) * angle_dir_to_velocity * boat->drag_magnitude;
+        boat->velocity += drag_force * move_vector;
+    }
+
+    v3 coords_delta = boat->velocity * move_vector;
+    boat->coords += coords_delta;
+    return coords_delta;
 }
 
 internal void
@@ -209,25 +245,25 @@ apply_wave_rotation(Boat3D *boat, u32 index,
     r32 rotation_direction = 0.0f;
 
     switch(index) {
-        case BOAT_FRONT: {
+        case FORWARD: {
             direction = boat->direction;
             perpendical = cross_product(boat->direction, boat->up);
             rotation_direction = 1.0f;
         } break;
 
-        case BOAT_BACK: {
+        case BACKWARD: {
             direction = boat->direction;
             perpendical = cross_product(boat->direction, boat->up);
             rotation_direction = -1.0f;
         } break;
 
-        case BOAT_LEFT: {
+        case LEFT: {
             direction = cross_product(boat->direction, -boat->up);
             perpendical = boat->direction;
             rotation_direction = 1.0f;
         } break;
 
-        case BOAT_RIGHT: {
+        case RIGHT: {
             direction = cross_product(boat->direction, -boat->up);
             perpendical = boat->direction;
             rotation_direction = -1.0f;
@@ -255,17 +291,6 @@ update_boat_3D_draw_coord(Boat3D *boat, Wave *waves, u32 waves_count, r32 run_ti
 {
     v3 draw_coords = apply_waves(boat->coords, waves, waves_count, run_time_s);
     boat->draw_coords = draw_coords;
-
-    apply_wave_rotation(boat, BOAT_FRONT, waves, waves_count, run_time_s);
-    apply_wave_rotation(boat, BOAT_BACK,  waves, waves_count, run_time_s);
-    apply_wave_rotation(boat, BOAT_LEFT,  waves, waves_count, run_time_s); 
-    apply_wave_rotation(boat, BOAT_RIGHT, waves, waves_count, run_time_s);
-                  
-    //boat->draw_coords = average(boat->front, boat->back);
-
-    //v3 line = boat->front - boat->back;
-    //boat->draw_coords = projection_onto_line(boat->coords, line);
-    //boat->coords;
 /*
     boat->draw_coords_history[boat->newest_draw_coord_index] = draw_coords;
     
@@ -286,6 +311,10 @@ update_boat_3D_draw_coord(Boat3D *boat, Wave *waves, u32 waves_count, r32 run_ti
     if (boat->newest_draw_coord_index >= ARRAY_COUNT(boat->draw_coords_history)) 
         boat->newest_draw_coord_index = 0;
 */
+    apply_wave_rotation(boat, FORWARD, waves, waves_count, run_time_s);
+    apply_wave_rotation(boat, BACKWARD,  waves, waves_count, run_time_s);
+    apply_wave_rotation(boat, LEFT,  waves, waves_count, run_time_s); 
+    apply_wave_rotation(boat, RIGHT, waves, waves_count, run_time_s);
 }
 
 internal void
@@ -308,9 +337,9 @@ draw_boat(Boat3D *boat3D, Assets *assets, Camera camera) {
     v3 cube_scale = {0.2f, 0.2f, 0.2f};
     draw_cube(boat3D->draw_coords, 0, cube_scale, cube_color);
 
-    for (u32 i = 0; i < BOAT_DIRECTIONS; i++)
+    for (u32 i = 0; i < DIRECTIONS_2D; i++)
         draw_cube(boat3D->debug_straight_coords[i], 0, cube_scale, cube_color);
-    for (u32 i = 0; i < BOAT_DIRECTIONS; i++)
+    for (u32 i = 0; i < DIRECTIONS_2D; i++)
         draw_cube(boat3D->debug_wave_coords[i], 0, cube_scale, cube_color2);
 }
 
@@ -395,12 +424,14 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
                 case BOAT_CAMERA: {
                     //printf("move_speed: %f\n", move_speed);
                     v3 move_vector = {move_speed, 0.0f, move_speed};
+                    /*
                     update_camera_with_keys(&data->camera, data->boat3D.direction, data->camera.up, move_vector,
                                             controller->forward, controller->backward,
                                             null_button, null_button,
                                             null_button, null_button);
+                    */
 
-                    update_boat_3D(&data->boat3D, data->boat3D.direction, {0, 1, 0}, 
+                    data->camera.position += update_boat_3D(&data->boat3D, data->boat3D.direction, {0, 1, 0}, 
                                    move_vector, boat_rotation_speed,
                                    controller->forward, controller->backward,
                                    controller->left,    controller->right);

@@ -136,19 +136,7 @@ void* init_data(Assets *assets)
     platform_set_uniform_buffer_data(data->wave_ubo, sizeof(Wave) * 5, (void*)&data->waves);
     platform_set_uniform_buffer_data(data->lights_ubo, sizeof(Light), (void*)&data->light);
     
-    data->boat3D.coords = { 0, -1.25f, 0 };
-    data->boat3D.lengths[BOAT_FRONT] = 4.0f;
-    data->boat3D.lengths[BOAT_BACK] = 4.0f;
-    data->boat3D.lengths[BOAT_LEFT] = 2.0f;
-    data->boat3D.lengths[BOAT_RIGHT] = 2.0f;
-
-    data->boat3D.easy.boxs[0] = f32_textbox();
-    data->boat3D.easy.boxs[1] = f32_textbox();
-    data->boat3D.easy.num_of_boxs = 0;
-    data->boat3D.easy.draw = default_draw_textbox;
-    data->boat3D.easy.draw.font = find_font(assets, "CASLON");
-    //data->boat3D.easy.boxs[0].src = &data->boat3D.left_scale;
-    //data->boat3D.easy.boxs[1].src = &data->boat3D.right_scale;
+    init_boat_3D(&data->boat3D, find_font(assets, "CASLON"));
 
     data->skybox_cube = get_cube_mesh(false);
     data->skybox = load_cubemap();
