@@ -23,6 +23,7 @@ out vec4 FragColor;
 uniform vec3 camera_pos;
 uniform vec4 user_color;
 uniform float time;
+uniform sampler2D tex_frame_buffer;
 
 layout (std430) uniform Lights
 {
@@ -108,6 +109,25 @@ float distance(vec3 a, vec3 b)
 	return sqrt(temp.x * temp.x + temp.y * temp.y + temp.z * temp.z);
 }
 
+float near = 0.1; 
+float far  = 1000.0; 
+  
+float LinearizeDepth(float depth) 
+{
+    float z = depth * 2.0 - 1.0; // back to NDC 
+    return ((2.0 * near * far) / (far + near - z * (far - near))) / far;    
+}
+
+float LinearizeDepth2(vec2 uv)
+{
+    vec2 temp = uv;
+    temp.x /= 900;
+    temp.y /= 800;
+    float depth = texture2D(tex_frame_buffer, temp).x;
+    //return (2.0 * near) / (far + near - depth * (far - near));
+    return LinearizeDepth(depth);
+}
+
 void main() {
 	vec3 normal = -normalize(frag_normal);
 
@@ -134,6 +154,21 @@ void main() {
 		color = vec4(mix(user_color.xyz, user_color.xyz - 0.5, n), 0.1);
 	}
 
-	vec3 result = (ambient + diffuse + specular) * color.xyz;
-	FragColor = vec4(result, user_color.w);
+    vec3 result = (ambient + diffuse + specular) * color.xyz;
+
+    float boat_depth = LinearizeDepth2(gl_FragCoord.xy);
+    float depth = LinearizeDepth(gl_FragCoord.z) ;
+
+    float a = user_color.w;
+    float depth_diff = depth - boat_depth;
+    if (depth_diff <= 0.005 && depth_diff >= -0.005) {
+        if (depth_diff <= 0.002 && depth_diff >= -0.002)
+            result = vec3(0, 1, 0);
+        else
+            result = vec3(depth_diff * 100.0f + 1.0, 1, 0);
+        //a = r;
+    }
+	
+	FragColor = vec4(result, a);
+    //FragColor = frame;
 }

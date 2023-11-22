@@ -380,5 +380,21 @@ int main(int argc, char *argv[])
     init_particles(&global_particles, 1000);
     init_shapes();
 
+    //glGenFramebuffers(1, &app.frame_buffer);
+    //glBindFramebuffer(GL_FRAMEBUFFER, app.frame_buffer);
+
+    glGenTextures(1, &app.tex_depth_buffer);
+    glBindTexture(GL_TEXTURE_2D, app.tex_depth_buffer);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, app.window.dim.x, app.window.dim.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, app.tex_depth_buffer, 0);
+    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
     return main_loop(&app, sdl_window);
 }

@@ -47,6 +47,15 @@ Light_Source get_light(float a[16]) {
 
 Light_Source light = get_light(lights.f);
 
+float near = 0.1; 
+float far  = 1000.0; 
+  
+float LinearizeDepth(float depth) 
+{
+    float z = depth * 2.0 - 1.0; // back to NDC 
+    return (2.0 * near * far) / (far + near - z * (far - near));    
+}
+
 void main()
 {
     vec3 material_diffuse = texture(material.diffuse_map, uv).rgb;
@@ -66,6 +75,7 @@ void main()
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
     vec3 specular = light.specular * (spec * material.specular);  
         
+    float depth = LinearizeDepth(gl_FragCoord.z) / far;
     vec3 result = ambient + diffuse + specular;
     FragColor = vec4(result, 1.0);
 } 

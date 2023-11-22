@@ -140,6 +140,9 @@ struct Application
     Assets assets;
     Audio_Player player;
 
+    u32 frame_buffer;
+    u32 tex_depth_buffer;
+
     void *data;
 };
 

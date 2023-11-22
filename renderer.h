@@ -25,6 +25,8 @@ void platform_uniform_s32(u32 shader_handle, const char *tag, s32 i);
 void platform_uniform_v3(u32 shader_handle, const char *tag, v3 v);
 void platform_uniform_v4(u32 shader_handle, const char *tag, v4 v);
 void platform_set_texture(Bitmap *bitmap);
+void platform_set_texture(u32 handle);
+void copy_depth_buffer(u32 handle, u32 x, u32 y, u32 image_width, u32 image_height);
 void platform_set_texture_cube_map(Cubemap *cubemap, u32 shader);
 
 void platform_blend_function(u32 source_factor, u32 destination_factor);
@@ -45,5 +47,6 @@ void platform_set_capability(u32 capability, b32 state);
 b32 platform_capability_enabled(u32 capability);
 void platform_set_depth_mask(b32 state);
 void platform_set_scissor_box(v2s bottom_left, v2s dim);
+void platform_bind_framebuffer(u32 handle);
 
 #endif // RENDERER_H

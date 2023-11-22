@@ -56,6 +56,21 @@ void platform_set_texture(Bitmap *bitmap)
     glBindTexture(GL_TEXTURE_2D, bitmap->handle);
 }
 
+void platform_set_texture(u32 handle)
+{
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, handle);
+}
+
+void copy_depth_buffer(u32 handle, u32 x, u32 y, u32 image_width, u32 image_height)
+{
+    glDrawBuffer(GL_BACK);
+    glBindTexture(GL_TEXTURE_2D, handle);
+
+    glReadBuffer(GL_BACK); // Ensure we are reading from the back buffer.
+    glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 0, 0, image_width, image_height, 0);
+}
+
 void platform_set_texture_cube_map(Cubemap *cubemap, u32 shader)
 {
     //glDepthFunc(GL_LEQUAL);
@@ -114,3 +129,6 @@ void platform_set_scissor_box(v2s bottom_left, v2s dim) {
     glScissor(bottom_left.x, bottom_left.y, dim.x, dim.y);
 }
 
+void platform_bind_framebuffer(u32 handle) {
+    glBindFramebuffer(GL_FRAMEBUFFER, handle);
+}

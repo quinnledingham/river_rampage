@@ -92,7 +92,7 @@ struct Boat3D
     v3 direction  = {1, 0, 0};
     v3 up         = {0, 1, 0};
     v3 side       = {0, 0, 1};
-    v3 coords     = { 0, -1.25f, 0 };
+    v3 coords     = { 0, -0.5f, 0 };
     quat rotation = {0, 0, 0, 1};
 
     r32 speed;

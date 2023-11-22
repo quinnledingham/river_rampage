@@ -77,7 +77,7 @@ create_square_mesh(u32 u, u32 v, b32 rand)
         for (u32 j = 0; j < (v + 1); j++, t += 2) {
             s32 y = -1;
             if (rand)
-                y = random(-10, -1);
+                y = random(-10, 5);
             v3 vertex_pos = { (f32(i) * du) - 1.0f, (f32)y, (f32(j) * dv) - 1.0f };
             v2 tex_coords = { (f32)i / f32(u), 1.0f - (f32)j / f32(v) };
             Vertex vertex = { vertex_pos, {0, 1, 0}, tex_coords };
@@ -546,31 +546,48 @@ draw_game_3D(Application *app, Game_Data *data)
 	platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, true);
 
     draw_ground(&app->assets, data->triangle_mesh, data->game_run_time_s, data->camera);
+    update_particles(app->time.frame_time_s);
+    draw_particles(&app->assets, data->game_run_time_s);
+
+    //platform_bind_framebuffer(app->frame_buffer);
+    //draw_boat(&data->boat3D, &app->assets, data->camera);
+    //platform_bind_framebuffer(0);
+
+    draw_boat(&data->boat3D, &app->assets, data->camera);
+    //glBlitFramebuffer(0, 0, 800, 800, 0, 0, 800, 800, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+    // ORIGIN CUBE
+    /*
+    {
+        v4 cube_color2 = { 255, 0, 255, 1 };
+        v3 cube_scale = {5.2f, 5.2f, 5.2f};
+        v3 origin = { 0, -2, 0 };
+        //v3 origin = apply_waves({0,  -1.0f, 0}, data->waves, 5, data->game_run_time_s);
+        //draw_cube(origin, 0, cube_scale, cube_color2);
+        draw_sphere(origin, 0, cube_scale, cube_color2);
+        origin.x += 1.0f;
+        origin.y -= 1.0f;
+        draw_sphere(origin, 0, cube_scale, cube_color2);
+        origin.x -= 2.0f;
+        draw_sphere(origin, 0, cube_scale, cube_color2);
+    }
+    */
+
+    copy_depth_buffer(app->tex_depth_buffer, 900, 800, 900, 800);
+    platform_set_texture(app->tex_depth_buffer);
+    //platform_set_texture(find_bitmap(&app->assets, "BOAT"));
     draw_water(&app->assets, data->water, data->game_run_time_s, data->camera);
+    
+    draw_cube(data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
 
     //Model *tails = find_model(&app->assets, "TAILS");
     //tails->color_shader = find_shader(&app->assets, "MATERIAL");
     //tails->texture_shader = find_shader(&app->assets, "MATERIAL_TEX");
     //draw_model(tails, data->camera, {0, 0, 0}, get_rotation(0, {0, 1, 0}));
-    draw_cube(data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
+    
 
     //draw_cube({1, 5, 1}, 0, { 1, 1, 1 }, find_bitmap(&app->assets, "BOAT"));
     //draw_cube(data->boat3D.draw_coords, 0, { 1, 1, 1 }, { 255, 0, 255, 255 });
-
-    update_particles(app->time.frame_time_s);
-    draw_particles(&app->assets, data->game_run_time_s);
-
-    draw_boat(&data->boat3D, &app->assets, data->camera);
-
-    // ORIGIN CUBE
-    {
-        v4 cube_color2 = { 255, 0, 255, 1 };
-        v3 cube_scale = {1.2f, 1.2f, 1.2f};
-        v3 origin = { 0, 0, 0 };
-        //v3 origin = apply_waves({0,  -1.0f, 0}, data->waves, 5, data->game_run_time_s);
-        //draw_cube(origin, 0, cube_scale, cube_color2);
-        draw_sphere(origin, 0, cube_scale, cube_color2);
-    }
 
 	orthographic(data->matrices_ubo, &app->matrices); // 2D
 
