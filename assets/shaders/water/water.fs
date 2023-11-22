@@ -112,20 +112,19 @@ float distance(vec3 a, vec3 b)
 float near = 0.1; 
 float far  = 1000.0; 
   
-float LinearizeDepth(float depth) 
+float linearize_depth(float depth) 
 {
     float z = depth * 2.0 - 1.0; // back to NDC 
     return ((2.0 * near * far) / (far + near - z * (far - near))) / far;    
 }
 
-float LinearizeDepth2(vec2 uv)
+float get_previous_depth(vec2 uv)
 {
     vec2 temp = uv;
     temp.x /= 900;
     temp.y /= 800;
     float depth = texture2D(tex_frame_buffer, temp).x;
-    //return (2.0 * near) / (far + near - depth * (far - near));
-    return LinearizeDepth(depth);
+    return linearize_depth(depth);
 }
 
 void main() {
@@ -156,19 +155,19 @@ void main() {
 
     vec3 result = (ambient + diffuse + specular) * color.xyz;
 
-    float boat_depth = LinearizeDepth2(gl_FragCoord.xy);
-    float depth = LinearizeDepth(gl_FragCoord.z) ;
-
-    float a = user_color.w;
-    float depth_diff = depth - boat_depth;
-    if (depth_diff <= 0.005 && depth_diff >= -0.005) {
-        if (depth_diff <= 0.002 && depth_diff >= -0.002)
-            result = vec3(0, 1, 0);
-        else
-            result = vec3(depth_diff * 100.0f + 1.0, 1, 0);
-        //a = r;
+    float depth = linearize_depth(gl_FragCoord.z);
+    float previous_depth = get_previous_depth(gl_FragCoord.xy);
+    
+    float depth_diff = previous_depth - depth;
+    if (depth_diff <= 0.001) {
+        vec3 foam = vec3(1, 1, 1);
+        float a = depth_diff * 100.0f * 15.0f;
+        a = 1 - a;
+        if (a < 0)
+            a = 0;
+        result = mix(result, foam, a);
     }
 	
-	FragColor = vec4(result, a);
+	FragColor = vec4(result, user_color.w);
     //FragColor = frame;
 }

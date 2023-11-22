@@ -77,7 +77,7 @@ create_square_mesh(u32 u, u32 v, b32 rand)
         for (u32 j = 0; j < (v + 1); j++, t += 2) {
             s32 y = -1;
             if (rand)
-                y = random(-10, 5);
+                y = random(-10, 10);
             v3 vertex_pos = { (f32(i) * du) - 1.0f, (f32)y, (f32(j) * dv) - 1.0f };
             v2 tex_coords = { (f32)i / f32(u), 1.0f - (f32)j / f32(v) };
             Vertex vertex = { vertex_pos, {0, 1, 0}, tex_coords };
