@@ -325,8 +325,7 @@ draw_console(Console *console, v2s window_dim, Button mouse_left, v2s mouse_coor
 }
 
 internal void
-add_onscreen_notification(Onscreen_Notifications *n, const char *not)
-{
+add_onscreen_notification(Onscreen_Notifications *n, const char *not) {
     if (n->lines == ARRAY_COUNT(n->memory)) {
         log("add_onscreen_notification(): too many notfications");
         return;
@@ -343,8 +342,7 @@ add_onscreen_notification(Onscreen_Notifications *n, const char *not)
 }
 
 internal void
-update_onscreen_notifications(Onscreen_Notifications *n, r32 frame_time_s)
-{
+update_onscreen_notifications(Onscreen_Notifications *n, r32 frame_time_s) {
     for (u32 i = 0; i < n->lines; i++) {
         n->times[i] -= frame_time_s;
 
@@ -365,8 +363,7 @@ update_onscreen_notifications(Onscreen_Notifications *n, r32 frame_time_s)
 }
 
 internal void
-draw_onscreen_notifications(Onscreen_Notifications *n, v2s window_dim, r32 frame_time_s)
-{
+draw_onscreen_notifications(Onscreen_Notifications *n, v2s window_dim, r32 frame_time_s) {
     update_onscreen_notifications(n, frame_time_s);
 
     f32 pixel_height = get_pixel_height(cv2(window_dim) * 0.1f);

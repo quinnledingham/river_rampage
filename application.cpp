@@ -309,7 +309,7 @@ init_opengl(SDL_Window *sdl_window)
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE,   24);
     
     SDL_GLContext Context = SDL_GL_CreateContext(sdl_window);
-    SDL_GL_SetSwapInterval(0);
+    SDL_GL_SetSwapInterval(0); // vsync: 0 off, 1 on
     
     // Check OpenGL properties
     gladLoadGL((GLADloadfunc) SDL_GL_GetProcAddress);

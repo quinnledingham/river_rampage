@@ -569,23 +569,21 @@ draw_game_3D(Game *game,
     draw_ground(assets, data->triangle_mesh, game->game_run_time_s, data->camera);
     update_particles(time.frame_time_s);
     draw_particles(assets, game->game_run_time_s);
-
     draw_boat(&data->boat3D, assets, data->camera);
-
     draw_cube({50, -5, 20}, 0, { 20, 15, 5 }, {50, 255, 0, 1});
 
-    //copy_depth_buffer(tex_depth_buffer, window_dim.x, window_dim.y, window_dim.x, window_dim.y);
     copy_buffers(tex_depth_buffer, color_buffer_texture, window_dim);
-    //platform_set_texture(find_bitmap(&app->assets, "BOAT"));
+
     draw_water(assets, data->water, game->game_run_time_s, data->camera, tex_depth_buffer, color_buffer_texture);
-    
     draw_cube(data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
 
-	orthographic(matrices->ubo, matrices); // 2D
-
+    // 2D
+	orthographic(matrices->ubo, matrices); 
     platform_set_capability(PLATFORM_CAPABILITY_DEPTH_TEST, false);
     platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, false);
+    platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL); // wireframe off
 
+    // Tools
     draw_float_texboxes(&data->boat3D.easy, menu_controller->mouse_left, menu_controller->mouse, input);
 
     if (tools->show_camera_menu) {
@@ -596,26 +594,31 @@ draw_game_3D(Game *game,
         Font *caslon = find_font(assets, "CASLON");
         draw_string(caslon, ftos(time.frames_per_s), { 100, 100 }, 50, { 255, 150, 0, 1 });
     }
-    
-    platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);  
-    if (tools->show_console) 
-        draw_console(&tools->console, window_dim, menu_controller->mouse_left, menu_controller->mouse);
-    
-    draw_onscreen_notifications(&tools->onscreen_notifications, window_dim, time.frame_time_s);
-    
-    if (tools->wire_frame) 
-        platform_set_polygon_mode(PLATFORM_POLYGON_MODE_LINE);
-    else                  
-        platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);
 
+    if (tools->show_console) {
+        draw_console(&tools->console, window_dim, menu_controller->mouse_left, menu_controller->mouse);
+    }
+    
+    if (tools->onscreen_notifications.lines > 0) {
+        draw_onscreen_notifications(&tools->onscreen_notifications, window_dim, time.frame_time_s);
+    }
+
+    // Menu
     if (game->paused) {
         draw_rect( { 0, 0 }, 0, cv2(window_dim), { 0, 0, 0, 0.5f} );
         
         s32 pause = draw_pause_menu(assets, cv2(window_dim), on_down(menu_controller->select), game->active);
         
-        if      (pause == 1) 
-            game->paused = false;
-        else if (pause == 2) 
-            game->game_mode = MAIN_MENU;
+        switch(pause) {
+            case 1: game->paused = false;        break;
+            case 2: game->game_mode = MAIN_MENU; break;
+        }
+    }
+
+    // reset wireframe
+    if (tools->wire_frame) {
+        platform_set_polygon_mode(PLATFORM_POLYGON_MODE_LINE);
+    } else {
+        platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);
     }
 }

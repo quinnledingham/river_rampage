@@ -150,6 +150,7 @@ void* init_data(Assets *assets)
     init_boat_3D(&game_3D->boat3D, find_font(assets, "CASLON"));
 
     game_3D->skybox_cube = get_cube_mesh(false);
+    //game_3D->skybox.bitmaps[0] = find_bitmap("SKYBOX_RIGHT");
     game_3D->skybox = load_cubemap();
 
     // 2D

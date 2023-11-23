@@ -1,41 +1,41 @@
 SHADERS:
-WATER|VERTEX, ../assets/shaders/water/water.vs
-WATER|CONTROL, ../assets/shaders/water/water.tcs
-WATER|EVALUATION, ../assets/shaders/water/water.tes
-WATER|GEOMETRY, ../assets/shaders/water/water.gs
-WATER|FRAGMENT, ../assets/shaders/water/water.fs
+WATER|VERTEX,     shaders/water/water.vs
+WATER|CONTROL,    shaders/water/water.tcs
+WATER|EVALUATION, shaders/water/water.tes
+WATER|GEOMETRY,   shaders/water/water.gs
+WATER|FRAGMENT,   shaders/water/water.fs
 
-MATERIAL|VERTEX, ../assets/shaders/material.vs
-MATERIAL|FRAGMENT, ../assets/shaders/material.fs
+MATERIAL|VERTEX,   shaders/material.vs
+MATERIAL|FRAGMENT, shaders/material.fs
 
-MATERIAL_TEX|VERTEX, ../assets/shaders/material.vs
-MATERIAL_TEX|FRAGMENT, ../assets/shaders/material_tex.fs
+MATERIAL_TEX|VERTEX,   shaders/material.vs
+MATERIAL_TEX|FRAGMENT, shaders/material_tex.fs
 
-COLOR|VERTEX, ../assets/shaders/basic.vs
-COLOR|FRAGMENT, ../assets/shaders/color.fs
+COLOR|VERTEX,   shaders/basic.vs
+COLOR|FRAGMENT, shaders/color.fs
 
-TEX|VERTEX, ../assets/shaders/basic.vs
-TEX|FRAGMENT, ../assets/shaders/tex.fs
+TEX|VERTEX,   shaders/basic.vs
+TEX|FRAGMENT, shaders/tex.fs
 
-TEXT|VERTEX, ../assets/shaders/basic.vs
-TEXT|FRAGMENT, ../assets/shaders/text.fs
+TEXT|VERTEX,   shaders/basic.vs
+TEXT|FRAGMENT, shaders/text.fs
 
-SKYBOX|VERTEX, ../assets/shaders/skybox.vs
-SKYBOX|FRAGMENT, ../assets/shaders/skybox.fs
+SKYBOX|VERTEX,   shaders/skybox.vs
+SKYBOX|FRAGMENT, shaders/skybox.fs
 
-PARTICLE|VERTEX,   ../assets/shaders/particle.vs
-PARTICLE|FRAGMENT, ../assets/shaders/particle.fs
+PARTICLE|VERTEX,   shaders/particle.vs
+PARTICLE|FRAGMENT, shaders/particle.fs
 
 BITMAPS:
-BOAT, ../assets/bitmaps/boat.png
-ICON, ../assets/bitmaps/favicon.png
-FOAM, ../assets/bitmaps/water_foam.png
-NORMAL, ../assets/bitmaps/normal.jpg
-WATER, ../assets/bitmaps/under_water.png
+BOAT,   bitmaps/boat.png
+ICON,   bitmaps/favicon.png
+FOAM,   bitmaps/water_foam.png
+NORMAL, bitmaps/normal.jpg
+WATER,  bitmaps/under_water.png
 
 FONTS:
-CASLON, ../assets/fonts/LibreCaslonCondensed-Regular.ttf
+CASLON, fonts/LibreCaslonCondensed-Regular.ttf
 
 MODELS:
-BOAT2, ../assets/objs/boat/boat2.obj
-TAILS, ../assets/objs/tails/tails.obj
+BOAT2, objs/boat/boat2.obj
+TAILS, objs/tails/tails.obj

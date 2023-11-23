@@ -229,6 +229,7 @@ GL_TEXTURE_CUBE_MAP_NEGATIVE_Y  Bottom
 GL_TEXTURE_CUBE_MAP_POSITIVE_Z  Back
 GL_TEXTURE_CUBE_MAP_NEGATIVE_Z  Front
 */
+
 Cubemap
 load_cubemap()
 {
@@ -242,18 +243,16 @@ load_cubemap()
     glGenTextures(1, &cubemap.handle);
     glBindTexture(target, cubemap.handle);
 
-    for (u32 i = 0; i < 6; i++)
-    {
+    for (u32 i = 0; i < 6; i++) {
         cubemap.bitmaps[i] = load_bitmap(cubemap.filenames[i], false);
         Bitmap *bitmap = &cubemap.bitmaps[i];
 
-        if (bitmap->memory == 0)
-        {
+        if (bitmap->memory == 0) {
             error("load_cubemap(): could not load %s", cubemap.filenames[i]);
             free_bitmap(*bitmap);
             continue;
         }
-        //glPixelStorei(GL_UNPACK_ALIGNMENT, pixel_unpack_alignment);
+
         glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, internal_format, bitmap->dim.width, bitmap->dim.height, 0, data_format, GL_UNSIGNED_BYTE, bitmap->memory);
     }
 
@@ -1344,8 +1343,7 @@ struct Asset_Load_Info
 
 // action is what happens when all the parts of an asset are found
 function void
-parse_asset_file(Assets *assets, File *file, void (action)(void *data, void *args))
-{
+parse_asset_file(Assets *assets, File *file, void (action)(void *data, void *args)) {
     Asset_Load_Info info = {};
     
     u32 shader_type = 0;
@@ -1354,19 +1352,19 @@ parse_asset_file(Assets *assets, File *file, void (action)(void *data, void *arg
     Asset_Token last_token = {};
     Asset_Token tok = {};
     s32 line_num = 1;
-    while (tok.type != -1)
-    {
+    while (tok.type != -1) {
         last_token = tok;
         tok = scan_asset_file(file, &line_num, tok);
         
-        if (tok.type == ATT_KEYWORD)
-        {
+        if (tok.type == ATT_KEYWORD) {
+            // type: ie SHADERS, BITMAPS, etc
+
             u32 type = pair_get_key(asset_types, ASSET_TYPE_AMOUNT, tok.lexeme);
-            if (type == ASSET_TYPE_AMOUNT) error("parse_asset_file(): could not find asset type for lexeme");
+            if (type == ASSET_TYPE_AMOUNT) 
+                error("parse_asset_file(): could not find asset type for lexeme");
 
             // add last shader
-            if (shader_tag != 0 && type != ASSET_TYPE_SHADER)
-            {
+            if (shader_tag != 0 && type != ASSET_TYPE_SHADER) {
                 action((void*)assets, (void*)&info);
                 shader_tag = 0;
             }
@@ -1374,83 +1372,81 @@ parse_asset_file(Assets *assets, File *file, void (action)(void *data, void *arg
             info.type = type;
             
             tok = scan_asset_file(file, &line_num, tok);
-            if (!equal(tok.lexeme, ":")) 
-            {
+            if (!equal(tok.lexeme, ":")) {
                 error(line_num, "expected ':' (got %c)", tok.lexeme);
                 break;
             }
-        }
-        else if (tok.type == ATT_ID)
-        {
-            if (info.type == ASSET_TYPE_SHADER)
-            {
-                if (equal(last_token.lexeme, ",")) // all that is left is the filename
-                {
+        } else if (tok.type == ATT_ID) {
+            // tag or filename
+
+            if (info.type == ASSET_TYPE_SHADER) {
+                // Shaders
+
+                if (equal(last_token.lexeme, ",")) {
+                    // all that is left is the filename
                     info.file_paths[shader_type] = tok.lexeme;
                 }
-                else if (equal(last_token.lexeme, "|")) // shader part needs to be grabbed
-                {
+                else if (equal(last_token.lexeme, "|"))  {
+                    // shader part needs to be grabbed
                     shader_type = pair_get_key(shader_types, SHADER_TYPE_AMOUNT, tok.lexeme);
                     
                     // check that comma comes after
                     tok = scan_asset_file(file, &line_num, tok);
-                    if (!equal(tok.lexeme, ",")) 
-                    {
+                    if (!equal(tok.lexeme, ",")) {
                         error(line_num, "expected ','");
                         break;
                     }
-                }
-                else // first element
-                {
+                } else {
+                    // first element 
                     info.tag = tok.lexeme;
                     
-                    if (shader_tag == 0) shader_tag = info.tag;
-                    else if (!equal(shader_tag, info.tag)) 
-                    {
+                    if (shader_tag == 0)  {
+                        // first shader being added
+                        shader_tag = info.tag; // 
+                    } else if (!equal(shader_tag, info.tag)) {
+                        // new shader was started after starting another one
                         const char *new_tag = info.tag;
                         info.tag = shader_tag;
                         action((void*)assets, (void*)&info);
+
                         int indexes[ASSET_TYPE_AMOUNT];
-                        for (u32 i = 0; i < ASSET_TYPE_AMOUNT; i++) indexes[i] = info.indexes[i];
+                        for (u32 i = 0; i < ASSET_TYPE_AMOUNT; i++) 
+                            indexes[i] = info.indexes[i];
+
                         info = {};
                         info.type = ASSET_TYPE_SHADER;
-                        for (u32 i = 0; i < ASSET_TYPE_AMOUNT; i++) info.indexes[i] = indexes[i];
+
+                        for (u32 i = 0; i < ASSET_TYPE_AMOUNT; i++) 
+                            info.indexes[i] = indexes[i];
+
                         info.tag = new_tag;
                         shader_tag = info.tag;
                     }
                     
                     // check that | comes after
                     tok = scan_asset_file(file, &line_num, tok);
-                    if (!equal(tok.lexeme, "|")) 
-                    {
+                    if (!equal(tok.lexeme, "|")) {
                         error(line_num, "expected '|'");
                         break;
                     }
                 }
-            }
-            else // Fonts, Bitmaps, Audios, Models
-            {
-                if (!equal(last_token.lexeme, ","))
-                {
+            } else {
+                // Fonts, Bitmaps, Audios, Models 
+                if (!equal(last_token.lexeme, ",")) {
                     info.tag = tok.lexeme;
                     
                     // check thst comma comes after
                     tok = scan_asset_file(file, &line_num, tok);
-                    if (!equal(tok.lexeme, ",")) 
-                    {
+                    if (!equal(tok.lexeme, ",")) {
                         error(line_num, "expected ','");
                         break;
                     }
-                }
-                else
-                {
+                } else {
                     info.filename = tok.lexeme;
                     action((void*)assets, (void*)&info);
                 }
             }
-        } 
-        else if (tok.type == ATT_SEPERATOR) 
-        {
+        } else if (tok.type == ATT_SEPERATOR) {
             error(line_num, "unexpected seperator");
         }
     }
@@ -1463,21 +1459,31 @@ load_asset(Asset *asset, Asset_Load_Info *info)
     asset->tag = info->tag;
     asset->tag_length = get_length(asset->tag);
     //log("loading: %s", asset->tag);
+
+    const char *asset_folder = "../assets/";
+    const char *filename = char_array_concat(asset_folder, info->filename);
+
     // how to load the various assets
     switch(asset->type)
     {
-        case ASSET_TYPE_FONT:   asset->font   = load_font(info->filename); break;
-        case ASSET_TYPE_BITMAP: asset->bitmap = load_bitmap(info->filename); break;
+        case ASSET_TYPE_FONT:   asset->font   = load_font(filename);   break;
+        case ASSET_TYPE_BITMAP: asset->bitmap = load_bitmap(filename); break;
+        case ASSET_TYPE_AUDIO:  asset->audio  = load_audio(filename);  break;
+        case ASSET_TYPE_MODEL:  asset->model  = load_obj(filename);    break;
         case ASSET_TYPE_SHADER:
         {
             for (u32 i = 0; i < SHADER_TYPE_AMOUNT; i++) {
-                asset->shader.files[i].path = info->file_paths[i];
+                const char *new_path = 0;
+                if (info->file_paths[i] != 0)
+                    new_path = char_array_concat(asset_folder, info->file_paths[i]);
+                asset->shader.files[i].path = new_path;
             }
             load_shader(&asset->shader);
         } break;         
-        case ASSET_TYPE_AUDIO:  asset->audio = load_audio(info->filename); break;
-        case ASSET_TYPE_MODEL:  asset->model = load_obj(info->filename); break;
     }
+
+    platform_free((void *)filename);
+    platform_free((void *)info->filename);
 }
 
 function void

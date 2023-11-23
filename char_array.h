@@ -108,6 +108,23 @@ char_array_insert(const char *og_string, u32 position, const char *new_string)
     return result;
 }
 
+internal const char*
+char_array_concat(const char *left, const char *right) {
+    u32 left_length = get_length(left);
+    u32 right_length = get_length(right);
+    u32 total_length = left_length + right_length;
+    char *result = (char *)platform_malloc(total_length + 1);
+
+    u32 result_index = 0;
+    for (u32 index = 0; index < left_length; index++)
+        result[result_index++] = left[index];
+    for (u32 index = 0; index < right_length; index++)
+        result[result_index++] = right[index];
+
+    result[result_index] = 0;
+    return result;
+}
+
 inline char*
 string_malloc(const char *string)
 {
