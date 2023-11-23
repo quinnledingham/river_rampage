@@ -5,8 +5,13 @@ layout (location = 2) in vec2 texture_coords;
 
 layout (std140) uniform Matrices
 {
-	mat4 projection;
-	mat4 view;
+    mat4 projection;
+    mat4 view;
+
+    float near;
+    float far;
+    float window_width;
+    float window_height;
 };
 uniform mat4 model; 
 

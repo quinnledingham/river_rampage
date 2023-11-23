@@ -1,6 +1,12 @@
 #version 420 core
 #extension GL_NV_uniform_buffer_std430_layout : enable
 
+in vec2 uv_coords;
+in vec3 frag_normal;
+in vec3 frag_position;
+
+out vec4 FragColor;
+
 struct Light_Source {
     vec3 position;
     vec3 ambient;
@@ -13,17 +19,14 @@ struct Light {
     float f[16];
 };
 
-
-in vec2 uv_coords;
-in vec3 frag_normal;
-in vec3 frag_position;
-
-out vec4 FragColor;
-
 uniform vec3 camera_pos;
 uniform vec4 user_color;
 uniform float time;
-uniform sampler2D tex_frame_buffer;
+
+uniform sampler2D depth_buffer;
+uniform sampler2D color_buffer;
+uniform sampler2D foam;
+uniform sampler2D normal_map;
 
 layout (std430) uniform Lights
 {
@@ -42,6 +45,16 @@ Light_Source get_light(float a[16]) {
 
 Light_Source light = get_light(lights.f);
 
+layout (std140) uniform Matrices
+{
+    mat4 projection;
+    mat4 view;
+
+    float near;
+    float far;
+    float window_width;
+    float window_height;
+};
 
 //
 // Noise
@@ -108,9 +121,6 @@ float distance(vec3 a, vec3 b)
 	vec3 temp = a - b;
 	return sqrt(temp.x * temp.x + temp.y * temp.y + temp.z * temp.z);
 }
-
-float near = 0.1; 
-float far  = 1000.0; 
   
 float linearize_depth(float depth) 
 {
@@ -118,17 +128,22 @@ float linearize_depth(float depth)
     return ((2.0 * near * far) / (far + near - z * (far - near))) / far;    
 }
 
-float get_previous_depth(vec2 uv)
-{
-    vec2 temp = uv;
-    temp.x /= 900;
-    temp.y /= 800;
-    float depth = texture2D(tex_frame_buffer, temp).x;
-    return linearize_depth(depth);
+vec2 get_window_coords(vec2 coords) {
+    vec2 result = coords;
+    result.x /= window_width;
+    result.y /= window_height;
+    return result;
 }
 
 void main() {
+    vec2 window_coords = get_window_coords(gl_FragCoord.xy);
 	vec3 normal = -normalize(frag_normal);
+
+    vec3 normal_m = texture(normal_map, uv_coords * 50).xyz;
+    // have to convert it from 0 to 1 range to -1 to 1 range
+    normal_m = normalize(vec3(normal_m.r * 2.0 - 1.0, normal_m.b, normal_m.g * 2.0 - 1.0));
+    normal += (normal_m * 0.2);
+    normal = normalize(normal);
 
 	// ambient
 	vec3 ambient = light.ambient * light.color.rgb;
@@ -150,24 +165,51 @@ void main() {
 	if (distance(frag_position, camera_pos) < 100)
 	{
 		float n = nestedNoise(uv_coords * 6.);
-		color = vec4(mix(user_color.xyz, user_color.xyz - 0.5, n), 0.1);
+		color = vec4(mix(user_color.xyz, user_color.xyz - 0.5, n), color.w);
 	}
 
-    vec3 result = (ambient + diffuse + specular) * color.xyz;
+    vec3 water_color = (ambient + diffuse + specular) * color.xyz;
+
+    float refraction = 0.01;
+    vec4 back = texture(color_buffer, window_coords + (refraction * normal.xz));
+
+    vec4 result = vec4(mix(back.xyz, water_color, color.w), 1.0);
+
+    //
+    // Very helpful tutorial
+    // https://fire-face.com/personal/water/
+    //
+
+    float channel_a = texture(foam, uv_coords * 70).r;
+    float channel_b = texture(foam, uv_coords * 70).b;
+
+    float mask = (channel_a + channel_b) * 0.95;
+    mask = pow(mask, 2);
+    mask = clamp(mask, 0.0, 1.0);
 
     float depth = linearize_depth(gl_FragCoord.z);
-    float previous_depth = get_previous_depth(gl_FragCoord.xy);
+
+    float previous_depth = texture2D(depth_buffer, window_coords).x;
+    previous_depth = linearize_depth(previous_depth);
     
     float depth_diff = previous_depth - depth;
-    if (depth_diff <= 0.001) {
-        vec3 foam = vec3(1, 1, 1);
-        float a = depth_diff * 100.0f * 15.0f;
-        a = 1 - a;
-        if (a < 0)
-            a = 0;
-        result = mix(result, foam, a);
+    float falloff_distance = 0.0015;
+    float leading_edge_fallout = 0.2;
+    float edge_falloff_bias = 0.5;
+    vec4 edge_falloff_color = vec4(1, 1, 1, 1);
+
+    if (depth_diff < falloff_distance * leading_edge_fallout) {
+        float leading = depth_diff / (falloff_distance * leading_edge_fallout);
+        result.a *= leading;
+        mask *= leading;
     }
-	
-	FragColor = vec4(result, user_color.w);
-    //FragColor = frame;
+
+    float falloff = 1.0 - (depth_diff / falloff_distance) + edge_falloff_bias;
+    float a = falloff - mask;
+    vec3 edge = edge_falloff_color.rgb * falloff * edge_falloff_color.a;
+    result.rgb = mix(result.rgb, vec3(1), clamp(a, 0.0, 0.5));
+    //result.rgb += clamp(edge - vec3(mask), 0.0, 1.0);
+
+    //result = texture(color_buffer, uv_coords);
+	FragColor = result;
 }

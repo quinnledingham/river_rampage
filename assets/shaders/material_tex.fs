@@ -1,6 +1,12 @@
 #version 330 core
 #extension GL_NV_uniform_buffer_std430_layout : enable
 
+in vec3 FragPos;
+in vec3 Normal; 
+in vec2 uv;   
+
+out vec4 FragColor;
+
 struct Material {
     vec3 ambient;
     vec3 diffuse;
@@ -21,14 +27,19 @@ struct Light {
     float f[16];
 };
 
-in vec3 FragPos;
-in vec3 Normal; 
-in vec2 uv;   
-
-out vec4 FragColor;
-
 uniform vec3 viewPos;
 uniform Material material;
+
+layout (std140) uniform Matrices
+{
+    mat4 projection;
+    mat4 view;
+
+    float near;
+    float far;
+    float window_width;
+    float window_height;
+};
 
 layout (std430) uniform Lights
 {
@@ -47,9 +58,6 @@ Light_Source get_light(float a[16]) {
 
 Light_Source light = get_light(lights.f);
 
-float near = 0.1; 
-float far  = 1000.0; 
-  
 float LinearizeDepth(float depth) 
 {
     float z = depth * 2.0 - 1.0; // back to NDC 

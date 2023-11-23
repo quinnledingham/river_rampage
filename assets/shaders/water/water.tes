@@ -24,6 +24,11 @@ layout (std140) uniform Matrices
 {
     mat4 projection;
     mat4 view;
+
+    float near;
+    float far;
+    float window_width;
+    float window_height;
 };
 
 layout (std140) uniform Wav
@@ -41,8 +46,9 @@ vec3 apply_wave(vec3 pos, Wave wave, float time)
 	float k = 2 * PI / wave.wave_length;
 	float c = sqrt(9.8 / k);
 	vec2 d = normalize(wave.direction);
-	float f = k * (dot(d, pos.xz) - c * time);
 	float a = wave.steepness / k;
+
+	float f = k * (dot(d, pos.xz) - c * time);
 
 	return vec3(d.x * (a * cos(f)),
 				a * sin(f),

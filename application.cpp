@@ -347,31 +347,65 @@ init_window(Window *window, b32 *update_matrices)
     return sdl_window;
 }
 
+internal u32
+get_depth_buffer_texture(v2s window_dim) {
+    u32 handle;
+
+    glGenTextures(1, &handle);
+    glBindTexture(GL_TEXTURE_2D, handle);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, window_dim.x, window_dim.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    return handle;
+}
+
+internal u32
+get_color_buffer_texture(v2s window_dim) {
+    u32 handle;
+
+    glGenTextures(1, &handle);
+    glBindTexture(GL_TEXTURE_2D, handle);
+  
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, window_dim.x, window_dim.y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); 
+
+    return handle;
+}
+
 int main(int argc, char *argv[])  
 { 
-    //log("%s", get_path("../assets/bitmaps/normal.jpg"));
-
     Application app = {};
     SDL_Window *sdl_window = init_window(&app.window, &app.matrices.update);
 
+    // Loading assets
     u64 assets_loading_time_started = SDL_GetTicks64();
 
     if (equal(argv[1], "load_assets")) {
-        if (load_assets(&app.assets, "../assets.ethan")) return 1;
+        if (load_assets(&app.assets, "../assets.ethan")) 
+            return 1;
         save_assets(&app.assets, "assets.save");
-    }
-    else {
-        if (load_saved_assets(&app.assets, "assets.save")) return 1;
+    } else {
+        if (load_saved_assets(&app.assets, "assets.save")) 
+            return 1;
     }
 
     init_assets(&app.assets);
 
+    // Setting up app and data
     app.data = (void*)init_data(&app.assets);
     log("time loading assets: %f", get_seconds(assets_loading_time_started, SDL_GetTicks64()));
 
     init_controllers(&app.input);
     app.input.relative_mouse_mode.set(false);
 
+    // GL defaults
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -379,22 +413,12 @@ int main(int argc, char *argv[])
 
     init_particles(&global_particles, 1000);
     init_shapes();
+    app.tex_depth_buffer = get_depth_buffer_texture(app.window.dim);
+    app.color_buffer_texture = get_color_buffer_texture(app.window.dim);
 
-    //glGenFramebuffers(1, &app.frame_buffer);
-    //glBindFramebuffer(GL_FRAMEBUFFER, app.frame_buffer);
-
-    glGenTextures(1, &app.tex_depth_buffer);
-    glBindTexture(GL_TEXTURE_2D, app.tex_depth_buffer);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, app.window.dim.x, app.window.dim.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    //glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, app.tex_depth_buffer, 0);
-    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    app.matrices.p_near = 0.1f;
+    app.matrices.p_far = 1000.0f;
+    app.matrices.ubo = init_uniform_buffer_object(2 * sizeof(m4x4) + 4 * sizeof(f32), 0);
 
     return main_loop(&app, sdl_window);
 }

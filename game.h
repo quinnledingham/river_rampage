@@ -38,7 +38,6 @@ get_wave(v2 direction, f32 wave_length, f32 steepness)
     return wave;
 }
 
-
 struct Boat
 {
     v2 coords;
@@ -92,7 +91,7 @@ struct Boat3D
     v3 direction  = {1, 0, 0};
     v3 up         = {0, 1, 0};
     v3 side       = {0, 0, 1};
-    v3 coords     = { 0, -0.5f, 0 };
+    v3 coords     = { 0, -1.5f, 0 };
     quat rotation = {0, 0, 0, 1};
 
     r32 speed;
@@ -145,28 +144,18 @@ const global Pair camera_modes[CAMERA_MODES_COUNT] = {
         { EDIT_CAMERA, "EDIT_CAMERA" },
     };
 
-
-struct Dev_Tools
+struct Game // What both 2D and 3D uses
 {
-
-};
-
-struct Game_Data_3D
-{
-
-};
-
-struct Game_Data
-{
-    // Game
     b8 paused;
     r32 game_run_time_s;
 
     // Menus
     u32 game_mode;
     s32 active;
+};
 
-    // Dev Tools
+struct Dev_Tools
+{
     b8 wire_frame;
     b8 show_fps;
     b8 show_console;
@@ -175,31 +164,43 @@ struct Game_Data
 
     b8 show_camera_menu;
     Camera_Menu camera_menu;
+};
 
-    // 3D
-    Light light;
-    Camera camera;
-    Mesh triangle_mesh;
-    Mesh water;
-    Mesh cube;
-    Wave waves[5];
-    
-    u32 matrices_ubo; // uniform buffer object
-    u32 wave_ubo; 
-    u32 lights_ubo;
-    
-    Boat3D boat3D;
-    u32 camera_mode;
-
-    Mesh skybox_cube;
-    Cubemap skybox;
-    
-    // 2D
+struct Game_2D {
     Boat boat;
     r32 water_force;
 };
 
-function s32 draw_main_menu(Application *app, Game_Data *data);
+struct Game_3D
+{
+    Light light;
+    u32 lights_ubo;
+
+    Camera camera;
+    u32 camera_mode;
+
+    Mesh triangle_mesh;
+    Mesh water;
+    Mesh cube;
+
+    Wave waves[5];
+    u32 wave_ubo; 
+    
+    Boat3D boat3D;
+    
+    Mesh skybox_cube;
+    Cubemap skybox;
+};
+
+struct Game_Data
+{
+    Game game;
+    Dev_Tools dev_tools;
+    Game_2D game_2D;
+    Game_3D game_3D;
+};
+
+function s32 draw_main_menu(Game *game, Matrices *matrices, Assets *assets, Input *input, v2s window_dim);
 function s32 draw_pause_menu(Assets *assets, v2 window_dim, b32 select, s32 active);
 
 #endif //GAME_H

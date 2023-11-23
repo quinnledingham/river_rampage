@@ -77,7 +77,8 @@ create_square_mesh(u32 u, u32 v, b32 rand)
         for (u32 j = 0; j < (v + 1); j++, t += 2) {
             s32 y = -1;
             if (rand)
-                y = random(-10, 10);
+                y = -5;
+                //y = random(-10, 10);
             v3 vertex_pos = { (f32(i) * du) - 1.0f, (f32)y, (f32(j) * dv) - 1.0f };
             v2 tex_coords = { (f32)i / f32(u), 1.0f - (f32)j / f32(v) };
             Vertex vertex = { vertex_pos, {0, 1, 0}, tex_coords };
@@ -370,24 +371,25 @@ draw_boat(Boat3D *boat3D, Assets *assets, Camera camera) {
 }
 
 internal void
-update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
+update_game_3D(Game *game, Game_3D *data, Dev_Tools *tools, Input *input, const Time time)
 {
     Controller *controller = input->active_controller;
+    Camera *camera = &data->camera;
     
     if (input->mode == INPUT_MODE_GAME && on_down(controller->pause)) 
     {
-        data->paused = !data->paused;
-        if (data->paused) input->relative_mouse_mode.set(false);
+        game->paused = !game->paused;
+        if (game->paused) input->relative_mouse_mode.set(false);
         else              input->relative_mouse_mode.reset();
         return;
     }
 
-    if (data->paused) {
-        menu_update_active(&data->active, 0, 1, controller->backward, controller->forward);
+    if (game->paused) {
+        menu_update_active(&game->active, 0, 1, controller->backward, controller->forward);
         return;
     }
 
-    data->game_run_time_s += time.frame_time_s;
+    game->game_run_time_s += time.frame_time_s;
 
     Button null_button = {};
     f32 m_per_s = 6.0f; 
@@ -396,10 +398,10 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
 
     switch(input->mode) {
         case INPUT_MODE_KEYBOARD: {
-            if (data->show_console) {
-                data->show_console = update_console(&data->console, input);
+            if (tools->show_console) {
+                tools->show_console = update_console(&tools->console, input);
 
-                if (data->show_console)
+                if (tools->show_console)
                     input->mode = INPUT_MODE_KEYBOARD;
                 else
                     input->mode = INPUT_MODE_GAME;
@@ -408,14 +410,14 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
 
         case INPUT_MODE_GAME: {
             // console
-            if (!data->show_console && on_down(controller->toggle_console)) {
-                    data->show_console = true;
+            if (!tools->show_console && on_down(controller->toggle_console)) {
+                    tools->show_console = true;
                     input->mode = INPUT_MODE_KEYBOARD;
-                    data->console.lines_up_index = data->console.lines;
+                    tools->console.lines_up_index = tools->console.lines;
             }
 
             // align camera
-            if (console_command(&data->console, ALIGN_CAMERA)) {
+            if (console_command(&tools->console, ALIGN_CAMERA)) {
                 align_camera_with_boat(&data->camera, &data->boat3D);
             }
 
@@ -425,7 +427,7 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
                 data->camera_mode++;
                 if (data->camera_mode == CAMERA_MODES_COUNT) data->camera_mode = 0;
 
-                add_onscreen_notification(&data->onscreen_notifications, pair_get_value(camera_modes, CAMERA_MODES_COUNT, data->camera_mode));
+                add_onscreen_notification(&tools->onscreen_notifications, pair_get_value(camera_modes, CAMERA_MODES_COUNT, data->camera_mode));
 
                 if (data->camera_mode == EDIT_CAMERA) {
                     input->relative_mouse_mode.set(false);
@@ -467,12 +469,12 @@ update_game_3D(Game_Data *data, Camera *camera, Input *input, const Time time)
     }
 
     // camera menu
-    if (console_command(&data->console, TOGGLE_CAMERA_MENU)) {
-        data->show_camera_menu = !data->show_camera_menu;
+    if (console_command(&tools->console, TOGGLE_CAMERA_MENU)) {
+        tools->show_camera_menu = !tools->show_camera_menu;
     }
 
     update_camera_target(&data->camera);
-    update_boat_3D_draw_coord(&data->boat3D, data->waves, 5, data->game_run_time_s);
+    update_boat_3D_draw_coord(&data->boat3D, data->waves, 5, game->game_run_time_s);
 }
 
 internal void
@@ -491,11 +493,11 @@ draw_skybox(Assets *assets, Cubemap *cubemap, Mesh *cube)
 }
 
 function void
-draw_water(Assets *assets, Mesh mesh, r32 seconds, Camera camera)
+draw_water(Assets *assets, Mesh mesh, r32 seconds, Camera camera, u32 depth_buffer_texture, u32 color_buffer_texture)
 {
     u32 active_shader = use_shader(find_shader(assets, "WATER"));
     
-    v4 color = {30.0f/255.0f, 144.0f/255.0f, 255.0f/255.0f, 0.7f};
+    v4 color = {30.0f/255.0f, 144.0f/255.0f, 255.0f/255.0f, 0.5f};
     m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {0, 1, 0}), {100, 1, 100});
 
     platform_uniform_m4x4(active_shader, "model", &model);
@@ -503,21 +505,30 @@ draw_water(Assets *assets, Mesh mesh, r32 seconds, Camera camera)
     platform_uniform_v3(active_shader, "camera_pos", camera.position);
     platform_uniform_v4(active_shader, "user_color", color);
 
+    platform_uniform_s32(active_shader, "depth_buffer", 0);
+    platform_uniform_s32(active_shader, "color_buffer", 1);
+    platform_uniform_s32(active_shader, "foam", 2);
+    platform_uniform_s32(active_shader, "normal_map", 3);
+
+    platform_set_texture(depth_buffer_texture, 0);
+    platform_set_texture(color_buffer_texture, 1);
+    platform_set_texture(find_bitmap(assets, "FOAM"), 2);
+    platform_set_texture(find_bitmap(assets, "NORMAL"), 3);
+
     draw_mesh_patches(&mesh);
 }
 
 function void
 draw_ground(Assets *assets, Mesh mesh, r32 seconds, Camera camera) {
-    u32 active_shader = use_shader(find_shader(assets, "MATERIAL"));
+    u32 active_shader = use_shader(find_shader(assets, "MATERIAL_TEX"));
     
-    v4 color = {255, 0, 0, 1};
     m4x4 model = create_transform_m4x4({0, -5, 0}, get_rotation(0, {0, 1, 0}), {100, 1, 100});
 
     platform_uniform_m4x4(active_shader, "model", &model);
     platform_uniform_v3(active_shader, "viewPos", camera.position);
 
     Material material = {};
-    material.ambient = { 0.01f, 0.01f, 0.01f };
+    material.ambient = { 0.1f, 0.1f, 0.1f };
     material.diffuse = { 0.0f, 0.1f, 0.25f };
     material.specular = { 0.1f, 0.1f, 0.1f };
     material.specular_exponent = 15.0f;
@@ -527,97 +538,84 @@ draw_ground(Assets *assets, Mesh mesh, r32 seconds, Camera camera) {
     platform_uniform_v3(active_shader, "material.specular", material.specular);
     platform_uniform_f32(active_shader, "material.shininess", material.specular_exponent);
 
+    platform_set_texture(find_bitmap(assets, "FOAM"));
+
     draw_mesh(&mesh);
 }
 
 internal void
-draw_game_3D(Application *app, Game_Data *data)
+draw_game_3D(Game *game, 
+             Game_3D *data, 
+             Dev_Tools *tools,
+             Matrices *matrices,
+             const Time time,
+             Assets *assets, 
+             Input *input, 
+             const v2s window_dim, 
+             u32 tex_depth_buffer,
+             u32 color_buffer_texture)
 {
-	Controller *menu_controller = app->input.active_controller;
+	Controller *menu_controller = input->active_controller;
 
-	app->matrices.view_matrix = get_view(data->camera);
-	perspective(data->matrices_ubo, &app->matrices); // 3D
+	matrices->view_matrix = get_view(data->camera);
+	perspective(matrices->ubo, matrices); // 3D
     
     // skybox
-    
-    draw_skybox(&app->assets, &data->skybox, &data->skybox_cube);
+    draw_skybox(assets, &data->skybox, &data->skybox_cube);
 
 	platform_set_capability(PLATFORM_CAPABILITY_DEPTH_TEST, true);
 	platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, true);
 
-    draw_ground(&app->assets, data->triangle_mesh, data->game_run_time_s, data->camera);
-    update_particles(app->time.frame_time_s);
-    draw_particles(&app->assets, data->game_run_time_s);
+    draw_ground(assets, data->triangle_mesh, game->game_run_time_s, data->camera);
+    update_particles(time.frame_time_s);
+    draw_particles(assets, game->game_run_time_s);
 
-    //platform_bind_framebuffer(app->frame_buffer);
-    //draw_boat(&data->boat3D, &app->assets, data->camera);
-    //platform_bind_framebuffer(0);
+    draw_boat(&data->boat3D, assets, data->camera);
 
-    draw_boat(&data->boat3D, &app->assets, data->camera);
-    //glBlitFramebuffer(0, 0, 800, 800, 0, 0, 800, 800, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    draw_cube({50, -5, 20}, 0, { 20, 15, 5 }, {50, 255, 0, 1});
 
-    // ORIGIN CUBE
-    /*
-    {
-        v4 cube_color2 = { 255, 0, 255, 1 };
-        v3 cube_scale = {5.2f, 5.2f, 5.2f};
-        v3 origin = { 0, -2, 0 };
-        //v3 origin = apply_waves({0,  -1.0f, 0}, data->waves, 5, data->game_run_time_s);
-        //draw_cube(origin, 0, cube_scale, cube_color2);
-        draw_sphere(origin, 0, cube_scale, cube_color2);
-        origin.x += 1.0f;
-        origin.y -= 1.0f;
-        draw_sphere(origin, 0, cube_scale, cube_color2);
-        origin.x -= 2.0f;
-        draw_sphere(origin, 0, cube_scale, cube_color2);
-    }
-    */
-
-    copy_depth_buffer(app->tex_depth_buffer, 900, 800, 900, 800);
-    platform_set_texture(app->tex_depth_buffer);
+    //copy_depth_buffer(tex_depth_buffer, window_dim.x, window_dim.y, window_dim.x, window_dim.y);
+    copy_buffers(tex_depth_buffer, color_buffer_texture, window_dim);
     //platform_set_texture(find_bitmap(&app->assets, "BOAT"));
-    draw_water(&app->assets, data->water, data->game_run_time_s, data->camera);
+    draw_water(assets, data->water, game->game_run_time_s, data->camera, tex_depth_buffer, color_buffer_texture);
     
     draw_cube(data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
 
-    //Model *tails = find_model(&app->assets, "TAILS");
-    //tails->color_shader = find_shader(&app->assets, "MATERIAL");
-    //tails->texture_shader = find_shader(&app->assets, "MATERIAL_TEX");
-    //draw_model(tails, data->camera, {0, 0, 0}, get_rotation(0, {0, 1, 0}));
-    
-
-    //draw_cube({1, 5, 1}, 0, { 1, 1, 1 }, find_bitmap(&app->assets, "BOAT"));
-    //draw_cube(data->boat3D.draw_coords, 0, { 1, 1, 1 }, { 255, 0, 255, 255 });
-
-	orthographic(data->matrices_ubo, &app->matrices); // 2D
+	orthographic(matrices->ubo, matrices); // 2D
 
     platform_set_capability(PLATFORM_CAPABILITY_DEPTH_TEST, false);
     platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, false);
 
-    draw_float_texboxes(&data->boat3D.easy, menu_controller->mouse_left, menu_controller->mouse, &app->input);
+    draw_float_texboxes(&data->boat3D.easy, menu_controller->mouse_left, menu_controller->mouse, input);
 
-    if (data->show_camera_menu) {
-        draw_camera_menu(&data->camera_menu, &data->camera, menu_controller->mouse_left, menu_controller->mouse, &app->input);
+    if (tools->show_camera_menu) {
+        draw_camera_menu(&tools->camera_menu, &data->camera, menu_controller->mouse_left, menu_controller->mouse, input);
     }
     
-    if (data->show_fps)
-    {
-        Font *caslon = find_font(&app->assets, "CASLON");
-        draw_string(caslon, ftos(app->time.frames_per_s), { 100, 100 }, 50, { 255, 150, 0, 1 });
+    if (tools->show_fps) {
+        Font *caslon = find_font(assets, "CASLON");
+        draw_string(caslon, ftos(time.frames_per_s), { 100, 100 }, 50, { 255, 150, 0, 1 });
     }
     
     platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);  
-    if (data->show_console) draw_console(&data->console, app->window.dim, menu_controller->mouse_left, menu_controller->mouse);
-    draw_onscreen_notifications(&data->onscreen_notifications, app->window.dim, app->time.frame_time_s);
-    if (data->wire_frame) platform_set_polygon_mode(PLATFORM_POLYGON_MODE_LINE);
-    else                  platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);
+    if (tools->show_console) 
+        draw_console(&tools->console, window_dim, menu_controller->mouse_left, menu_controller->mouse);
+    
+    draw_onscreen_notifications(&tools->onscreen_notifications, window_dim, time.frame_time_s);
+    
+    if (tools->wire_frame) 
+        platform_set_polygon_mode(PLATFORM_POLYGON_MODE_LINE);
+    else                  
+        platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);
 
-    if (data->paused) 
-    {
-        draw_rect( { 0, 0 }, 0, cv2(app->window.dim), { 0, 0, 0, 0.5f} );
+    if (game->paused) {
+        draw_rect( { 0, 0 }, 0, cv2(window_dim), { 0, 0, 0, 0.5f} );
         
-        s32 pause = draw_pause_menu(&app->assets, cv2(app->window.dim), on_down(menu_controller->select), data->active);
-        if      (pause == 1) data->paused = false;
-        else if (pause == 2) data->game_mode = MAIN_MENU;
+        s32 pause = draw_pause_menu(assets, cv2(window_dim), on_down(menu_controller->select), game->active);
+        
+        if      (pause == 1) 
+            game->paused = false;
+        else if (pause == 2) 
+            game->game_mode = MAIN_MENU;
     }
 }

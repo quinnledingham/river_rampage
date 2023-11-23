@@ -26,22 +26,40 @@ void platform_set_uniform_buffer_data(u32 ubo, u32 size, void *data)
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
 }
 
+// returns the new offset
+inline u32
+buffer_sub_data(u32 target, u32 offset, u32 size, void *data) {
+    glBufferSubData(target, offset, size, data);
+    return (offset + size);
+}
+
+#define BUFFER_SUB_DATA(target, offset, n) buffer_sub_data(target, offset, sizeof(n), (void *)&n)
+
 // functions to set matrices in uniform buffer
 void orthographic(u32 ubo, Matrices *matrices)
 {
-    glBindBuffer(GL_UNIFORM_BUFFER, ubo);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0,            sizeof(m4x4), (void*)&matrices->orthographic_matrix);
-    glBufferSubData(GL_UNIFORM_BUFFER, sizeof(m4x4), sizeof(m4x4), (void*)&identity_m4x4());
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    GLenum target = GL_UNIFORM_BUFFER;
+    u32 offset = 0;
+
+    glBindBuffer   (target, ubo);
+    offset = BUFFER_SUB_DATA(target, offset, matrices->orthographic_matrix);
+    offset = BUFFER_SUB_DATA(target, offset, identity_m4x4());
+    glBindBuffer   (target, 0);
 }
 
 void perspective(u32 ubo, Matrices *matrices)
 {
     GLenum target = GL_UNIFORM_BUFFER;
-    glBindBuffer(target, ubo);
-    glBufferSubData(target, 0,            sizeof(m4x4), (void*)&matrices->perspective_matrix);
-    glBufferSubData(target, sizeof(m4x4), sizeof(m4x4), (void*)&matrices->view_matrix);
-    glBindBuffer(target, 0);
+    u32 offset = 0;
+
+    glBindBuffer   (target, ubo);
+    offset = BUFFER_SUB_DATA(target, offset, matrices->perspective_matrix);
+    offset = BUFFER_SUB_DATA(target, offset, matrices->view_matrix);
+    offset = BUFFER_SUB_DATA(target, offset, matrices->p_near);
+    offset = BUFFER_SUB_DATA(target, offset, matrices->p_far);
+    offset = BUFFER_SUB_DATA(target, offset, matrices->window_width);
+    offset = BUFFER_SUB_DATA(target, offset, matrices->window_height);
+    glBindBuffer   (target, 0);
 }
 
 void platform_uniform_m4x4(u32 shader_handle, const char *tag, m4x4 *m) { glUniformMatrix4fv(glGetUniformLocation(shader_handle, tag), (GLsizei)1, false, (float*) m); }
@@ -50,25 +68,32 @@ void platform_uniform_s32 (u32 shader_handle, const char *tag, s32   i) { glUnif
 void platform_uniform_v3  (u32 shader_handle, const char *tag, v3    v) { glUniform3fv      (glGetUniformLocation(shader_handle, tag), (GLsizei)1,        (float*)&v); }
 void platform_uniform_v4  (u32 shader_handle, const char *tag, v4    v) { glUniform4fv      (glGetUniformLocation(shader_handle, tag), (GLsizei)1,        (float*)&v); }
 
-void platform_set_texture(Bitmap *bitmap)
-{
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, bitmap->handle);
-}
-
-void platform_set_texture(u32 handle)
-{
-    glActiveTexture(GL_TEXTURE0);
+void platform_set_texture(u32 handle, u32 index) {
+    glActiveTexture(GL_TEXTURE0 + index);
     glBindTexture(GL_TEXTURE_2D, handle);
 }
 
-void copy_depth_buffer(u32 handle, u32 x, u32 y, u32 image_width, u32 image_height)
-{
+void platform_set_texture(Bitmap *bitmap, u32 index) {
+    platform_set_texture(bitmap->handle, index);
+}
+
+void platform_set_texture(Bitmap *bitmap) {
+    platform_set_texture(bitmap, 0);
+}
+
+void copy_buffers(u32 depth_handle, u32 color_handle, v2s window_dim) {
     glDrawBuffer(GL_BACK);
-    glBindTexture(GL_TEXTURE_2D, handle);
-
     glReadBuffer(GL_BACK); // Ensure we are reading from the back buffer.
-    glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 0, 0, image_width, image_height, 0);
+
+    if (depth_handle != 0) {
+        glBindTexture(GL_TEXTURE_2D, depth_handle);
+        glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 0, 0, window_dim.x, window_dim.y, 0);
+    }
+
+    if (color_handle != 0) {
+        glBindTexture(GL_TEXTURE_2D, color_handle);
+        glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 0, 0, window_dim.x, window_dim.y, 0);
+    }
 }
 
 void platform_set_texture_cube_map(Cubemap *cubemap, u32 shader)

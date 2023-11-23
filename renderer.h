@@ -8,6 +8,12 @@ struct Matrices // for rendering
     m4x4 perspective_matrix;
     m4x4 orthographic_matrix;
     m4x4 view_matrix;
+
+    f32 p_near, p_far;
+    f32 window_width;
+    f32 window_height;
+
+    u32 ubo; // uniform buffer object
 };
 global v2s renderer_window_dim;
 
@@ -24,9 +30,11 @@ void platform_uniform_f32(u32 shader_handle, const char *tag, f32 f);
 void platform_uniform_s32(u32 shader_handle, const char *tag, s32 i);
 void platform_uniform_v3(u32 shader_handle, const char *tag, v3 v);
 void platform_uniform_v4(u32 shader_handle, const char *tag, v4 v);
+
 void platform_set_texture(Bitmap *bitmap);
-void platform_set_texture(u32 handle);
-void copy_depth_buffer(u32 handle, u32 x, u32 y, u32 image_width, u32 image_height);
+void platform_set_texture(Bitmap *bitmap, u32 index);
+void platform_set_texture(u32 handle, u32 index);
+void copy_buffers(u32 depth_handle, u32 color_handle, v2s window_dim);
 void platform_set_texture_cube_map(Cubemap *cubemap, u32 shader);
 
 void platform_blend_function(u32 source_factor, u32 destination_factor);

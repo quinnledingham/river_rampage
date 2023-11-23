@@ -11,9 +11,6 @@ MATERIAL|FRAGMENT, ../assets/shaders/material.fs
 MATERIAL_TEX|VERTEX, ../assets/shaders/material.vs
 MATERIAL_TEX|FRAGMENT, ../assets/shaders/material_tex.fs
 
-TEST|VERTEX, ../assets/shaders/color3D.vs
-TEST|FRAGMENT, ../assets/shaders/tex.fs
-
 COLOR|VERTEX, ../assets/shaders/basic.vs
 COLOR|FRAGMENT, ../assets/shaders/color.fs
 
@@ -32,6 +29,9 @@ PARTICLE|FRAGMENT, ../assets/shaders/particle.fs
 BITMAPS:
 BOAT, ../assets/bitmaps/boat.png
 ICON, ../assets/bitmaps/favicon.png
+FOAM, ../assets/bitmaps/water_foam.png
+NORMAL, ../assets/bitmaps/normal.jpg
+WATER, ../assets/bitmaps/under_water.png
 
 FONTS:
 CASLON, ../assets/fonts/LibreCaslonCondensed-Regular.ttf

@@ -1,6 +1,10 @@
 #version 330 core
 #extension GL_NV_uniform_buffer_std430_layout : enable
 
+in vec3 FragPos;
+in vec3 Normal; 
+in vec2 uv;   
+
 out vec4 FragColor;
 
 struct Material {
@@ -22,10 +26,6 @@ struct Light_Source {
 struct Light {
     float f[16];
 };
-
-in vec3 FragPos;
-in vec3 Normal; 
-in vec2 uv;   
   
 uniform vec3 viewPos;
 uniform Material material;
@@ -63,7 +63,7 @@ void main()
     vec3 reflectDir = reflect(-lightDir, norm);  
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
     vec3 specular = light.specular * (spec * material.specular);  
-        
-    vec3 result = ambient + diffuse + specular;
+
+    vec3 result = (ambient + diffuse + specular);
     FragColor = vec4(result, 1.0);
 } 

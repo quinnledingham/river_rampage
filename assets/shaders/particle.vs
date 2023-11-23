@@ -23,6 +23,11 @@ layout (std140) uniform Matrices
 {
     mat4 projection;
     mat4 view;
+
+    float near;
+    float far;
+    float window_width;
+    float window_height;
 };
 
 layout (std140) uniform Wav

@@ -18,16 +18,16 @@
 
 // returns game mode
 function s32
-draw_main_menu(Application *app, Game_Data *data)
+draw_main_menu(Game *game, Matrices *matrices, Assets *assets, Input *input, v2s window_dim)
 {
-    Controller *menu_controller = app->input.active_controller;
+    Controller *menu_controller = input->active_controller;
     
     Rect window_rect = {};
     window_rect.coords = { 0, 0 };
-    window_rect.dim    = cv2(app->window.dim);
+    window_rect.dim    = cv2(window_dim);
 
     Menu main_menu = {};
-    main_menu.font = find_font(&app->assets, "CASLON");
+    main_menu.font = find_font(assets, "CASLON");
     main_menu.rect = get_centered_rect(window_rect, 0.5f, 0.5f);
 
     main_menu.button_style.default_back_color = {  34,  44, 107,   1 };
@@ -41,12 +41,16 @@ draw_main_menu(Application *app, Game_Data *data)
     b32 select = on_down(menu_controller->select);
     u32 index = 0;
 
-    orthographic(data->matrices_ubo, &app->matrices);
-    draw_rect({ 0, 0 }, 0, cv2(app->window.dim), { 37, 38, 90, 1.0f} );
+    orthographic(matrices->ubo, matrices);
+    draw_rect({ 0, 0 }, 0, cv2(window_dim), { 37, 38, 90, 1.0f} );
     draw_rect(main_menu.rect.coords, 0, main_menu.rect.dim, { 0, 0, 0, 0.2f} );
-    if (menu_button(&main_menu, "2D",   index++, data->active, select)) data->game_mode = IN_GAME_2D;
-    if (menu_button(&main_menu, "3D",   index++, data->active, select)) data->game_mode = IN_GAME_3D;    
-    if (menu_button(&main_menu, "Quit", index++, data->active, select)) return true;
+
+    if (menu_button(&main_menu, "2D",   index++, game->active, select)) 
+        game->game_mode = IN_GAME_2D;
+    if (menu_button(&main_menu, "3D",   index++, game->active, select))
+        game->game_mode = IN_GAME_3D;    
+    if (menu_button(&main_menu, "Quit", index++, game->active, select)) 
+        return true;
 
     return false;
 }
@@ -76,78 +80,80 @@ draw_pause_menu(Assets *assets, v2 window_dim, b32 select, s32 active)
     return 0;
 }
 
+// gives the shader my uniform block bindings
+function void
+set_shader_uniform_block_bindings(Shader *shader) {
+    platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
+    platform_set_uniform_block_binding(shader->handle, "Wav",      1);
+    platform_set_uniform_block_binding(shader->handle, "Lights",   2);
+}
+
 void* init_data(Assets *assets)
 {
     Game_Data *data = (Game_Data*)malloc(sizeof(Game_Data));
     *data = {};
 
-    init_console(&data->console, find_font(assets, "CASLON"));
+    Game *game = &data->game;
+    Dev_Tools *tools = &data->dev_tools;
+    Game_2D *game_2D = &data->game_2D;
+    Game_3D *game_3D = &data->game_3D;
 
-    data->onscreen_notifications.font = find_font(assets, "CASLON");
-    data->onscreen_notifications.text_color = { 255, 255, 255, 1 };
+    init_console(&tools->console, find_font(assets, "CASLON"));
 
-    init_camera_menu(&data->camera_menu, assets);
+    tools->onscreen_notifications.font = find_font(assets, "CASLON");
+    tools->onscreen_notifications.text_color = { 255, 255, 255, 1 };
+
+    init_camera_menu(&tools->camera_menu, assets);
     
+    game->game_mode = IN_GAME_3D;
+
     // 3D
-    data->camera.position = { 5, 40, 0 };
-    data->camera.target   = { 0, 0, -2 };
-    data->camera.up       = { 0, 1, 0 };
-    data->camera.fov      = 70.0f;
-    data->camera.yaw      = 0.0f;
-    data->camera.pitch    = -85.0f;
+    game_3D->camera.position = { 5, 40, 0 };
+    game_3D->camera.target   = { 0, 0, -2 };
+    game_3D->camera.up       = { 0, 1, 0 };
+    game_3D->camera.fov      = 70.0f;
+    game_3D->camera.yaw      = 0.0f;
+    game_3D->camera.pitch    = -85.0f;
     
-    data->light.position = { 5.0f, 60.0f, 10.0f };
-    data->light.ambient  = { 0.3f, 0.3f, 0.3f };
-    data->light.diffuse  = { 0.9f, 0.9f, 0.9f };
-    data->light.specular = { 0.5f, 0.5f, 0.5f };
-    data->light.color    = { 1.0f, 1.0f, 1.0f, 1.0f };
+    game_3D->light.position = { 5.0f, 60.0f, 10.0f };
+    game_3D->light.ambient  = { 0.3f, 0.3f, 0.3f };
+    game_3D->light.diffuse  = { 0.9f, 0.9f, 0.9f };
+    game_3D->light.specular = { 0.5f, 0.5f, 0.5f };
+    game_3D->light.color    = { 1.0f, 1.0f, 1.0f, 1.0f };
     
-    data->triangle_mesh = create_square_mesh(100, 100, true);
-    init_mesh(&data->triangle_mesh);
+    game_3D->cube = get_cube_mesh();
+    game_3D->triangle_mesh = create_square_mesh(100, 100, true);
+    init_mesh(&game_3D->triangle_mesh);
 
     Mesh temp = create_square_mesh(100, 100, false);
-    data->water = make_square_mesh_into_patches(&temp, 100, 100);
+    game_3D->water = make_square_mesh_into_patches(&temp, 100, 100);
     
-    data->game_mode = IN_GAME_3D;
-    data->cube = get_cube_mesh();
+    set_shader_uniform_block_bindings(find_shader(assets, "MATERIAL"));
+    set_shader_uniform_block_bindings(find_shader(assets, "MATERIAL_TEX"));
+    set_shader_uniform_block_bindings(find_shader(assets, "WATER"));
+    set_shader_uniform_block_bindings(find_shader(assets, "PARTICLE"));
     
-    Shader *shader = find_shader(assets, "MATERIAL");
-    platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
-    platform_set_uniform_block_binding(shader->handle, "Lights", 2);
+    // Uniform buffer objects
+    // matrices is at location 0
+    game_3D->wave_ubo   = init_uniform_buffer_object(5 * sizeof(Wave), 1);
+    game_3D->lights_ubo = init_uniform_buffer_object(sizeof(Light),    2);
+    
+    game_3D->waves[0] = get_wave({ 1.0f, 0.0f }, 20.0f, 0.2f);
+    game_3D->waves[1] = get_wave({ 1.0f, 1.0f }, 50.0f, 0.3f);
+    game_3D->waves[2] = get_wave({ 0.0f, 0.4f }, 5.0f, 0.1f);
+    game_3D->waves[3] = get_wave({ -0.7f, 0.9f }, 9.0f, 0.1f);
+    game_3D->waves[4] = get_wave({ 0.1f, -0.9f }, 15.0f, 0.25f);
+    
+    platform_set_uniform_buffer_data(game_3D->wave_ubo, sizeof(Wave) * 5, (void*)&game_3D->waves);
+    platform_set_uniform_buffer_data(game_3D->lights_ubo, sizeof(Light), (void*)&game_3D->light);
+    
+    init_boat_3D(&game_3D->boat3D, find_font(assets, "CASLON"));
 
-    shader = find_shader(assets, "MATERIAL_TEX");
-    platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
-    platform_set_uniform_block_binding(shader->handle, "Lights", 2);
-    
-    shader = find_shader(assets, "WATER");
-    platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
-    platform_set_uniform_block_binding(shader->handle, "Wav",      1);
-    platform_set_uniform_block_binding(shader->handle, "Lights",   2);
-
-    shader = find_shader(assets, "PARTICLE");
-    platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
-    platform_set_uniform_block_binding(shader->handle, "Wav",      1);
-    
-    data->matrices_ubo = init_uniform_buffer_object(2 * sizeof(m4x4), 0);
-    data->wave_ubo = init_uniform_buffer_object(5 * sizeof(Wave), 1);
-    data->lights_ubo = init_uniform_buffer_object(sizeof(Light), 2);
-    
-    data->waves[0] = get_wave({ 1.0f, 0.0f }, 20.0f, 0.2f);
-    data->waves[1] = get_wave({ 1.0f, 1.0f }, 50.0f, 0.3f);
-    data->waves[2] = get_wave({ 0.0f, 0.4f }, 5.0f, 0.1f);
-    data->waves[3] = get_wave({ -0.7f, 0.9f }, 9.0f, 0.1f);
-    data->waves[4] = get_wave({ 0.1f, -0.9f }, 15.0f, 0.25f);
-    
-    platform_set_uniform_buffer_data(data->wave_ubo, sizeof(Wave) * 5, (void*)&data->waves);
-    platform_set_uniform_buffer_data(data->lights_ubo, sizeof(Light), (void*)&data->light);
-    
-    init_boat_3D(&data->boat3D, find_font(assets, "CASLON"));
-
-    data->skybox_cube = get_cube_mesh(false);
-    data->skybox = load_cubemap();
+    game_3D->skybox_cube = get_cube_mesh(false);
+    game_3D->skybox = load_cubemap();
 
     // 2D
-    init_boat(&data->boat);
+    init_boat(&game_2D->boat);
     
     return (void*)data;
 }
@@ -155,7 +161,9 @@ void* init_data(Assets *assets)
 function void
 update_matrices(Matrices *m, r32 fov, r32 aspect_ratio, v2s window_dim)
 {
-    m->perspective_matrix = perspective_projection(fov, aspect_ratio, 0.1f, 1000.0f);
+    m->window_width = (f32)window_dim.width;
+    m->window_height = (f32)window_dim.height;
+    m->perspective_matrix = perspective_projection(fov, aspect_ratio, m->p_near, m->p_far);
     m->orthographic_matrix = orthographic_projection(0.0f, (r32)window_dim.width, (r32)window_dim.height, 0.0f, -3.0f, 3.0f);
     m->update = false;
 }
@@ -165,87 +173,83 @@ b8 update(void *application)
 {
     Application *app = (Application*)application;
     Game_Data *data = (Game_Data*)app->data;
+    Game *game = &data->game;
+    Dev_Tools *tools = &data->dev_tools;
+    Game_2D *game_2D = &data->game_2D;
+    Game_3D *game_3D = &data->game_3D;
+    
     Controller *controller = app->input.active_controller;
 
     renderer_window_dim = app->window.dim;
 
     //if (app->matrices.update) 
-    update_matrices(&app->matrices, data->camera.fov, app->window.aspect_ratio, app->window.dim);
+    update_matrices(&app->matrices, game_3D->camera.fov, app->window.aspect_ratio, app->window.dim);
 
-    if (console_command(&data->console, TOGGLE_WIREFRAME))
-    {
-        data->wire_frame = !data->wire_frame;
-        if (data->wire_frame) platform_set_polygon_mode(PLATFORM_POLYGON_MODE_LINE);
-        else                  platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);
+    if (console_command(&tools->console, TOGGLE_WIREFRAME)) {
+        tools->wire_frame = !tools->wire_frame;
+        if (tools->wire_frame) 
+            platform_set_polygon_mode(PLATFORM_POLYGON_MODE_LINE);
+        else                  
+            platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);
     }
 
-    if (console_command(&data->console, RELOAD_SHADERS))
+    if (console_command(&tools->console, RELOAD_SHADERS))
     {
         Shader *shader = find_shader(&app->assets, "WATER");
         load_shader(shader);
         compile_shader(shader);
-        platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
-        platform_set_uniform_block_binding(shader->handle, "Wav",      1);
-        platform_set_uniform_block_binding(shader->handle, "Lights",   2);
+        set_shader_uniform_block_bindings(shader);
 
         shader = find_shader(&app->assets, "MATERIAL");
         load_shader(shader);
         compile_shader(shader);
-        platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
-        platform_set_uniform_block_binding(shader->handle, "Lights", 2);
+        set_shader_uniform_block_bindings(shader);
 
         shader = find_shader(&app->assets, "MATERIAL_TEX");
         load_shader(shader);
         compile_shader(shader);
-        platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
-        platform_set_uniform_block_binding(shader->handle, "Lights",   2);
+        set_shader_uniform_block_bindings(shader);
 
         shader = find_shader(&app->assets, "PARTICLE");
         load_shader(shader);
         compile_shader(shader);
-        platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
-        platform_set_uniform_block_binding(shader->handle, "Wav",      1);
+        set_shader_uniform_block_bindings(shader);
     }
 
-    if (console_command(&data->console, TOGGLE_FPS))
-    {
-        data->show_fps = !data->show_fps;
+    if (console_command(&tools->console, TOGGLE_FPS)) {
+        tools->show_fps = !tools->show_fps;
     }
 
     local_persist u32 last_game_mode = GAME_MODES_COUNT;
-    if (last_game_mode != data->game_mode)
-    {
-        last_game_mode = data->game_mode;
+    if (last_game_mode != game->game_mode) {
+        last_game_mode = game->game_mode;
 
         // stuff I want to check every time the game mode is changed
-        switch(data->game_mode)
-        {
+        switch(game->game_mode) {
             case MAIN_MENU:  app->input.relative_mouse_mode.set(false); break;
             case IN_GAME_3D: app->input.relative_mouse_mode.set(true);  break; // change mouse mode if it just switched to 3D
         }
 
-        data->paused = false;
-        data->active = 0;
+        game->paused = false;
+        game->active = 0;
     }
 
-    switch (data->game_mode)
+    switch (game->game_mode)
     {
-        case MAIN_MENU:
-        {
-            menu_update_active(&data->active, 0, 2, controller->backward, controller->forward);
-            if (draw_main_menu(app, data)) return true; // true if quit button is clicked
+        case MAIN_MENU: {
+            menu_update_active(&game->active, 0, 2, controller->backward, controller->forward);
+            if (draw_main_menu(game, &app->matrices, &app->assets, &app->input, app->window.dim)) 
+                return true; // true if quit button is clicked
         } break;
         
-        case IN_GAME_2D:
-        {
-            update_game_2D(app, data);
-            draw_game_2D(app, data);
+        case IN_GAME_2D: {
+            update_game_2D(game, game_2D, &app->input, app->time);
+            draw_game_2D(game, game_2D, &app->matrices, &app->assets, &app->input, app->window.dim);
         } break;
         
-        case IN_GAME_3D:
-        {
-            update_game_3D(data, &data->camera, &app->input, app->time);
-            draw_game_3D(app, data);
+        case IN_GAME_3D: {
+            update_game_3D(game, game_3D, tools, &app->input, app->time);
+            draw_game_3D(game, game_3D, tools, &app->matrices, app->time, &app->assets, &app->input, app->window.dim, app->tex_depth_buffer, app->color_buffer_texture);
         } break;
     }
     

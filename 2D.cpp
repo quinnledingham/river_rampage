@@ -96,45 +96,47 @@ game_to_screen_coords_2D(const v2 game_center, const v2 screen_center, const v2 
 }
 
 function void
-update_game_2D(Application *app, Game_Data *data)
+update_game_2D(Game *game, Game_2D *data, Input *input, const Time time)
 {
-    Controller *controller = app->input.active_controller;
-    Controller *menu_controller = app->input.active_controller;
+    Controller *controller = input->active_controller;
+    Controller *menu_controller = input->active_controller;
 
-    update_boat(&data->boat, &app->input, app->time.frame_time_s);
+    update_boat(&data->boat, input, time.frame_time_s);
     
-    if (data->paused)
-    {
-        menu_update_active(&data->active, 0, 1, menu_controller->backward, menu_controller->forward);
+    if (game->paused) {
+        menu_update_active(&game->active, 0, 1, menu_controller->backward, menu_controller->forward);
     }
     
-    if (on_down(controller->pause)) data->paused = !data->paused;
+    if (on_down(controller->pause)) 
+        game->paused = !game->paused;
 }
 
 function void
-draw_game_2D(Application *app, Game_Data *data)
+draw_game_2D(Game *game, Game_2D *data, Matrices *matrices, Assets *assets, Input *input, v2s window_dim)
 {
-    Controller *menu_controller = app->input.active_controller;
+    Controller *menu_controller = input->active_controller;
 
-    orthographic(data->matrices_ubo, &app->matrices);
+    orthographic(matrices->ubo, matrices);
     
     Rect rect = {};
     rect.dim = { 100, 100 };
-    v2 center = (cv2(app->window.dim) / 2.0f);
+    v2 center = (cv2(window_dim) / 2.0f);
     center_on(&rect, center);
     
-    draw_rect( { 0, 0 }, 0.0f, cv2(app->window.dim), { 0.0f, 100.0f, 255.0f, 1.0f } );
+    draw_rect( { 0, 0 }, 0.0f, cv2(window_dim), { 0.0f, 100.0f, 255.0f, 1.0f } );
     draw_circle( game_to_screen_coords_2D(data->boat.coords, center, { 0, 0 } ), 0.0f, 100.0f, { 255.0f, 0.0f, 0.0f, 1.0f } );
     
-    Bitmap *boat = find_bitmap(&app->assets, "BOAT");
+    Bitmap *boat = find_bitmap(assets, "BOAT");
     draw_rect(rect.coords, v2_to_angle(data->boat.direction), rect.dim, boat);
     
-    if (data->paused) 
+    if (game->paused) 
     {
-        draw_rect( { 0, 0 }, 0, cv2(app->window.dim), { 0, 0, 0, 0.5f} );
+        draw_rect( { 0, 0 }, 0, cv2(window_dim), { 0, 0, 0, 0.5f} );
         
-        s32 pause = draw_pause_menu(&app->assets, cv2(app->window.dim), on_down(menu_controller->select), data->active);
-        if      (pause == 1) data->paused = false;
-        else if (pause == 2) data->game_mode = MAIN_MENU;
+        s32 pause = draw_pause_menu(assets, cv2(window_dim), on_down(menu_controller->select), game->active);
+        if      (pause == 1) 
+            game->paused = false;
+        else if (pause == 2) 
+            game->game_mode = MAIN_MENU;
     }
 }
