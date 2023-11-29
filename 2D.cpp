@@ -101,7 +101,7 @@ update_game_2D(Game *game, Game_2D *data, Input *input, const Time time)
     Controller *controller = input->active_controller;
     Controller *menu_controller = input->active_controller;
 
-    update_boat(&data->boat, input, time.frame_time_s);
+    update_boat(&data->boat, input, (r32)time.frame_time_s);
     
     if (game->paused) {
         menu_update_active(&game->active, 0, 1, menu_controller->backward, menu_controller->forward);

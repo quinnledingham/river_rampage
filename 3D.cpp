@@ -507,12 +507,12 @@ draw_water(Assets *assets, Mesh mesh, r32 seconds, Camera camera, u32 depth_buff
 
     platform_uniform_s32(active_shader, "depth_buffer", 0);
     platform_uniform_s32(active_shader, "color_buffer", 1);
-    platform_uniform_s32(active_shader, "foam", 2);
-    platform_uniform_s32(active_shader, "normal_map", 3);
+    platform_uniform_s32(active_shader, "foam",         2);
+    platform_uniform_s32(active_shader, "normal_map",   3);
 
-    platform_set_texture(depth_buffer_texture, 0);
-    platform_set_texture(color_buffer_texture, 1);
-    platform_set_texture(find_bitmap(assets, "FOAM"), 2);
+    platform_set_texture(depth_buffer_texture,          0);
+    platform_set_texture(color_buffer_texture,          1);
+    platform_set_texture(find_bitmap(assets, "FOAM"),   2);
     platform_set_texture(find_bitmap(assets, "NORMAL"), 3);
 
     draw_mesh_patches(&mesh);

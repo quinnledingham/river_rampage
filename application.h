@@ -12,10 +12,12 @@ struct Window
 
 struct Time
 {
-    u64 run_time_ms;
+    r32 run_time_ms;
     r32 run_time_s;
-    u64 frame_time_ms;
+
+    r32 frame_time_ms;
     r32 frame_time_s;
+
     r32 frames_per_s;
 };
 

@@ -28,6 +28,38 @@
 #include "shapes.cpp"
 #include "particles.cpp"
 
+#if WINDOWS
+
+// Enabling Dedicated Graphics on Laptops
+// https://www.reddit.com/r/gamedev/comments/bk7xbe/psa_for_anyone_developing_a_gameengine_in_c/
+//
+// NOTE: If the laptop is in power saving mode (like it usually is when not plugged in) the graphics card
+// will be severely limited. 
+//
+extern "C" 
+{
+    __declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001; // Nvidia
+    __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;   // AMD
+}
+
+#define WIN32_LEAN_AND_MEAN
+#define WIN32_EXTRA_LEAN
+#include <windows.h>
+
+#pragma comment(lib, "user32.lib")
+#pragma comment(lib, "gdi32.lib")
+#pragma comment(lib, "winmm.lib")
+#pragma comment(lib, "shell32.lib")
+
+#include <mmsystem.h>
+#include <dsound.h>
+#include <intrin.h>
+#include <xinput.h>
+
+#include "win32_application.cpp"
+
+#endif // WINDOWS
+
 // function that are defined in the game code
 b8 update(void *application);
 void* init_data(Assets *assets);
@@ -53,10 +85,9 @@ reset_controller(Controller *controller)
 {
     //controller->mouse = {};
     controller->mouse_rel = {};
-    for (u32 j = 0; j < ARRAY_COUNT(controller->buttons); j++)
-    {
+    for (u32 j = 0; j < ARRAY_COUNT(controller->buttons); j++) {
         if (j == 11) { 
-            continue;
+            continue; // skip mouse_left
         }
         controller->buttons[j].current_state = 0;
         controller->buttons[j].previous_state = 0;
@@ -75,11 +106,9 @@ prepare_controller_for_input(Controller *controller)
 function void
 controller_process_input(Controller *controller, s32 id, b32 state)
 {
-    for (u32 i = 0; i < ARRAY_COUNT(controller->buttons); i++)
-    {
+    for (u32 i = 0; i < ARRAY_COUNT(controller->buttons); i++) {
         // loop through all ids associated with button
-        for (u32 j = 0; j < controller->buttons[i].num_of_ids; j++)
-        {
+        for (u32 j = 0; j < controller->buttons[i].num_of_ids; j++) {
             if (id == controller->buttons[i].ids[j]) controller->buttons[i].current_state = state;
         }
     }
@@ -214,9 +243,9 @@ get_seconds(u64 start, u64 end)
 function void
 update_time(Time *time)
 {
-    u64 last_run_time_ms = time->run_time_ms;
+    r32 last_run_time_ms = time->run_time_ms;
     
-    time->run_time_ms = SDL_GetTicks64();
+    time->run_time_ms = (r32)SDL_GetTicks64();
     time->run_time_s = (f32)time->run_time_ms / 1000.0f;
     time->frame_time_ms = time->run_time_ms - last_run_time_ms;
     time->frame_time_s = (f32)time->frame_time_ms / 1000.0f;
@@ -250,11 +279,13 @@ main_loop(Application *app, SDL_Window *sdl_window)
     SDL_Surface *icon_surface = SDL_CreateRGBSurfaceFrom(icon->memory, icon->dim.width, icon->dim.height, 32, icon->pitch, 0x00000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
     SDL_SetWindowIcon(sdl_window, icon_surface);
 
+    s64 last_time = 0;
+
     while(1)
     {
         if (process_input(&app->window, &app->input)) return 0; // quit if process_input returns false
 
-        update_time(&app->time);
+        win32_update_time(&app->time);
 
         if (update(app)) return 0;
 
@@ -309,7 +340,7 @@ init_opengl(SDL_Window *sdl_window)
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE,   24);
     
     SDL_GLContext Context = SDL_GL_CreateContext(sdl_window);
-    SDL_GL_SetSwapInterval(1); // vsync: 0 off, 1 on
+    SDL_GL_SetSwapInterval(0); // vsync: 0 off, 1 on
     
     // Check OpenGL properties
     gladLoadGL((GLADloadfunc) SDL_GL_GetProcAddress);
@@ -325,7 +356,7 @@ function SDL_Window*
 init_window(Window *window, b32 *update_matrices)
 {
     u32 sdl_init_flags = 
-        SDL_INIT_VIDEO | 
+        SDL_INIT_VIDEO          | 
         SDL_INIT_GAMECONTROLLER | 
         SDL_INIT_AUDIO;
     
@@ -358,6 +389,7 @@ get_depth_buffer_texture(v2s window_dim) {
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
@@ -383,6 +415,8 @@ int main(int argc, char *argv[])
 { 
     Application app = {};
     SDL_Window *sdl_window = init_window(&app.window, &app.matrices.update);
+
+    global_perf_count_frequency = win32_performance_frequency();
 
     // Loading assets
     u64 assets_loading_time_started = SDL_GetTicks64();
