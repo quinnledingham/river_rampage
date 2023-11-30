@@ -62,11 +62,20 @@ void perspective(u32 ubo, Matrices *matrices)
     glBindBuffer   (target, 0);
 }
 
-void platform_uniform_m4x4(u32 shader_handle, const char *tag, m4x4 *m) { glUniformMatrix4fv(glGetUniformLocation(shader_handle, tag), (GLsizei)1, false, (float*) m); }
-void platform_uniform_f32 (u32 shader_handle, const char *tag, f32   f) { glUniform1f       (glGetUniformLocation(shader_handle, tag),                             f); }
-void platform_uniform_s32 (u32 shader_handle, const char *tag, s32   i) { glUniform1i       (glGetUniformLocation(shader_handle, tag),                             i); }
-void platform_uniform_v3  (u32 shader_handle, const char *tag, v3    v) { glUniform3fv      (glGetUniformLocation(shader_handle, tag), (GLsizei)1,        (float*)&v); }
-void platform_uniform_v4  (u32 shader_handle, const char *tag, v4    v) { glUniform4fv      (glGetUniformLocation(shader_handle, tag), (GLsizei)1,        (float*)&v); }
+inline GLint
+get_uniform_location(u32 handle, const char *tag) {
+    return glGetUniformLocation(handle, tag);
+}
+
+void uniform_m4x4(u32 shader_handle, const char *tag, m4x4 *m) { glUniformMatrix4fv(get_uniform_location(shader_handle, tag), (GLsizei)1, false, (float*) m); }
+void uniform_f32 (u32 shader_handle, const char *tag, f32   f) { glUniform1f       (get_uniform_location(shader_handle, tag),                             f); }
+void uniform_s32 (u32 shader_handle, const char *tag, s32   i) { glUniform1i       (get_uniform_location(shader_handle, tag),                             i); }
+void uniform_v3  (u32 shader_handle, const char *tag, v3    v) { glUniform3fv      (get_uniform_location(shader_handle, tag), (GLsizei)1,        (float*)&v); }
+void uniform_v4  (u32 shader_handle, const char *tag, v4    v) { glUniform4fv      (get_uniform_location(shader_handle, tag), (GLsizei)1,        (float*)&v); }
+
+//
+// Textures
+//
 
 void platform_set_texture(u32 handle, u32 index) {
     glActiveTexture(GL_TEXTURE0 + index);
@@ -81,7 +90,55 @@ void platform_set_texture(Bitmap *bitmap) {
     platform_set_texture(bitmap, 0);
 }
 
-void copy_buffers(u32 depth_handle, u32 color_handle, v2s window_dim) {
+void platform_set_texture_cube_map(Cubemap *cubemap, u32 shader)
+{
+    //glDepthFunc(GL_LEQUAL);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap->handle);
+    glUniform1i(glGetUniformLocation(shader, "skybox"), 0);
+}
+
+
+//
+// Depth/Color Buffers
+//
+
+internal u32
+get_depth_buffer_texture(v2s window_dim) {
+    u32 handle;
+
+    glGenTextures(1, &handle);
+    glBindTexture(GL_TEXTURE_2D, handle);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, window_dim.x, window_dim.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    return handle;
+}
+
+internal u32
+get_color_buffer_texture(v2s window_dim) {
+    u32 handle;
+
+    glGenTextures(1, &handle);
+    glBindTexture(GL_TEXTURE_2D, handle);
+  
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, window_dim.x, window_dim.y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); 
+
+    return handle;
+}
+
+// copys the current depth buffer and the color buffer to textures
+// the handles are handles to gl textures
+void copy_buffers_to_textures(u32 depth_handle, u32 color_handle, v2s window_dim) {
     glDrawBuffer(GL_BACK);
     glReadBuffer(GL_BACK); // Ensure we are reading from the back buffer.
 
@@ -96,26 +153,22 @@ void copy_buffers(u32 depth_handle, u32 color_handle, v2s window_dim) {
     }
 }
 
-void platform_set_texture_cube_map(Cubemap *cubemap, u32 shader)
-{
-    //glDepthFunc(GL_LEQUAL);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap->handle);
-    glUniform1i(glGetUniformLocation(shader, "skybox"), 0);
-}
-
-void platform_blend_function(u32 source_factor, u32 destination_factor)
+//
+// Options
+//
+ 
+void set_blend_function(u32 source_factor, u32 destination_factor)
 {
     glBlendFunc(source_factor, destination_factor);
 }
 
-void platform_set_polygon_mode(u32 mode)
+void set_polygon_mode(u32 mode)
 {
     switch(mode)
     {
-        case PLATFORM_POLYGON_MODE_POINT: glPolygonMode(GL_FRONT_AND_BACK, GL_POINT); break;
-        case PLATFORM_POLYGON_MODE_LINE:  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); break;
-        case PLATFORM_POLYGON_MODE_FILL:  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL); break;
+        case POLYGON_MODE_POINT: glPolygonMode(GL_FRONT_AND_BACK, GL_POINT); break;
+        case POLYGON_MODE_LINE:  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);  break;
+        case POLYGON_MODE_FILL:  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);  break;
     }
 }
 
@@ -152,8 +205,4 @@ void platform_set_depth_mask(b32 state)
 
 void platform_set_scissor_box(v2s bottom_left, v2s dim) {
     glScissor(bottom_left.x, bottom_left.y, dim.x, dim.y);
-}
-
-void platform_bind_framebuffer(u32 handle) {
-    glBindFramebuffer(GL_FRAMEBUFFER, handle);
 }

@@ -46,9 +46,9 @@ draw_main_menu(Game *game, Matrices *matrices, Assets *assets, Input *input, v2s
     draw_rect(main_menu.rect.coords, 0, main_menu.rect.dim, { 0, 0, 0, 0.2f} );
 
     if (menu_button(&main_menu, "2D",   index++, game->active, select)) 
-        game->game_mode = IN_GAME_2D;
+        game->mode = IN_GAME_2D;
     if (menu_button(&main_menu, "3D",   index++, game->active, select))
-        game->game_mode = IN_GAME_3D;    
+        game->mode = IN_GAME_3D;    
     if (menu_button(&main_menu, "Quit", index++, game->active, select)) 
         return true;
 
@@ -105,7 +105,8 @@ void* init_data(Assets *assets)
 
     init_camera_menu(&tools->camera_menu, assets);
     
-    game->game_mode = IN_GAME_3D;
+    game->mode = IN_GAME_3D;
+    game->run_time_s = 0.0f;
 
     // 3D
     game_3D->camera.position = { 5, 40, 0 };
@@ -189,9 +190,9 @@ b8 update(void *application)
     if (console_command(&tools->console, TOGGLE_WIREFRAME)) {
         tools->wire_frame = !tools->wire_frame;
         if (tools->wire_frame) 
-            platform_set_polygon_mode(PLATFORM_POLYGON_MODE_LINE);
+            set_polygon_mode(POLYGON_MODE_LINE);
         else                  
-            platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);
+            set_polygon_mode(POLYGON_MODE_FILL);
     }
 
     if (console_command(&tools->console, RELOAD_SHADERS))
@@ -222,11 +223,11 @@ b8 update(void *application)
     }
 
     local_persist u32 last_game_mode = GAME_MODES_COUNT;
-    if (last_game_mode != game->game_mode) {
-        last_game_mode = game->game_mode;
+    if (last_game_mode != game->mode) {
+        last_game_mode = game->mode;
 
         // stuff I want to check every time the game mode is changed
-        switch(game->game_mode) {
+        switch(game->mode) {
             case MAIN_MENU:  app->input.relative_mouse_mode.set(false); break;
             case IN_GAME_3D: app->input.relative_mouse_mode.set(true);  break; // change mouse mode if it just switched to 3D
         }
@@ -235,7 +236,7 @@ b8 update(void *application)
         game->active = 0;
     }
 
-    switch (game->game_mode)
+    switch (game->mode)
     {
         case MAIN_MENU: {
             menu_update_active(&game->active, 0, 2, controller->backward, controller->forward);

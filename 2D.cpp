@@ -137,6 +137,6 @@ draw_game_2D(Game *game, Game_2D *data, Matrices *matrices, Assets *assets, Inpu
         if      (pause == 1) 
             game->paused = false;
         else if (pause == 2) 
-            game->game_mode = MAIN_MENU;
+            game->mode = MAIN_MENU;
     }
 }

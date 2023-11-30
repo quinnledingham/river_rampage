@@ -147,10 +147,10 @@ const global Pair camera_modes[CAMERA_MODES_COUNT] = {
 struct Game // What both 2D and 3D uses
 {
     b8 paused;
-    r32 game_run_time_s;
+    r32 run_time_s;
 
     // Menus
-    u32 game_mode;
+    u32 mode;
     s32 active;
 };
 

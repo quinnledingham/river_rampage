@@ -389,7 +389,8 @@ update_game_3D(Game *game, Game_3D *data, Dev_Tools *tools, Input *input, const 
         return;
     }
 
-    game->game_run_time_s += time.frame_time_s;
+    // Only reaches here if the game is not paused. Update game time if not paused.
+    game->run_time_s += time.frame_time_s; 
 
     Button null_button = {};
     f32 m_per_s = 6.0f; 
@@ -450,15 +451,7 @@ update_game_3D(Game *game, Game_3D *data, Dev_Tools *tools, Input *input, const 
                 } break;
 
                 case BOAT_CAMERA: {
-                    //printf("move_speed: %f\n", move_speed);
                     v3 move_vector = {move_speed, 0.0f, move_speed};
-                    /*
-                    update_camera_with_keys(&data->camera, data->boat3D.direction, data->camera.up, move_vector,
-                                            controller->forward, controller->backward,
-                                            null_button, null_button,
-                                            null_button, null_button);
-                    */
-
                     data->camera.position += update_boat_3D(&data->boat3D, data->boat3D.direction, {0, 1, 0}, 
                                    move_vector, boat_rotation_speed,
                                    controller->forward, controller->backward,
@@ -474,7 +467,7 @@ update_game_3D(Game *game, Game_3D *data, Dev_Tools *tools, Input *input, const 
     }
 
     update_camera_target(&data->camera);
-    update_boat_3D_draw_coord(&data->boat3D, data->waves, 5, game->game_run_time_s);
+    update_boat_3D_draw_coord(&data->boat3D, data->waves, 5, game->run_time_s);
 }
 
 internal void
@@ -485,7 +478,7 @@ draw_skybox(Assets *assets, Cubemap *cubemap, Mesh *cube)
     u32 active_shader = use_shader(shader);
 
     m4x4 model_matrix = create_transform_m4x4({0, 0, 0}, get_rotation(0, {0, 1, 0}), {1000, 1000, 1000});
-    platform_uniform_m4x4(active_shader, "model", &model_matrix);
+    uniform_m4x4(active_shader, "model", &model_matrix);
 
     platform_set_texture_cube_map(cubemap, active_shader);
     draw_mesh(cube);
@@ -500,16 +493,18 @@ draw_water(Assets *assets, Mesh mesh, r32 seconds, Camera camera, u32 depth_buff
     v4 color = {30.0f/255.0f, 144.0f/255.0f, 255.0f/255.0f, 0.5f};
     m4x4 model = create_transform_m4x4({0, 0, 0}, get_rotation(0, {0, 1, 0}), {100, 1, 100});
 
-    platform_uniform_m4x4(active_shader, "model", &model);
-    platform_uniform_f32(active_shader, "time", seconds);
-    platform_uniform_v3(active_shader, "camera_pos", camera.position);
-    platform_uniform_v4(active_shader, "user_color", color);
+    uniform_m4x4(active_shader, "model",     &model);
+    uniform_f32 (active_shader, "time",       seconds);
+    uniform_v3  (active_shader, "camera_pos", camera.position);
+    uniform_v4  (active_shader, "user_color", color);
 
-    platform_uniform_s32(active_shader, "depth_buffer", 0);
-    platform_uniform_s32(active_shader, "color_buffer", 1);
-    platform_uniform_s32(active_shader, "foam",         2);
-    platform_uniform_s32(active_shader, "normal_map",   3);
+    // assign texture locations
+    uniform_s32(active_shader, "depth_buffer", 0);
+    uniform_s32(active_shader, "color_buffer", 1);
+    uniform_s32(active_shader, "foam",         2);
+    uniform_s32(active_shader, "normal_map",   3);
 
+    // set textures
     platform_set_texture(depth_buffer_texture,          0);
     platform_set_texture(color_buffer_texture,          1);
     platform_set_texture(find_bitmap(assets, "FOAM"),   2);
@@ -524,8 +519,8 @@ draw_ground(Assets *assets, Mesh mesh, r32 seconds, Camera camera) {
     
     m4x4 model = create_transform_m4x4({0, -5, 0}, get_rotation(0, {0, 1, 0}), {100, 1, 100});
 
-    platform_uniform_m4x4(active_shader, "model", &model);
-    platform_uniform_v3(active_shader, "viewPos", camera.position);
+    uniform_m4x4(active_shader, "model", &model);
+    uniform_v3(active_shader, "viewPos", camera.position);
 
     Material material = {};
     material.ambient = { 0.1f, 0.1f, 0.1f };
@@ -533,10 +528,10 @@ draw_ground(Assets *assets, Mesh mesh, r32 seconds, Camera camera) {
     material.specular = { 0.1f, 0.1f, 0.1f };
     material.specular_exponent = 15.0f;
 
-    platform_uniform_v3(active_shader, "material.ambient", material.ambient);
-    platform_uniform_v3(active_shader, "material.diffuse", material.diffuse);
-    platform_uniform_v3(active_shader, "material.specular", material.specular);
-    platform_uniform_f32(active_shader, "material.shininess", material.specular_exponent);
+    uniform_v3(active_shader, "material.ambient", material.ambient);
+    uniform_v3(active_shader, "material.diffuse", material.diffuse);
+    uniform_v3(active_shader, "material.specular", material.specular);
+    uniform_f32(active_shader, "material.shininess", material.specular_exponent);
 
     platform_set_texture(find_bitmap(assets, "FOAM"));
 
@@ -566,22 +561,22 @@ draw_game_3D(Game *game,
 	platform_set_capability(PLATFORM_CAPABILITY_DEPTH_TEST, true);
 	platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, true);
 
-    draw_ground(assets, data->triangle_mesh, game->game_run_time_s, data->camera);
+    draw_ground(assets, data->triangle_mesh, game->run_time_s, data->camera);
     update_particles(time.frame_time_s);
-    draw_particles(assets, game->game_run_time_s);
+    draw_particles(assets, game->run_time_s);
     draw_boat(&data->boat3D, assets, data->camera);
     draw_cube({50, -5, 20}, 0, { 20, 15, 5 }, {50, 255, 0, 1});
 
-    copy_buffers(tex_depth_buffer, color_buffer_texture, window_dim);
+    copy_buffers_to_textures(tex_depth_buffer, color_buffer_texture, window_dim);
 
-    draw_water(assets, data->water, game->game_run_time_s, data->camera, tex_depth_buffer, color_buffer_texture);
+    draw_water(assets, data->water, game->run_time_s, data->camera, tex_depth_buffer, color_buffer_texture);
     draw_cube(data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
 
     // 2D
 	orthographic(matrices->ubo, matrices); 
     platform_set_capability(PLATFORM_CAPABILITY_DEPTH_TEST, false);
     platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, false);
-    platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL); // wireframe off
+    set_polygon_mode(POLYGON_MODE_FILL); // wireframe off
 
     // Tools
     draw_float_texboxes(&data->boat3D.easy, menu_controller->mouse_left, menu_controller->mouse, input);
@@ -611,14 +606,14 @@ draw_game_3D(Game *game,
         
         switch(pause) {
             case 1: game->paused = false;        break;
-            case 2: game->game_mode = MAIN_MENU; break;
+            case 2: game->mode = MAIN_MENU; break;
         }
     }
 
     // reset wireframe
     if (tools->wire_frame) {
-        platform_set_polygon_mode(PLATFORM_POLYGON_MODE_LINE);
+        set_polygon_mode(POLYGON_MODE_LINE);
     } else {
-        platform_set_polygon_mode(PLATFORM_POLYGON_MODE_FILL);
+        set_polygon_mode(POLYGON_MODE_FILL);
     }
 }

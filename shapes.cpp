@@ -448,20 +448,20 @@ draw_shape(Shape shape)
     {
         case SHAPE_COLOR: {
             handle = use_shader(&shapes.color);
-            platform_uniform_v4(handle, "user_color", shape.color);
+            uniform_v4(handle, "user_color", shape.color);
         } break;
         
         case SHAPE_TEXTURE: {
             handle = use_shader(&shapes.texture);
             platform_set_texture(shape.bitmap);
-            platform_uniform_s32(handle, "tex0", 0);
+            uniform_s32(handle, "tex0", 0);
         } break;
 
         case SHAPE_TEXT: {
             handle = use_shader(&shapes.text);
             platform_set_texture(shape.bitmap);
-            platform_uniform_s32(handle, "tex0", 0);
-            platform_uniform_v4(handle, "text_color", shape.color);
+            uniform_s32(handle, "tex0", 0);
+            uniform_v4(handle, "text_color", shape.color);
         } break;
         
         default: error("draw_shape(): Not valid shape draw type");
@@ -471,7 +471,7 @@ draw_shape(Shape shape)
         shape.coords += shape.dim / 2.0f; // coords = top left corner
     
     m4x4 model = create_transform_m4x4(shape.coords, shape.rotation, shape.dim);
-    platform_uniform_m4x4(handle, "model", &model);
+    uniform_m4x4(handle, "model", &model);
     
     switch(shape.type)
     {

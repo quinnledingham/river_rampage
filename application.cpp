@@ -249,13 +249,14 @@ update_time(Time *time)
     time->run_time_s = (f32)time->run_time_ms / 1000.0f;
     time->frame_time_ms = time->run_time_ms - last_run_time_ms;
     time->frame_time_s = (f32)time->frame_time_ms / 1000.0f;
-    //printf("%lld %f\n", time->frame_time_ms, time->frame_time_s);
-    if (time->frame_time_ms == 0) time->frame_time_s = 0.001f;
+
+    if (time->frame_time_ms == 0) 
+        time->frame_time_s = 0.001f;
     
     // get fps
     time->frames_per_s = 1000.0f;
-    if (time->frame_time_s > 0.0f) time->frames_per_s = 1.0f / time->frame_time_s;
-    //log("frame seconds %f", time->frame_time_s);
+    if (time->frame_time_s > 0.0f) 
+        time->frames_per_s = 1.0f / time->frame_time_s;
 }
 
 function void
@@ -378,45 +379,13 @@ init_window(Window *window, b32 *update_matrices)
     return sdl_window;
 }
 
-internal u32
-get_depth_buffer_texture(v2s window_dim) {
-    u32 handle;
-
-    glGenTextures(1, &handle);
-    glBindTexture(GL_TEXTURE_2D, handle);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, window_dim.x, window_dim.y, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    return handle;
-}
-
-internal u32
-get_color_buffer_texture(v2s window_dim) {
-    u32 handle;
-
-    glGenTextures(1, &handle);
-    glBindTexture(GL_TEXTURE_2D, handle);
-  
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, window_dim.x, window_dim.y, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); 
-
-    return handle;
-}
-
 int main(int argc, char *argv[])  
 { 
     Application app = {};
     SDL_Window *sdl_window = init_window(&app.window, &app.matrices.update);
 
     global_perf_count_frequency = win32_performance_frequency();
+    app.time.start = win32_get_ticks();
 
     // Loading assets
     u64 assets_loading_time_started = SDL_GetTicks64();
@@ -440,7 +409,7 @@ int main(int argc, char *argv[])
     app.input.relative_mouse_mode.set(false);
 
     // GL defaults
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    set_blend_function(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glPatchParameteri(GL_PATCH_VERTICES, 4); 

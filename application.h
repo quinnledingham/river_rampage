@@ -12,6 +12,8 @@ struct Window
 
 struct Time
 {
+    s64 start; // ticks of when application started
+
     r32 run_time_ms;
     r32 run_time_s;
 

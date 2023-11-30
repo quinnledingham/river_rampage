@@ -150,7 +150,7 @@ draw_particles(Assets *assets, r32 seconds)
     
     v4 color = { 255, 255, 255, 1 };
     glUniform4fv(glGetUniformLocation(handle, "user_color"), (GLsizei)1, (float*)&color);
-    platform_uniform_f32(handle, "time", seconds);
+    uniform_f32(handle, "time", seconds);
     glBindVertexArray(particles->mesh.vao); 
     glDrawElementsInstanced(GL_TRIANGLES, particles->mesh.indices_count, GL_UNSIGNED_INT, 0, particles->count);
     glBindVertexArray(0);
