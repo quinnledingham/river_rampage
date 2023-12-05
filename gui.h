@@ -136,6 +136,8 @@ struct Float_Textbox {
     u32 src_elements;
     u32 element_size;
 
+    const char *tag;
+
     v2 coords;
     v2 dim;
 
@@ -152,6 +154,8 @@ struct Edit_Float_Textbox {
 struct Easy_Textboxs {
     Float_Textbox boxs[10];
     u32 num_of_boxs;
+
+    f32 longest_tag_width;
 
     Edit_Float_Textbox edit;
     Draw_Textbox draw;

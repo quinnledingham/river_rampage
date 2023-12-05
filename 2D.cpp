@@ -8,7 +8,6 @@ v2_to_angle(v2 vector)
     return angle;
 }
 
-
 function void 
 rotate_v2(v2 *vector, r32 angle)
 {
@@ -19,17 +18,12 @@ rotate_v2(v2 *vector, r32 angle)
     vector->y = 1.0f * sinf(new_angle);
 }
 
-function v2
-delta_velocity(v2 acceleration, r32 delta_time)
-{
-    return acceleration * delta_time;
-}
-
+// converts boat velocity to pixel change on screen
 function v2 
 delta_position(v2 vector, r32 time_s)
 {
     vector.y = -vector.y; // 2D screen coords +y going down screen
-    return (vector * time_s) * 800.0f; // 800 pixels per meter
+    return (vector * time_s) * cv2(renderer_window_dim); // pixels per meter
 }
 
 function void
@@ -47,7 +41,7 @@ init_boat(Boat *boat)
     r32 speed_feet_per_s = 1.34f * sqrtf(boat->water_line_length);
     boat->maximum_speed  = speed_feet_per_s * 0.3048f; // ft to m
     
-    boat->acceleration_magnitude   = boat->engine_force / boat->mass;
+    boat->acceleration_magnitude       = boat->engine_force / boat->mass;
     boat->water_acceleration_magnitude = boat->rudder_force / boat->mass;
 }
 
@@ -64,24 +58,25 @@ function void
 update_boat(Boat *boat, Input *input, r32 delta_time)
 {
     v2 rotation_direction = {};
+    r32 rotation_speed = 0.05f;
+    r32 rotation_radians = DEG2RAD * rotation_speed;
     
-    if (is_down(input->active_controller->left))  rotate_v2(&boat->direction,  0.05f * DEG2RAD);
-    if (is_down(input->active_controller->right)) rotate_v2(&boat->direction, -0.05f * DEG2RAD);
+    if (is_down(input->active_controller->left))  rotate_v2(&boat->direction,  rotation_radians);
+    if (is_down(input->active_controller->right)) rotate_v2(&boat->direction, -rotation_radians);
     
     v2 acceleration_direction = {};
-    if (is_down(input->active_controller->up))   acceleration_direction =  boat->direction;
-    //if (is_down(input->active_controller->down)) acceleration_direction = -boat->direction;
+    if (is_down(input->active_controller->up)) 
+        acceleration_direction = boat->direction;
     
     v2 acceleration = acceleration_direction * boat->acceleration_magnitude;
     if (boat->speed < boat->maximum_speed)
-        boat->velocity += delta_velocity(acceleration, delta_time);
+        boat->velocity += acceleration * delta_time;
     
     boat->speed = magnitude(boat->velocity);
-    if (boat->speed > 0.0f)
-    {
+    if (boat->speed > 0.0f) {
         f32 angle_dir_to_velocity = angle_between(boat->direction, boat->velocity);
-        v2 drag_force = -normalized(boat->velocity) * (pow(boat->velocity, 2)) * angle_dir_to_velocity * 10.0f;
-        boat->velocity += delta_velocity(drag_force, delta_time);
+        v2 drag_force = -normalized(boat->velocity) * pow(boat->velocity, 2) * angle_dir_to_velocity * 10.0f;
+        boat->velocity += drag_force * delta_time;
     }
     
     boat->coords += delta_position(boat->velocity, delta_time);
@@ -116,7 +111,7 @@ draw_game_2D(Game *game, Game_2D *data, Matrices *matrices, Assets *assets, Inpu
 {
     Controller *menu_controller = input->active_controller;
 
-    orthographic(matrices->ubo, matrices);
+    orthographic(game->ubos.matrices, matrices);
     
     Rect rect = {};
     rect.dim = { 100, 100 };
@@ -134,9 +129,9 @@ draw_game_2D(Game *game, Game_2D *data, Matrices *matrices, Assets *assets, Inpu
         draw_rect( { 0, 0 }, 0, cv2(window_dim), { 0, 0, 0, 0.5f} );
         
         s32 pause = draw_pause_menu(assets, cv2(window_dim), on_down(menu_controller->select), game->active);
-        if      (pause == 1) 
-            game->paused = false;
-        else if (pause == 2) 
-            game->mode = MAIN_MENU;
+        switch(pause) {
+            case 1: game->paused = false;   break;
+            case 2: game->mode = MAIN_MENU; break;
+        }
     }
 }

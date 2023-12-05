@@ -4,8 +4,9 @@ u32 init_uniform_buffer_object(u32 block_size, u32 block_index)
     u32 uniform_buffer_object;
     glGenBuffers(1, &uniform_buffer_object);
     
+    // clearing buffer
     glBindBuffer(GL_UNIFORM_BUFFER, uniform_buffer_object);
-    glBufferData(GL_UNIFORM_BUFFER, block_size, NULL, GL_STATIC_DRAW);
+    glBufferData(GL_UNIFORM_BUFFER, block_size, NULL, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_UNIFORM_BUFFER, 0);
     
     glBindBufferBase(GL_UNIFORM_BUFFER, block_index, uniform_buffer_object);
@@ -19,21 +20,29 @@ void platform_set_uniform_block_binding(u32 shader_handle, const char *tag, u32 
     glUniformBlockBinding(shader_handle, tag_uniform_block_index, index);
 }
 
-void platform_set_uniform_buffer_data(u32 ubo, u32 size, void *data)
-{
-    glBindBuffer(GL_UNIFORM_BUFFER, ubo);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0, size, data);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+u32 gl_get_buffer_target(u32 target) {
+    switch(target) {
+        case UNIFORM_BUFFER: return GL_UNIFORM_BUFFER; break;
+        default: {
+            error("gl_get_buffer_target(): Not a valid target");
+            return 0;
+        };
+    }
+}
+
+void bind_buffer(u32 target, u32 ubo) {
+    glBindBuffer(target, ubo);
+}
+
+void unbind_buffer(u32 target) {
+    glBindBuffer(target, 0);
 }
 
 // returns the new offset
-inline u32
-buffer_sub_data(u32 target, u32 offset, u32 size, void *data) {
+u32 buffer_sub_data(u32 target, u32 offset, u32 size, void *data) {
     glBufferSubData(target, offset, size, data);
     return (offset + size);
 }
-
-#define BUFFER_SUB_DATA(target, offset, n) buffer_sub_data(target, offset, sizeof(n), (void *)&n)
 
 // functions to set matrices in uniform buffer
 void orthographic(u32 ubo, Matrices *matrices)
@@ -41,10 +50,10 @@ void orthographic(u32 ubo, Matrices *matrices)
     GLenum target = GL_UNIFORM_BUFFER;
     u32 offset = 0;
 
-    glBindBuffer   (target, ubo);
+    glBindBuffer(target, ubo);
     offset = BUFFER_SUB_DATA(target, offset, matrices->orthographic_matrix);
     offset = BUFFER_SUB_DATA(target, offset, identity_m4x4());
-    glBindBuffer   (target, 0);
+    glBindBuffer(target, 0);
 }
 
 void perspective(u32 ubo, Matrices *matrices)
@@ -52,14 +61,14 @@ void perspective(u32 ubo, Matrices *matrices)
     GLenum target = GL_UNIFORM_BUFFER;
     u32 offset = 0;
 
-    glBindBuffer   (target, ubo);
+    glBindBuffer(target, ubo);
     offset = BUFFER_SUB_DATA(target, offset, matrices->perspective_matrix);
     offset = BUFFER_SUB_DATA(target, offset, matrices->view_matrix);
     offset = BUFFER_SUB_DATA(target, offset, matrices->p_near);
     offset = BUFFER_SUB_DATA(target, offset, matrices->p_far);
     offset = BUFFER_SUB_DATA(target, offset, matrices->window_width);
     offset = BUFFER_SUB_DATA(target, offset, matrices->window_height);
-    glBindBuffer   (target, 0);
+    glBindBuffer(target, 0);
 }
 
 inline GLint

@@ -21,7 +21,7 @@ function s32
 draw_main_menu(Game *game, Matrices *matrices, Assets *assets, Input *input, v2s window_dim)
 {
     Controller *menu_controller = input->active_controller;
-    
+
     Rect window_rect = {};
     window_rect.coords = { 0, 0 };
     window_rect.dim    = cv2(window_dim);
@@ -41,7 +41,7 @@ draw_main_menu(Game *game, Matrices *matrices, Assets *assets, Input *input, v2s
     b32 select = on_down(menu_controller->select);
     u32 index = 0;
 
-    orthographic(matrices->ubo, matrices);
+    orthographic(game->ubos.matrices, matrices);
     draw_rect({ 0, 0 }, 0, cv2(window_dim), { 37, 38, 90, 1.0f} );
     draw_rect(main_menu.rect.coords, 0, main_menu.rect.dim, { 0, 0, 0, 0.2f} );
 
@@ -51,6 +51,9 @@ draw_main_menu(Game *game, Matrices *matrices, Assets *assets, Input *input, v2s
         game->mode = IN_GAME_3D;    
     if (menu_button(&main_menu, "Quit", index++, game->active, select)) 
         return true;
+
+    const char *test_string = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    draw_string(main_menu.font, test_string, { 0, 75 }, 36, { 255, 255, 255, 1} );
 
     return false;
 }
@@ -80,12 +83,32 @@ draw_pause_menu(Assets *assets, v2 window_dim, b32 select, s32 active)
     return 0;
 }
 
-// gives the shader my uniform block bindings
+
 function void
-set_shader_uniform_block_bindings(Shader *shader) {
-    platform_set_uniform_block_binding(shader->handle, "Matrices", 0);
-    platform_set_uniform_block_binding(shader->handle, "Wav",      1);
-    platform_set_uniform_block_binding(shader->handle, "Lights",   2);
+set_shader_uniform_block_bindings(Shader *shader, const Uniform_Buffer_Objects *ubos) {
+    for (u32 i = 0; i < ARRAY_COUNT(ubos->E); i++) {
+        platform_set_uniform_block_binding(shader->handle, ubos->tags[i], i);
+    }
+}
+
+internal void
+init_waves_data(Waves_Data *waves_data, u32 ubo) {
+    waves_data->waves[0] = get_wave({  1.0f,  0.0f }, 20.0f, 0.2f);
+    waves_data->waves[1] = get_wave({  1.0f,  1.0f }, 50.0f, 0.3f);
+    waves_data->waves[2] = get_wave({  0.0f,  0.4f },  5.0f, 0.1f);
+    waves_data->waves[3] = get_wave({ -0.7f,  0.9f },  9.0f, 0.1f);
+    waves_data->waves[4] = get_wave({  0.1f, -0.9f }, 15.0f, 0.25f);
+    waves_data->num_of_waves = 0;
+
+    {
+        u32 target = gl_get_buffer_target(UNIFORM_BUFFER);
+        u32 offset = 0;
+
+        bind_buffer(target, ubo);
+        offset = BUFFER_SUB_DATA_ARRAY(target, offset, waves_data->waves);
+        offset = BUFFER_SUB_DATA(target, offset, waves_data->num_of_waves);
+        unbind_buffer(target);
+    }
 }
 
 void* init_data(Assets *assets)
@@ -98,14 +121,35 @@ void* init_data(Assets *assets)
     Game_2D *game_2D = &data->game_2D;
     Game_3D *game_3D = &data->game_3D;
 
+    // the sizes I'm creating here are to match the size of the structs in the shaders
+    // so I don't have to wait for any thing from the game to determine the size
+    game->ubos.matrices = init_uniform_buffer_object(2 * sizeof(m4x4) + 4 * sizeof(f32),                                  0); // ubos.E[0]
+    game->ubos.waves    = init_uniform_buffer_object(ARRAY_COUNT(game_3D->waves_data.waves) * sizeof(Wave) + sizeof(u32), 1); // ubos.E[1]
+    game->ubos.lights   = init_uniform_buffer_object(sizeof(Light),                                                       2); // ubos.E[2]
+
+    // set up all of the shaders with the uniform block bindings
+    for (u32 shader_index = 0; shader_index < assets->types[ASSET_TYPE_SHADER].num_of_assets; shader_index++) {
+        set_shader_uniform_block_bindings((Shader*)&assets->types[ASSET_TYPE_SHADER].data[shader_index].memory, &game->ubos);
+        /*
+        Shader *shader = (Shader *)&assets->types[ASSET_TYPE_SHADER].data[shader_index].memory;
+        for (u32 ubo_index = 0; ubo_index < ARRAY_COUNT(game->ubos.E); ubo_index++) {
+            // gives the shader my uniform block bindings
+            platform_set_uniform_block_binding(shader->handle, game->ubos.tags[ubo_index], ubo_index);
+        }
+        */
+    }
+
+
+    // Dev Tools
     init_console(&tools->console, find_font(assets, "CASLON"));
 
     tools->onscreen_notifications.font = find_font(assets, "CASLON");
     tools->onscreen_notifications.text_color = { 255, 255, 255, 1 };
 
     init_camera_menu(&tools->camera_menu, assets);
-    
-    game->mode = IN_GAME_3D;
+
+    // Game
+    game->mode = MAIN_MENU;
     game->run_time_s = 0.0f;
 
     // 3D
@@ -121,6 +165,16 @@ void* init_data(Assets *assets)
     game_3D->light.diffuse  = { 0.9f, 0.9f, 0.9f };
     game_3D->light.specular = { 0.5f, 0.5f, 0.5f };
     game_3D->light.color    = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+    {
+        u32 target = gl_get_buffer_target(UNIFORM_BUFFER);
+        u32 offset = 0;
+        u32 ubo = game->ubos.lights;
+
+        bind_buffer(target, ubo);
+        UNIFORM_BUFFER_SUB_DATA(0, game_3D->light);
+        unbind_buffer(target);
+    }
     
     game_3D->cube = get_cube_mesh();
     game_3D->triangle_mesh = create_square_mesh(100, 100, true);
@@ -129,29 +183,11 @@ void* init_data(Assets *assets)
     Mesh temp = create_square_mesh(100, 100, false);
     game_3D->water = make_square_mesh_into_patches(&temp, 100, 100);
     
-    set_shader_uniform_block_bindings(find_shader(assets, "MATERIAL"));
-    set_shader_uniform_block_bindings(find_shader(assets, "MATERIAL_TEX"));
-    set_shader_uniform_block_bindings(find_shader(assets, "WATER"));
-    set_shader_uniform_block_bindings(find_shader(assets, "PARTICLE"));
-    
-    // Uniform buffer objects
-    // matrices is at location 0
-    game_3D->wave_ubo   = init_uniform_buffer_object(5 * sizeof(Wave), 1);
-    game_3D->lights_ubo = init_uniform_buffer_object(sizeof(Light),    2);
-    
-    game_3D->waves[0] = get_wave({ 1.0f, 0.0f }, 20.0f, 0.2f);
-    game_3D->waves[1] = get_wave({ 1.0f, 1.0f }, 50.0f, 0.3f);
-    game_3D->waves[2] = get_wave({ 0.0f, 0.4f }, 5.0f, 0.1f);
-    game_3D->waves[3] = get_wave({ -0.7f, 0.9f }, 9.0f, 0.1f);
-    game_3D->waves[4] = get_wave({ 0.1f, -0.9f }, 15.0f, 0.25f);
-    
-    platform_set_uniform_buffer_data(game_3D->wave_ubo, sizeof(Wave) * 5, (void*)&game_3D->waves);
-    platform_set_uniform_buffer_data(game_3D->lights_ubo, sizeof(Light), (void*)&game_3D->light);
-    
+    init_waves_data(&game_3D->waves_data, game->ubos.waves);
+
     init_boat_3D(&game_3D->boat3D, find_font(assets, "CASLON"));
 
     game_3D->skybox_cube = get_cube_mesh(false);
-    //game_3D->skybox.bitmaps[0] = find_bitmap("SKYBOX_RIGHT");
     game_3D->skybox = load_cubemap();
 
     // 2D
@@ -184,8 +220,8 @@ b8 update(void *application)
 
     renderer_window_dim = app->window.dim;
 
-    //if (app->matrices.update) 
-    update_matrices(&app->matrices, game_3D->camera.fov, app->window.aspect_ratio, app->window.dim);
+    if (app->matrices.update) // only updates on load and window size change
+        update_matrices(&app->matrices, game_3D->camera.fov, app->window.aspect_ratio, app->window.dim);
 
     if (console_command(&tools->console, TOGGLE_WIREFRAME)) {
         tools->wire_frame = !tools->wire_frame;
@@ -200,22 +236,22 @@ b8 update(void *application)
         Shader *shader = find_shader(&app->assets, "WATER");
         load_shader(shader);
         compile_shader(shader);
-        set_shader_uniform_block_bindings(shader);
+        set_shader_uniform_block_bindings(shader, &game->ubos);
 
         shader = find_shader(&app->assets, "MATERIAL");
         load_shader(shader);
         compile_shader(shader);
-        set_shader_uniform_block_bindings(shader);
+        set_shader_uniform_block_bindings(shader, &game->ubos);
 
         shader = find_shader(&app->assets, "MATERIAL_TEX");
         load_shader(shader);
         compile_shader(shader);
-        set_shader_uniform_block_bindings(shader);
+        set_shader_uniform_block_bindings(shader, &game->ubos);
 
         shader = find_shader(&app->assets, "PARTICLE");
         load_shader(shader);
         compile_shader(shader);
-        set_shader_uniform_block_bindings(shader);
+        set_shader_uniform_block_bindings(shader, &game->ubos);
     }
 
     if (console_command(&tools->console, TOGGLE_FPS)) {

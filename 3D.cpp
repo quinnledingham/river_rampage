@@ -17,10 +17,10 @@ update_camera_with_mouse(Camera *camera, v2s delta_mouse, v2 move_speed)
     camera->yaw   += (f32)delta_mouse.x * move_speed.x;
     camera->pitch -= (f32)delta_mouse.y * move_speed.y;
     
-    // doesnt require this
+    // doesnt break withou this - just so it does not keep getting higher and higher
     r32 max_yaw = 360.0f;
-    if (camera->yaw >  max_yaw) camera->yaw = 0;
-    if (camera->yaw < 0) camera->yaw = max_yaw;
+    if (camera->yaw > max_yaw) camera->yaw = 0;
+    if (camera->yaw < 0)       camera->yaw = max_yaw;
 
     // breaks with out this check
     r32 max_pitch = 89.0f;
@@ -183,53 +183,60 @@ init_boat_3D(Boat3D *boat, Font *font) {
     boat->lengths[LEFT] = 2.0f;
     boat->lengths[RIGHT] = 2.0f;
 
-    boat->easy.boxs[0] = f32_textbox();
-    boat->easy.boxs[1] = f32_textbox();
-    boat->easy.num_of_boxs = 0;
+    boat->easy.boxs[0] = f32_textbox("Max Speed", &boat->maximum_speed);
+    boat->easy.boxs[1] = f32_textbox("Drag Mag", &boat->drag_magnitude);
+    boat->easy.boxs[2] = v3_textbox("Velocity", &boat->velocity);
+    boat->easy.num_of_boxs = 3;
     boat->easy.draw = default_draw_textbox;
     boat->easy.draw.font = font;
-    //boat->easy.boxs[0].src = &boat->left_scale;
-    //boat->easy.boxs[1].src = &boat->right_scale;
+    init_easy_textboxs(&boat->easy);
 }
 
 function v3
-update_boat_3D(Boat3D *boat,   v3 target, v3 up,
-               v3 move_vector, r32 rotation_speed,
-               Button forward, Button backward,
-               Button left,    Button right)
-{
+update_boat_3D(Boat3D *boat, r32 delta_time,
+               Button forward, Button backward, Button left, Button right) {
+    f32 rotation_speed = 50.0f * delta_time;
+    r32 rotation_radians = DEG2RAD * rotation_speed;
+    f32 m_per_s = 6.0f; 
+    f32 m_moved = m_per_s * delta_time;
+    v3 move_vector = { m_moved, 0.0f, m_moved };
+    v3 time_vector = { delta_time, 0.0f, delta_time };
+
     if (is_down(left)) {
-        boat->rotation = boat->rotation * get_rotation(DEG2RAD *  rotation_speed, {0, 1, 0});
+        boat->rotation = boat->rotation * get_rotation( rotation_radians, {0, 1, 0});
     } else if (is_down(right)) {
-        boat->rotation = boat->rotation * get_rotation(DEG2RAD * -rotation_speed, {0, 1, 0});
+        boat->rotation = boat->rotation * get_rotation(-rotation_radians, {0, 1, 0});
     }
 
     boat->direction = boat->rotation * v3{ 1, 0, 0 };
     boat->up        = boat->rotation * v3{ 0, 1, 0 };
 
-    //if (is_down(forward))  boat->coords += target * move_vector;
-    //if (is_down(backward)) boat->coords -= target * move_vector;
-
     v3 acceleration_direction = {};
-    if (is_down(forward))
-            acceleration_direction = boat->direction;
+    if (is_down(forward)) {
+        acceleration_direction = boat->direction;
 
-    v3 acceleration = acceleration_direction * boat->acceleration_magnitude;
-    if (boat->speed < boat->maximum_speed) {
-        boat->velocity += acceleration * move_vector;
+        if (boat->speed < boat->maximum_speed) {
+            v3 acceleration = acceleration_direction * boat->acceleration_magnitude;
+            boat->velocity += acceleration * delta_time;
+        } else {
+            boat->velocity += acceleration_direction * delta_time;
+        }
     }
 
     boat->speed = magnitude(boat->velocity);
     if (boat->speed > 0.0f) {
         f32 angle_dir_to_velocity = angle_between(boat->direction, boat->velocity);
-        v3 drag_force = -normalized(boat->velocity) * (pow(boat->velocity, 2)) * angle_dir_to_velocity * boat->drag_magnitude;
-        boat->velocity += drag_force * move_vector;
+        log("%f\b", angle_dir_to_velocity);
+
+        v3 drag_force = -normalized(boat->velocity) * pow(boat->velocity, 2) * angle_dir_to_velocity * boat->drag_magnitude; // just needs less than acceleration
+        boat->velocity += drag_force * delta_time;
     }
 
-    v3 coords_delta = boat->velocity * move_vector;
+    //v3 coords_delta = boat->velocity * move_vector;
+    v3 coords_delta = boat->velocity * time_vector;
     boat->coords += coords_delta;
 
-    return coords_delta;
+    return coords_delta; // returns how much the boat was moved by to move the camera by the same amount.
 }
 
 // Left Hand because of OpenGL
@@ -364,10 +371,15 @@ draw_boat(Boat3D *boat3D, Assets *assets, Camera camera) {
     v3 cube_scale = {0.2f, 0.2f, 0.2f};
     draw_cube(boat3D->wave.center, 0, cube_scale, cube_color);
 
+    draw_v3(boat3D->wave.center, boat3D->direction);
+    draw_v3(boat3D->wave.center, boat3D->velocity);
+
+    /*
     for (u32 i = 0; i < DIRECTIONS_2D; i++)
         draw_cube(boat3D->wave.E[i], 0, cube_scale, cube_color);
     for (u32 i = 0; i < DIRECTIONS_2D; i++)
         draw_cube(boat3D->debug_wave_coords[i], 0, cube_scale, cube_color2);
+    */
 }
 
 internal void
@@ -391,11 +403,6 @@ update_game_3D(Game *game, Game_3D *data, Dev_Tools *tools, Input *input, const 
 
     // Only reaches here if the game is not paused. Update game time if not paused.
     game->run_time_s += time.frame_time_s; 
-
-    Button null_button = {};
-    f32 m_per_s = 6.0f; 
-    f32 move_speed = m_per_s * time.frame_time_s;
-    f32 boat_rotation_speed = 50.0f * time.frame_time_s;
 
     switch(input->mode) {
         case INPUT_MODE_KEYBOARD: {
@@ -422,7 +429,7 @@ update_game_3D(Game *game, Game_3D *data, Dev_Tools *tools, Input *input, const 
                 align_camera_with_boat(&data->camera, &data->boat3D);
             }
 
-                // update camera mode
+            // update camera mode
             if (on_down(controller->toggle_camera_mode))
             {
                 data->camera_mode++;
@@ -437,13 +444,17 @@ update_game_3D(Game *game, Game_3D *data, Dev_Tools *tools, Input *input, const 
                 }
             }
 
+
+
             switch(data->camera_mode) {
                 case FREE_CAMERA: {
                     f32 mouse_m_per_s = 100.0f;
                     f32 mouse_move_speed = mouse_m_per_s * time.frame_time_s;
                     update_camera_with_mouse(camera, controller->mouse_rel, {mouse_move_speed, mouse_move_speed});
                     
-                    v3 move_vector = {move_speed, move_speed, move_speed};
+                    f32 m_per_s = 6.0f; 
+                    f32 m_moved = m_per_s * time.frame_time_s;
+                    v3 move_vector = {m_moved, m_moved, m_moved};
                     update_camera_with_keys(&data->camera, data->camera.target, data->camera.up, move_vector,
                                             controller->forward, controller->backward,
                                             controller->left,    controller->right,
@@ -451,11 +462,9 @@ update_game_3D(Game *game, Game_3D *data, Dev_Tools *tools, Input *input, const 
                 } break;
 
                 case BOAT_CAMERA: {
-                    v3 move_vector = {move_speed, 0.0f, move_speed};
-                    data->camera.position += update_boat_3D(&data->boat3D, data->boat3D.direction, {0, 1, 0}, 
-                                   move_vector, boat_rotation_speed,
-                                   controller->forward, controller->backward,
-                                   controller->left,    controller->right);
+                    // actual gameplay
+                    data->camera.position += update_boat_3D(&data->boat3D, time.frame_time_s,
+                                                            controller->forward, controller->backward, controller->left, controller->right);
                 } break;
             }
         } break;
@@ -467,7 +476,7 @@ update_game_3D(Game *game, Game_3D *data, Dev_Tools *tools, Input *input, const 
     }
 
     update_camera_target(&data->camera);
-    update_boat_3D_draw_coord(&data->boat3D, data->waves, 5, game->run_time_s);
+    update_boat_3D_draw_coord(&data->boat3D, data->waves_data.waves, data->waves_data.num_of_waves, game->run_time_s);
 }
 
 internal void
@@ -553,7 +562,7 @@ draw_game_3D(Game *game,
 	Controller *menu_controller = input->active_controller;
 
 	matrices->view_matrix = get_view(data->camera);
-	perspective(matrices->ubo, matrices); // 3D
+	perspective(game->ubos.matrices, matrices); // 3D
     
     // skybox
     draw_skybox(assets, &data->skybox, &data->skybox_cube);
@@ -573,13 +582,13 @@ draw_game_3D(Game *game,
     draw_cube(data->light.position, 0, { 1, 1, 1 }, data->light.color * 255.0f);
 
     // 2D
-	orthographic(matrices->ubo, matrices); 
+	orthographic(game->ubos.matrices, matrices); 
     platform_set_capability(PLATFORM_CAPABILITY_DEPTH_TEST, false);
     platform_set_capability(PLATFORM_CAPABILITY_CULL_FACE, false);
     set_polygon_mode(POLYGON_MODE_FILL); // wireframe off
 
     // Tools
-    draw_float_texboxes(&data->boat3D.easy, menu_controller->mouse_left, menu_controller->mouse, input);
+    draw_float_textboxes(&data->boat3D.easy, menu_controller->mouse_left, menu_controller->mouse, input);
 
     if (tools->show_camera_menu) {
         draw_camera_menu(&tools->camera_menu, &data->camera, menu_controller->mouse_left, menu_controller->mouse, input);
@@ -605,7 +614,7 @@ draw_game_3D(Game *game,
         s32 pause = draw_pause_menu(assets, cv2(window_dim), on_down(menu_controller->select), game->active);
         
         switch(pause) {
-            case 1: game->paused = false;        break;
+            case 1: game->paused = false;   break;
             case 2: game->mode = MAIN_MENU; break;
         }
     }

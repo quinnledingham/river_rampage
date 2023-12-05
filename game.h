@@ -11,33 +11,6 @@ enum
     DIRECTIONS_2D  // 4 directions needed for 2D
 };
 
-struct Wave
-{
-    v2 direction;
-    f32 wave_length;
-    f32 steepness;
-    
-    //f32 k;
-    //f32 c;
-    //v2 d;
-    //f32 a;
-};
-
-function Wave
-get_wave(v2 direction, f32 wave_length, f32 steepness)
-{
-    Wave wave = {};
-    wave.direction = direction;
-    wave.wave_length = wave_length;
-    wave.steepness = steepness;
-    
-    //wave.k = 2.0f * PI / wave_length;
-    //wave.c = sqrt(9.8f / wave.k);
-    //wave.d = normalized(wave.direction);
-    //wave.a = wave.steepness / wave.k;
-    return wave;
-}
-
 struct Boat
 {
     v2 coords;
@@ -89,16 +62,16 @@ Create_Boat_Coords(v3 c, v3 f, v3 b, v3 l, v3 r) {
 struct Boat3D
 {
     v3 direction  = {1, 0, 0};
-    v3 up         = {0, 1, 0};
+    v3 up         = {0, 1, 0}; 
     v3 side       = {0, 0, 1};
     v3 coords     = { 0, -1.5f, 0 };
     quat rotation = {0, 0, 0, 1};
 
     r32 speed;
-    r32 maximum_speed = 1.0f;
-    v3 velocity; // the direciton and mag of movement
-    r32 acceleration_magnitude = 0.2f; // always accelerates in the direction of the boat
-    r32 drag_magnitude = 0.3f;
+    r32 maximum_speed = 20.0f;
+    v3  velocity; // the direciton and mag of movement
+    r32 acceleration_magnitude = 3.0f; // always accelerates in the direction of the boat
+    r32 drag_magnitude = 0.5f;
 
     r32 draw_delta;
 
@@ -144,10 +117,29 @@ const global Pair camera_modes[CAMERA_MODES_COUNT] = {
         { EDIT_CAMERA, "EDIT_CAMERA" },
     };
 
+struct Uniform_Buffer_Objects {
+    // What the structs are called in the shaders
+    const char *tags[3] = {
+        "Matrices",
+        "Wav",
+        "Lights",
+    };
+
+    union {
+        struct {
+            u32 matrices;
+            u32 waves;
+            u32 lights;
+        };
+        u32 E[3];
+    };
+};
+
 struct Game // What both 2D and 3D uses
 {
     b8 paused;
     r32 run_time_s;
+    Uniform_Buffer_Objects ubos;
 
     // Menus
     u32 mode;
@@ -171,10 +163,42 @@ struct Game_2D {
     r32 water_force;
 };
 
+struct Wave
+{
+    v2 direction;
+    f32 wave_length;
+    f32 steepness;
+    
+    //f32 k;
+    //f32 c;
+    //v2 d;
+    //f32 a;
+};
+
+// what is passed to the shaders
+struct Waves_Data {
+    Wave waves[20];
+    u32 num_of_waves;
+};
+
+function Wave
+get_wave(v2 direction, f32 wave_length, f32 steepness)
+{
+    Wave wave = {};
+    wave.direction = direction;
+    wave.wave_length = wave_length;
+    wave.steepness = steepness;
+    
+    //wave.k = 2.0f * PI / wave_length;
+    //wave.c = sqrt(9.8f / wave.k);
+    //wave.d = normalized(wave.direction);
+    //wave.a = wave.steepness / wave.k;
+    return wave;
+}
+
 struct Game_3D
 {
     Light light;
-    u32 lights_ubo;
 
     Camera camera;
     u32 camera_mode;
@@ -183,9 +207,12 @@ struct Game_3D
     Mesh water;
     Mesh cube;
 
-    Wave waves[5];
-    u32 wave_ubo; 
+    //u32 num_of_waves;
+    //Wave waves[20]; // this is what gets passed to the shaders
+    //u32 wave_ubo; // wave uniform buffer object
     
+    Waves_Data waves_data;
+
     Boat3D boat3D;
     
     Mesh skybox_cube;

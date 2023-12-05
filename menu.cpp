@@ -481,8 +481,22 @@ float_textbox_load_src_values(Float_Textbox *box) {
 }
 
 internal void
-float_textbox_draw(Float_Textbox *box, Draw_Textbox draw, u32 *cursor_position,
+float_textbox_draw(Float_Textbox *box, Draw_Textbox draw, f32 tag_width, u32 *cursor_position,
                     char *active_buffer, Button mouse_left, v2s mouse_coords) {
+
+    v2 original_coords = box->coords;    
+
+    if (box->tag != 0) {
+        f32 pixel_height = draw.dim.y * 0.8f;
+        v2 text_dim = get_string_dim(draw.font, box->tag, pixel_height, draw.text_color);
+        v2 text_coords = {};
+        text_coords.x = box->coords.x;
+        text_coords.y = box->coords.y + (draw.dim.y / 2.0f) + (text_dim.y / 2.0f);
+        draw_string(draw.font, box->tag, text_coords, pixel_height, draw.text_color);
+
+        box->coords.x += tag_width;
+    }
+
     for (u32 i = 0; i < box->src_elements; i++) {
         draw.coords = float_textbox_get_coords(box, i);
         draw.dim = float_textbox_get_dim(box);
@@ -507,6 +521,8 @@ float_textbox_draw(Float_Textbox *box, Draw_Textbox draw, u32 *cursor_position,
 
         draw_textbox(draw);
     }
+
+    box->coords = original_coords;
 }
 
 internal Float_Textbox
@@ -527,11 +543,35 @@ v3_textbox() {
     return box;
 }
 
+internal Float_Textbox
+f32_textbox(const char *tag, void *src) {
+    Float_Textbox box = {};
+    box.src_elements = 1;
+    box.element_size = sizeof(f32);
+
+    box.tag = tag;
+    box.src = src;
+
+    return box;
+}
+
+internal Float_Textbox
+v3_textbox(const char *tag, void *src) {
+    Float_Textbox box = {};
+    box.src_elements = 3;
+    box.element_size = sizeof(f32);
+
+    box.tag = tag;
+    box.src = src;
+
+    return box;
+}
+
 internal void
 init_camera_menu(Camera_Menu *menu, Assets *assets) {
     menu->draw = {
         { 0, 0 },
-        { 125, 40 },
+        { 125, 50 },
         { 50, 50, 50, 0.5f },
 
         find_font(assets, "CASLON"),
@@ -615,15 +655,24 @@ draw_camera_menu(Camera_Menu *menu, Camera *camera, Button mouse_left, v2s mouse
         menu->boxs[i].coords = coords;
         menu->boxs[i].dim = dim;
         float_textbox_load_src_values(&menu->boxs[i]);
-        float_textbox_draw(&menu->boxs[i], menu->draw, &menu->cursor_position, menu->buffer, mouse_left, mouse_coords);
+        float_textbox_draw(&menu->boxs[i], menu->draw, 0, &menu->cursor_position, menu->buffer, mouse_left, mouse_coords);
         coords.y += dim.y;
     }
 }
 
-
+internal void
+init_easy_textboxs(Easy_Textboxs *easy) {
+    // set the longest tag width
+    for (u32 i = 0; i < easy->num_of_boxs; i++) {
+        f32 pixel_height = easy->draw.dim.y * 0.8f;
+        v2 dim = get_string_dim(easy->draw.font, easy->boxs[i].tag, pixel_height, easy->draw.text_color);
+        if (easy->longest_tag_width < dim.x)
+            easy->longest_tag_width = dim.x;
+    }
+} 
 
 internal void
-draw_float_texboxes(Easy_Textboxs *easy, Button mouse_left, v2s mouse_coords, Input *input) {
+draw_float_textboxes(Easy_Textboxs *easy, Button mouse_left, v2s mouse_coords, Input *input) {
     // figuring out which box is active
     b32 active_changed = false;
     for (u32 i = 0; i < easy->num_of_boxs; i++) {
@@ -673,7 +722,7 @@ draw_float_texboxes(Easy_Textboxs *easy, Button mouse_left, v2s mouse_coords, In
         easy->boxs[i].coords = coords;
         easy->boxs[i].dim = dim;
         float_textbox_load_src_values(&easy->boxs[i]);
-        float_textbox_draw(&easy->boxs[i], easy->draw, &easy->edit.cursor_position, easy->edit.buffer, mouse_left, mouse_coords);
+        float_textbox_draw(&easy->boxs[i], easy->draw, easy->longest_tag_width, &easy->edit.cursor_position, easy->edit.buffer, mouse_left, mouse_coords);
         coords.y += dim.y;
     }
 }

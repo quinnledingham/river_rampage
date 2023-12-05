@@ -421,7 +421,7 @@ int main(int argc, char *argv[])
 
     app.matrices.p_near = 0.1f;
     app.matrices.p_far = 1000.0f;
-    app.matrices.ubo = init_uniform_buffer_object(2 * sizeof(m4x4) + 4 * sizeof(f32), 0);
+    app.matrices.update = true;
 
     return main_loop(&app, sdl_window);
 }

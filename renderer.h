@@ -12,18 +12,12 @@ struct Matrices // for rendering
     f32 p_near, p_far; // perspective matrix settings
     f32 window_width; 
     f32 window_height;
-
-    u32 ubo; // uniform buffer object
 };
-global v2s renderer_window_dim;
+global v2s renderer_window_dim; // used for scissor box in menu.cpp
 
 // functions to set matrices in uniform buffer
 void orthographic(u32 ubo, Matrices *matrices);
 void perspective(u32 ubo, Matrices *matrices);
-
-u32 init_uniform_buffer_object(u32 block_size, u32 block_index);
-void platform_set_uniform_block_binding(u32 shader_handle, const char *tag, u32 index);
-void platform_set_uniform_buffer_data(u32 ubo, u32 size, void *data);
 
 void uniform_m4x4(u32 shader_handle, const char *tag, m4x4 *m);
 void uniform_f32 (u32 shader_handle, const char *tag, f32   f);
@@ -37,6 +31,24 @@ void platform_set_texture(u32 handle, u32 index);
 
 void copy_buffers_to_textures(u32 depth_handle, u32 color_handle, v2s window_dim);
 void platform_set_texture_cube_map(Cubemap *cubemap, u32 shader);
+
+enum
+{
+    UNIFORM_BUFFER,
+};
+
+u32 init_uniform_buffer_object(u32 block_size, u32 block_index);
+void platform_set_uniform_block_binding(u32 shader_handle, const char *tag, u32 index);
+
+u32 gl_get_buffer_target(u32 target);
+void bind_buffer(u32 target, u32 ubo);
+void unbind_buffer(u32 target);
+u32 buffer_sub_data(u32 target, u32 offset, u32 size, void *data);
+
+#define BUFFER_SUB_DATA(target, offset, n)       buffer_sub_data(target, offset,                     sizeof(n), (void *)&n)
+#define BUFFER_SUB_DATA_ARRAY(target, offset, n) buffer_sub_data(target, offset, ARRAY_COUNT(n) * sizeof(n[0]), (void *)&n)
+
+#define UNIFORM_BUFFER_SUB_DATA(offset, n) buffer_sub_data(gl_get_buffer_target(UNIFORM_BUFFER), offset, sizeof(n), (void *)&n)
 
 enum
 {

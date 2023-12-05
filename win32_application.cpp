@@ -8,8 +8,7 @@ win32_print_error(DWORD err) {
 	WCHAR buffer[512];  
     DWORD chars; 
 
-    chars = FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                           NULL, err, 0, buffer, 512, NULL);
+    chars = FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, 0, buffer, 512, NULL);
 
 	// Display the error message, or generic text if not found.
     printf("Error value: %d Message: %ws\n", err, chars ? buffer : L"Error message not found." );
@@ -37,8 +36,7 @@ win32_performance_frequency() {
 }
 
 inline r64
-win32_get_seconds_elapsed(s64 start, s64 end)
-{
+win32_get_seconds_elapsed(s64 start, s64 end) {
     r64 result = ((r64)(end - start) / (r64)global_perf_count_frequency);
     return result;
 }

@@ -175,13 +175,24 @@ inline f32
 magnitude(const v3 &v)
 {
     f32 len_sq = length_squared(v);
+    if (len_sq < EPSILON)
+        return 0.0f;
     return (f32)sqrt(len_sq);
 }
 
 inline f32
 angle_between(const v3 &a, const v3 &b)
 {
-    return acosf((dot_product(a, b)) / (magnitude(a) * magnitude(b)));
+    f32 numerator = dot_product(a, b);
+    f32 denominator = (magnitude(a) * magnitude(b));
+    f32 input = numerator / denominator;
+    
+    if (input > 1.0f)
+        input = 1.0f;
+    else if (input < -1.0f)
+        input = -1.0f;
+
+    return acosf(input);
 }
 
 inline v3
@@ -199,6 +210,10 @@ average(const v3 &l, const v3 &r) {
     return result;
 }
 
+inline void
+log(const v3 v) {
+    log("%f %f %f", v.x, v.y, v.z);
+}
 
 //
 // v4
