@@ -509,10 +509,38 @@ void draw_string(Font *font, const char *string, v2 coords, f32 pixel_height, v4
 
         v2 scaled_coords = char_coords * scale;
         v2 scaled_dim    = char_dim    * scale;
+
         draw_rect(coords + scaled_coords, 0, scaled_dim, &bitmap->bitmap, color);
         
         s32 kern = get_codepoint_kern_advance(font->info, string[i], string[i + 1]);
         string_x_coord += kern + font_char->ax;
+        
+        i++;
+    }
+}
+
+void draw_string2(Font *font, const char *string, v2 coords, f32 pixel_height, v4 color)
+{
+    stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
+    f32 scale_factor = get_scale_for_pixel_height(font->info, pixel_height);
+
+    f32 current_point = coords.x;
+    f32 baseline = coords.y;
+
+    u32 i = 0;
+    while (string[i] != 0)
+    {
+        Font_Char_Bitmap *bitmap = load_font_char_bitmap(font, string[i], scale_factor);
+        Font_Char *font_char = bitmap->font_char;
+
+        v2 char_coords = { current_point + scale_factor * font_char->bb_0.x, baseline + scale_factor * -font_char->bb_1.y };
+        v2 char_dim = cv2(font_char->bb_1 - font_char->bb_0);
+        v2 scaled_dim    = char_dim    * scale_factor;
+
+        draw_rect(char_coords, 0, scaled_dim, &bitmap->bitmap, color);
+        
+        s32 kern = get_codepoint_kern_advance(font->info, string[i], string[i + 1]);
+        current_point += scale_factor * font_char->ax;
         
         i++;
     }

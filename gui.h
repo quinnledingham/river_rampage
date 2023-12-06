@@ -40,6 +40,9 @@ struct Draw_Textbox
     v4 cursor_color;
 };
 
+
+
+
 struct Menu_Button_Style
 {
     v2 dim;
@@ -59,8 +62,9 @@ struct Menu_Component
 struct Menu
 {
     Menu_Button_Style button_style;
-    Font *font;
     
+    Font *font;
+
     v2 padding;
 
     Rect rect; // coords and dim of menu
@@ -112,7 +116,7 @@ inline b32
 console_command(Console *console, u32 looking_for)
 {
     if (console->command == looking_for) {
-        console->command = 0;
+        console->command = 0; // consumes the command
         return true;
     }
     else return false;

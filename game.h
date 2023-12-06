@@ -144,6 +144,8 @@ struct Game // What both 2D and 3D uses
     // Menus
     u32 mode;
     s32 active;
+
+    f32 test_pixel_height = 36;
 };
 
 struct Dev_Tools
@@ -155,7 +157,6 @@ struct Dev_Tools
     Onscreen_Notifications onscreen_notifications;
 
     b8 show_camera_menu;
-    //Camera_Menu camera_menu;
     Easy_Textboxs camera_menu;
 };
 

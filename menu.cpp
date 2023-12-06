@@ -65,12 +65,6 @@ get_pixel_height(v2 box)
     return pixel_height;
 }
 
-
-internal char
-get_keyboard_input(Input *input) {
-    return input->buffer[input->buffer_index++];
-}
-
 // default textbox updates
 // input is a ascii value
 internal b32
@@ -239,7 +233,7 @@ update_console(Console *console, Input *input) {
     u32 current_length = get_length(console->edit);
 
     s32 ch = 0;
-    while((ch = get_keyboard_input(input)) != 0)
+    while((ch = input->buffer[input->buffer_index++]) != 0)
     {
         if (!is_ascii(ch)) 
             continue;
@@ -477,7 +471,7 @@ float_textbox_get_input(Float_Textbox *box, Input *input, char *buffer, u32 buff
         return active_changed;
 
     s32 ch = 0;
-    while((ch = get_keyboard_input(input)) != 0) {
+    while((ch = input->buffer[input->buffer_index++]) != 0) {
         if (!is_ascii(ch)) continue;
 
         switch(ch) {
@@ -624,18 +618,4 @@ draw_easy_textboxs(Easy_Textboxs *easy, Button mouse_left, v2s mouse_coords, Inp
         float_textbox_draw(&easy->boxs[i], easy->draw, easy->longest_tag_width, &easy->edit.cursor_position, easy->edit.buffer, mouse_left, mouse_coords);
         coords.y += dim.y;
     }
-}
-
-internal void
-init_camera_menu(Easy_Textboxs *easy, Font *font, Camera *camera) {
-    u32 index = 0;
-    easy->boxs[index++] = v3_textbox(&camera->position);
-    easy->boxs[index++] = v3_textbox(&camera->target);
-    easy->boxs[index++] = v3_textbox(&camera->up);
-    easy->boxs[index++] = f32_textbox(&camera->fov);
-    easy->boxs[index++] = f32_textbox(&camera->yaw);
-    easy->boxs[index++] = f32_textbox(&camera->pitch);
-    easy->num_of_boxs = 6;
-    easy->draw = default_draw_textbox;
-    easy->draw.font = font;
 }

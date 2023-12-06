@@ -44,7 +44,7 @@ draw_main_menu(Game *game, Matrices *matrices, Assets *assets, Input *input, v2s
     main_menu.button_style.active_text_color  = { 171, 160, 200, 1 };;
     //main_menu.button_style.active_text_color = { ,   0,  255, 1 };
     
-    main_menu.button_style.dim = { main_menu.rect.dim.x, main_menu.rect.dim.y / 3.0f };
+    main_menu.button_style.dim = { main_menu.rect.dim.x, main_menu.rect.dim.y / 5.0f };
 
     b32 select = on_down(menu_controller->select);
     u32 index = 0;
@@ -59,9 +59,13 @@ draw_main_menu(Game *game, Matrices *matrices, Assets *assets, Input *input, v2s
         game->mode = IN_GAME_3D;    
     if (menu_button(&main_menu, "Quit", index++, game->active, select)) 
         return true;
+    if (menu_button(&main_menu, "Px++", index++, game->active, select))
+        game->test_pixel_height++;
+    if (menu_button(&main_menu, "Px--", index++, game->active, select))
+        game->test_pixel_height--;
 
     const char *test_string = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    draw_string(main_menu.font, test_string, { 0, 75 }, 36, { 255, 255, 255, 1} );
+    draw_string2(main_menu.font, test_string, { 0, 75 }, game->test_pixel_height, { 255, 255, 255, 1} );
 
     return false;
 }
@@ -97,6 +101,20 @@ set_shader_uniform_block_bindings(Shader *shader, const Uniform_Buffer_Objects *
     for (u32 i = 0; i < ARRAY_COUNT(ubos->E); i++) {
         platform_set_uniform_block_binding(shader->handle, ubos->tags[i], i);
     }
+}
+
+internal void
+init_camera_menu(Easy_Textboxs *easy, Font *font, Camera *camera) {
+    u32 index = 0;
+    easy->boxs[index++] = v3_textbox(&camera->position);
+    easy->boxs[index++] = v3_textbox(&camera->target);
+    easy->boxs[index++] = v3_textbox(&camera->up);
+    easy->boxs[index++] = f32_textbox(&camera->fov);
+    easy->boxs[index++] = f32_textbox(&camera->yaw);
+    easy->boxs[index++] = f32_textbox(&camera->pitch);
+    easy->num_of_boxs = 6;
+    easy->draw = default_draw_textbox;
+    easy->draw.font = font;
 }
 
 internal void
@@ -284,7 +302,7 @@ b8 update(void *application)
     switch (game->mode)
     {
         case MAIN_MENU: {
-            menu_update_active(&game->active, 0, 2, controller->backward, controller->forward);
+            menu_update_active(&game->active, 0, 4, controller->backward, controller->forward);
             if (draw_main_menu(game, &app->matrices, &app->assets, &app->input, app->window.dim)) 
                 return true; // true if quit button is clicked
         } break;
