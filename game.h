@@ -68,9 +68,9 @@ struct Boat3D
     quat rotation = {0, 0, 0, 1};
 
     r32 speed;
-    r32 maximum_speed = 20.0f;
-    v3  velocity; // the direciton and mag of movement
-    r32 acceleration_magnitude = 3.0f; // always accelerates in the direction of the boat
+    r32 maximum_speed = 10.0f;
+    v3  velocity; // the direction and mag of movement - capped by maximum_speed (magnitude(velocity) has to be < maximum_speed)
+    r32 acceleration_magnitude = 5.0f; // always accelerates in the direction of the boat
     r32 drag_magnitude = 0.5f;
 
     r32 draw_delta;
@@ -155,7 +155,8 @@ struct Dev_Tools
     Onscreen_Notifications onscreen_notifications;
 
     b8 show_camera_menu;
-    Camera_Menu camera_menu;
+    //Camera_Menu camera_menu;
+    Easy_Textboxs camera_menu;
 };
 
 struct Game_2D {

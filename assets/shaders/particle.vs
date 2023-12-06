@@ -32,7 +32,8 @@ layout (std140) uniform Matrices
 
 layout (std140) uniform Wav
 {
-    Wave waves[5];
+    Wave waves[20];
+    int num_of_waves; // how many waves are actually in use
 };
 
 uniform float time;
@@ -56,7 +57,7 @@ void main(void)
 { 
     vec3 pos = (model * vec4(position, 1.0f)).xyz;
     vec3 const_pos = pos;
-    for (int i = 0; i < 5; i++) 
+    for (int i = 0; i < num_of_waves; i++) 
         pos += apply_wave(const_pos, waves[i], time / 4.0);
 
     gl_Position = projection * view * vec4(pos, 1.0);

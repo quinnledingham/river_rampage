@@ -403,6 +403,40 @@ float_textbox_get_element(const Float_Textbox *box, u32 index) {
     return (r32*)src;
 }
 
+internal Float_Textbox
+f32_textbox(const char *tag, void *src) {
+    Float_Textbox box = {};
+    box.src_elements = 1;
+    box.element_size = sizeof(f32);
+
+    box.tag = tag;
+    box.src = src;
+
+    return box;
+}
+
+internal Float_Textbox
+v3_textbox(const char *tag, void *src) {
+    Float_Textbox box = {};
+    box.src_elements = 3;
+    box.element_size = sizeof(f32);
+
+    box.tag = tag;
+    box.src = src;
+
+    return box;
+}
+
+inline Float_Textbox
+f32_textbox(void *src) {
+    return f32_textbox(0, src);
+}
+
+inline Float_Textbox
+v3_textbox(void *src) {
+    return v3_textbox(0, src);
+}
+
 // finds what textbox the mouse clicked on
 // if it is a new textbox it sets new_active to true to load in the number
 // to the edit buffer
@@ -525,143 +559,8 @@ float_textbox_draw(Float_Textbox *box, Draw_Textbox draw, f32 tag_width, u32 *cu
     box->coords = original_coords;
 }
 
-internal Float_Textbox
-f32_textbox() {
-    Float_Textbox box = {};
-    box.src_elements = 1;
-    box.element_size = sizeof(f32);
-
-    return box;
-}
-
-internal Float_Textbox
-v3_textbox() {
-    Float_Textbox box = {};
-    box.src_elements = 3;
-    box.element_size = sizeof(f32);
-
-    return box;
-}
-
-internal Float_Textbox
-f32_textbox(const char *tag, void *src) {
-    Float_Textbox box = {};
-    box.src_elements = 1;
-    box.element_size = sizeof(f32);
-
-    box.tag = tag;
-    box.src = src;
-
-    return box;
-}
-
-internal Float_Textbox
-v3_textbox(const char *tag, void *src) {
-    Float_Textbox box = {};
-    box.src_elements = 3;
-    box.element_size = sizeof(f32);
-
-    box.tag = tag;
-    box.src = src;
-
-    return box;
-}
-
 internal void
-init_camera_menu(Camera_Menu *menu, Assets *assets) {
-    menu->draw = {
-        { 0, 0 },
-        { 125, 50 },
-        { 50, 50, 50, 0.5f },
-
-        find_font(assets, "CASLON"),
-        0,
-        4,
-        { 255, 255, 255, 1.0f },
-
-        false,
-        0,
-        2.0f,
-        { 200, 200, 200, 1.0f },
-    };
-
-    menu->boxs[0] = v3_textbox();
-    menu->boxs[1] = v3_textbox();
-    menu->boxs[2] = v3_textbox();
-    menu->boxs[3] = f32_textbox();
-    menu->boxs[4] = f32_textbox();
-    menu->boxs[5] = f32_textbox();
-}
-
-internal void
-draw_camera_menu(Camera_Menu *menu, Camera *camera, Button mouse_left, v2s mouse_coords, Input *input) {
-
-    u32 num_of_boxs = 6;
-    u32 index = 0;
-    menu->boxs[index++].src = &camera->position;
-    menu->boxs[index++].src = &camera->target;
-    menu->boxs[index++].src = &camera->up;
-    menu->boxs[index++].src = &camera->fov;
-    menu->boxs[index++].src = &camera->yaw;
-    menu->boxs[index++].src = &camera->pitch;
-
-    // figuring out which box is active
-    b32 active_changed = false;
-    for (u32 i = 0; i < num_of_boxs; i++) {
-        b32 temp_active_changed = float_textbox_update_mouse(&menu->boxs[i], mouse_left, mouse_coords);
-        if (temp_active_changed) // if there is one active changed
-            active_changed = true;
-    }
-
-    // checking if a box is active and setting up the active box to be editted
-    s32 active_float_textbox = -1;
-    b8 active_textbox = false;
-    for (u32 i = 0; i < num_of_boxs; i++) {
-        // checking if any box is active
-        if (menu->boxs[i].active != -1) {
-            active_float_textbox = i;
-            active_textbox = true;
-
-            if (active_changed) {
-                // if there is a new box that is active load value into edit buffer
-                f32 *src = float_textbox_get_element(&menu->boxs[i], menu->boxs[i].active);
-                const char *temp = ftos((f32)*src);
-                for (u32 j = 0; j < float_digit_size - 1; j++) {
-                    menu->buffer[j] = temp[j];
-                }
-                platform_free((void*)temp);
-
-                input->mode = INPUT_MODE_KEYBOARD;
-
-                break;
-            }
-        }
-    }
-    if (!active_textbox && active_changed) // no box is active
-        input->mode = INPUT_MODE_GAME;
-
-    // load input now that we know which box is active
-    if (active_textbox) {
-        // if true that means that the one active textbox was disabled
-        if (float_textbox_get_input(&menu->boxs[active_float_textbox], input, menu->buffer, float_digit_size, &menu->cursor_position))
-            input->mode = INPUT_MODE_GAME;
-    }
-
-    // the drawing
-    v2 coords = { 0, 0 };
-    v2 dim = { 125, 40 };
-    dim.x *= 3.0f;
-    for (u32 i = 0; i < num_of_boxs; i++) {
-        menu->boxs[i].coords = coords;
-        menu->boxs[i].dim = dim;
-        float_textbox_load_src_values(&menu->boxs[i]);
-        float_textbox_draw(&menu->boxs[i], menu->draw, 0, &menu->cursor_position, menu->buffer, mouse_left, mouse_coords);
-        coords.y += dim.y;
-    }
-}
-
-internal void
-init_easy_textboxs(Easy_Textboxs *easy) {
+set_easy_textboxs_longest_tag(Easy_Textboxs *easy) {
     // set the longest tag width
     for (u32 i = 0; i < easy->num_of_boxs; i++) {
         f32 pixel_height = easy->draw.dim.y * 0.8f;
@@ -672,7 +571,7 @@ init_easy_textboxs(Easy_Textboxs *easy) {
 } 
 
 internal void
-draw_float_textboxes(Easy_Textboxs *easy, Button mouse_left, v2s mouse_coords, Input *input) {
+draw_easy_textboxs(Easy_Textboxs *easy, Button mouse_left, v2s mouse_coords, Input *input) {
     // figuring out which box is active
     b32 active_changed = false;
     for (u32 i = 0; i < easy->num_of_boxs; i++) {
@@ -725,4 +624,18 @@ draw_float_textboxes(Easy_Textboxs *easy, Button mouse_left, v2s mouse_coords, I
         float_textbox_draw(&easy->boxs[i], easy->draw, easy->longest_tag_width, &easy->edit.cursor_position, easy->edit.buffer, mouse_left, mouse_coords);
         coords.y += dim.y;
     }
+}
+
+internal void
+init_camera_menu(Easy_Textboxs *easy, Font *font, Camera *camera) {
+    u32 index = 0;
+    easy->boxs[index++] = v3_textbox(&camera->position);
+    easy->boxs[index++] = v3_textbox(&camera->target);
+    easy->boxs[index++] = v3_textbox(&camera->up);
+    easy->boxs[index++] = f32_textbox(&camera->fov);
+    easy->boxs[index++] = f32_textbox(&camera->yaw);
+    easy->boxs[index++] = f32_textbox(&camera->pitch);
+    easy->num_of_boxs = 6;
+    easy->draw = default_draw_textbox;
+    easy->draw.font = font;
 }

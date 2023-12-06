@@ -34,10 +34,10 @@ update_camera_with_keys(Camera *camera, v3 target, v3 up_v, v3 magnitude,
                         Button left, Button right,
                         Button up, Button down)
 {
-    if (is_down(forward))  camera->position += target * magnitude;
-    if (is_down(backward)) camera->position -= target * magnitude;
-    if (is_down(left))     camera->position -= normalized(cross_product(target, up_v)) * magnitude;
-    if (is_down(right))    camera->position += normalized(cross_product(target, up_v)) * magnitude;
+    if (is_down(forward))  camera->position   += target * magnitude;
+    if (is_down(backward)) camera->position   -= target * magnitude;
+    if (is_down(left))     camera->position   -= normalized(cross_product(target, up_v)) * magnitude;
+    if (is_down(right))    camera->position   += normalized(cross_product(target, up_v)) * magnitude;
     if (is_down(up))       camera->position.y += magnitude.y;
     if (is_down(down))     camera->position.y -= magnitude.y;
 }
@@ -52,14 +52,6 @@ align_camera_with_boat(Camera *camera, Boat3D *boat) {
     camera->yaw      = 0.0f;
     camera->pitch    = -85.0f;
 }
-
-// srand at beginning of main_loop()
-function s32
-random(s32 lower, s32 upper)
-{
-    return lower + (rand() % (upper - lower));
-}
-
 
 function Mesh
 create_square_mesh(u32 u, u32 v, b32 rand)
@@ -168,14 +160,6 @@ apply_waves(const v3 position, Wave *waves, u32 waves_count, f32 time)
     return result;
 }
 
-inline void
-go_towards(f32 *value, f32 target) {
-    if (*value > target)
-        *value -= 0.001f;
-    else if (*value < target)
-        *value += 0.001f;
-}
-
 internal void
 init_boat_3D(Boat3D *boat, Font *font) {
     boat->lengths[FORWARD] = 4.0f;
@@ -183,60 +167,24 @@ init_boat_3D(Boat3D *boat, Font *font) {
     boat->lengths[LEFT] = 2.0f;
     boat->lengths[RIGHT] = 2.0f;
 
-    boat->easy.boxs[0] = f32_textbox("Max Speed", &boat->maximum_speed);
-    boat->easy.boxs[1] = f32_textbox("Drag Mag", &boat->drag_magnitude);
-    boat->easy.boxs[2] = v3_textbox("Velocity", &boat->velocity);
-    boat->easy.num_of_boxs = 3;
+    u32 index = 0;
+    boat->easy.boxs[index++] = f32_textbox("Max Speed", &boat->maximum_speed);
+    boat->easy.boxs[index++] = f32_textbox("Drag Mag", &boat->drag_magnitude);
+    boat->easy.boxs[index++] = f32_textbox("Acc Mag", &boat->acceleration_magnitude);
+    boat->easy.boxs[index++] = v3_textbox("Velocity", &boat->velocity);
+    boat->easy.boxs[index++] = v3_textbox("Direction", &boat->direction);
+    boat->easy.num_of_boxs = 0;
     boat->easy.draw = default_draw_textbox;
     boat->easy.draw.font = font;
-    init_easy_textboxs(&boat->easy);
+    set_easy_textboxs_longest_tag(&boat->easy);
 }
 
-function v3
-update_boat_3D(Boat3D *boat, r32 delta_time,
-               Button forward, Button backward, Button left, Button right) {
-    f32 rotation_speed = 50.0f * delta_time;
-    r32 rotation_radians = DEG2RAD * rotation_speed;
-    f32 m_per_s = 6.0f; 
-    f32 m_moved = m_per_s * delta_time;
-    v3 move_vector = { m_moved, 0.0f, m_moved };
-    v3 time_vector = { delta_time, 0.0f, delta_time };
-
-    if (is_down(left)) {
-        boat->rotation = boat->rotation * get_rotation( rotation_radians, {0, 1, 0});
-    } else if (is_down(right)) {
-        boat->rotation = boat->rotation * get_rotation(-rotation_radians, {0, 1, 0});
-    }
-
+// updates the boats direction vectors to the new rotation
+inline void
+update_boat_vectors(Boat3D *boat) {
     boat->direction = boat->rotation * v3{ 1, 0, 0 };
     boat->up        = boat->rotation * v3{ 0, 1, 0 };
-
-    v3 acceleration_direction = {};
-    if (is_down(forward)) {
-        acceleration_direction = boat->direction;
-
-        if (boat->speed < boat->maximum_speed) {
-            v3 acceleration = acceleration_direction * boat->acceleration_magnitude;
-            boat->velocity += acceleration * delta_time;
-        } else {
-            boat->velocity += acceleration_direction * delta_time;
-        }
-    }
-
-    boat->speed = magnitude(boat->velocity);
-    if (boat->speed > 0.0f) {
-        f32 angle_dir_to_velocity = angle_between(boat->direction, boat->velocity);
-        log("%f\b", angle_dir_to_velocity);
-
-        v3 drag_force = -normalized(boat->velocity) * pow(boat->velocity, 2) * angle_dir_to_velocity * boat->drag_magnitude; // just needs less than acceleration
-        boat->velocity += drag_force * delta_time;
-    }
-
-    //v3 coords_delta = boat->velocity * move_vector;
-    v3 coords_delta = boat->velocity * time_vector;
-    boat->coords += coords_delta;
-
-    return coords_delta; // returns how much the boat was moved by to move the camera by the same amount.
+    boat->side      = boat->rotation * v3{ 0, 0, 1 };
 }
 
 // Left Hand because of OpenGL
@@ -289,8 +237,7 @@ apply_wave_rotation(Boat3D *boat, u32 index, Left_Hand hand, Wave *waves, u32 wa
         boat->rotation = boat->rotation * get_rotation(DEG2RAD * mag, normalized(get_perpendical_axis(index, hand)));
     }
 
-    boat->direction = boat->rotation * v3{ 1, 0, 0 };
-    boat->up        = boat->rotation * v3{ 0, 1, 0 };
+    update_boat_vectors(boat);
 
     boat->debug_wave_coords[index] = wave_pos;
 }
@@ -349,6 +296,54 @@ update_boat_3D_draw_coord(Boat3D *boat, Wave *waves, u32 waves_count, r32 run_ti
         add_particle(boat->base.E[BACKWARD], -boat->direction, 2.0f);
         boat->draw_delta = 0.0f;
     }
+}
+
+function v3
+update_boat_3D(Boat3D *boat, r32 delta_time, Button forward, Button backward, Button left, Button right) {
+    f32 rotation_speed = 50.0f * delta_time;
+    r32 rotation_radians = DEG2RAD * rotation_speed;
+    f32 m_per_s = 6.0f; 
+    f32 m_moved = m_per_s * delta_time;
+    v3 move_vector = { m_moved, 0.0f, m_moved };
+    v3 time_vector = { delta_time, 0.0f, delta_time };
+
+    if (is_down(left)) {
+        boat->rotation = boat->rotation * get_rotation( rotation_radians, {0, 1, 0});
+        update_boat_vectors(boat);
+    } else if (is_down(right)) {
+        boat->rotation = boat->rotation * get_rotation(-rotation_radians, {0, 1, 0});
+        update_boat_vectors(boat);
+    }
+
+    // acceleration velocity
+    v3 acceleration_velocity = {};
+    if (is_down(forward)) {
+        v3 acceleration = boat->direction * boat->acceleration_magnitude;
+        acceleration_velocity = acceleration * delta_time;
+    }
+
+    // drag velocity
+    f32 angle_dir_to_velocity = angle_between(boat->direction, boat->velocity);
+    if (angle_dir_to_velocity < 0.001f) {
+        angle_dir_to_velocity = 0.001f; // make sure that there is always aleast some drag on the boat (would have to go in a straight line for a while to get this aligned). 
+    }
+
+    //v3 drag_force = -normalized(boat->velocity) * power(boat->velocity, 2) * boat->drag_magnitude; // just needs less than acceleration
+    v3 drag_force = -normalized(boat->velocity) * magnitude(boat->velocity) * angle_dir_to_velocity * boat->drag_magnitude;
+    v3 drag_velocity = drag_force * delta_time;
+
+    v3 new_velocity = acceleration_velocity + drag_velocity;
+    boat->velocity = boat->velocity + new_velocity;
+
+    // good way to limit the speed of the boat
+    if (magnitude(boat->velocity) > boat->maximum_speed) {
+        boat->velocity = normalized(boat->velocity) * boat->maximum_speed;
+    }
+
+    v3 coords_delta = boat->velocity * time_vector; // how much to move the boat
+    boat->coords += coords_delta;
+
+    return coords_delta; // returns how much the boat was moved by to move the camera by the same amount.
 }
 
 internal void
@@ -588,10 +583,10 @@ draw_game_3D(Game *game,
     set_polygon_mode(POLYGON_MODE_FILL); // wireframe off
 
     // Tools
-    draw_float_textboxes(&data->boat3D.easy, menu_controller->mouse_left, menu_controller->mouse, input);
+    draw_easy_textboxs(&data->boat3D.easy, menu_controller->mouse_left, menu_controller->mouse, input);
 
     if (tools->show_camera_menu) {
-        draw_camera_menu(&tools->camera_menu, &data->camera, menu_controller->mouse_left, menu_controller->mouse, input);
+        draw_easy_textboxs(&tools->camera_menu, menu_controller->mouse_left, menu_controller->mouse, input);
     }
     
     if (tools->show_fps) {

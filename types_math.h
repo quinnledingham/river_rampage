@@ -129,7 +129,7 @@ inline r32 dot_product(const v3 &l, const v3 &r) { return (l.x * r.x) + (l.y * r
 inline r32 length_squared(const v3 &v) { return (v.x * v.x) + (v.y * v.y) + (v.z * v.z); }
 
 inline v3 
-pow(const v3 &v, u32 exponent)
+power(const v3 &v, u32 exponent)
 {
     v3 result = v;
     for (u32 i = 1; i < exponent; i++) { 
@@ -185,8 +185,12 @@ angle_between(const v3 &a, const v3 &b)
 {
     f32 numerator = dot_product(a, b);
     f32 denominator = (magnitude(a) * magnitude(b));
-    f32 input = numerator / denominator;
     
+    if (denominator == 0.0f)
+        return 0.0f;
+
+    f32 input = numerator / denominator;
+
     if (input > 1.0f)
         input = 1.0f;
     else if (input < -1.0f)

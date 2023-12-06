@@ -131,6 +131,22 @@ struct Onscreen_Notifications
 
 global const u32 float_digit_size = 15;
 
+global const Draw_Textbox default_draw_textbox = {
+    { 0, 0 },
+    { 125, 40 },
+    { 50, 50, 50, 0.5f },
+
+    0, // font goes here
+    0,
+    4,
+    { 255, 255, 255, 1.0f },
+
+    false,
+    0,
+    2.0f,
+    { 200, 200, 200, 1.0f },
+};
+
 struct Float_Textbox {
     void *src;
     u32 src_elements;
@@ -151,6 +167,7 @@ struct Edit_Float_Textbox {
     u32 cursor_position;
 };
 
+// easy way to create a menu with multiple textboxs
 struct Easy_Textboxs {
     Float_Textbox boxs[10];
     u32 num_of_boxs;
@@ -159,29 +176,4 @@ struct Easy_Textboxs {
 
     Edit_Float_Textbox edit;
     Draw_Textbox draw;
-};
-
-global const Draw_Textbox default_draw_textbox = {
-    { 0, 0 },
-    { 125, 40 },
-    { 50, 50, 50, 0.5f },
-
-    0,
-    0,
-    4,
-    { 255, 255, 255, 1.0f },
-
-    false,
-    0,
-    2.0f,
-    { 200, 200, 200, 1.0f },
-};
-
-struct Camera_Menu {
-    Float_Textbox boxs[6];
-
-    char buffer[float_digit_size];
-    u32 cursor_position;
-
-    Draw_Textbox draw; // the textbox design
 };

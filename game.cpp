@@ -16,6 +16,14 @@
 #include "2D.cpp"
 #include "3D.cpp"
 
+// srand at beginning of main_loop()
+function s32
+random(s32 lower, s32 upper)
+{
+    return lower + (rand() % (upper - lower));
+}
+
+
 // returns game mode
 function s32
 draw_main_menu(Game *game, Matrices *matrices, Assets *assets, Input *input, v2s window_dim)
@@ -30,11 +38,11 @@ draw_main_menu(Game *game, Matrices *matrices, Assets *assets, Input *input, v2s
     main_menu.font = find_font(assets, "CASLON");
     main_menu.rect = get_centered_rect(window_rect, 0.5f, 0.5f);
 
-    main_menu.button_style.default_back_color = {  34,  44, 107,   1 };
-    main_menu.button_style.active_back_color  = {  42,  55, 131,   1 };
-    main_menu.button_style.default_text_color = { 234,   0,  39,   1 };
-    main_menu.button_style.active_text_color  = { 171, 160, 200,   1 };;
-    //main_menu.button_style.active_text_color  = { ,   0,  255,   1 };
+    main_menu.button_style.default_back_color = {  34,  44, 107, 1 };
+    main_menu.button_style.active_back_color  = {  42,  55, 131, 1 };
+    main_menu.button_style.default_text_color = { 234,   0,  39, 1 };
+    main_menu.button_style.active_text_color  = { 171, 160, 200, 1 };;
+    //main_menu.button_style.active_text_color = { ,   0,  255, 1 };
     
     main_menu.button_style.dim = { main_menu.rect.dim.x, main_menu.rect.dim.y / 3.0f };
 
@@ -98,7 +106,7 @@ init_waves_data(Waves_Data *waves_data, u32 ubo) {
     waves_data->waves[2] = get_wave({  0.0f,  0.4f },  5.0f, 0.1f);
     waves_data->waves[3] = get_wave({ -0.7f,  0.9f },  9.0f, 0.1f);
     waves_data->waves[4] = get_wave({  0.1f, -0.9f }, 15.0f, 0.25f);
-    waves_data->num_of_waves = 0;
+    waves_data->num_of_waves = 5;
 
     {
         u32 target = gl_get_buffer_target(UNIFORM_BUFFER);
@@ -139,14 +147,15 @@ void* init_data(Assets *assets)
         */
     }
 
+    Font *caslon = find_font(assets, "CASLON");
 
     // Dev Tools
-    init_console(&tools->console, find_font(assets, "CASLON"));
+    init_console(&tools->console, caslon);
 
-    tools->onscreen_notifications.font = find_font(assets, "CASLON");
+    tools->onscreen_notifications.font = caslon;
     tools->onscreen_notifications.text_color = { 255, 255, 255, 1 };
 
-    init_camera_menu(&tools->camera_menu, assets);
+    init_camera_menu(&tools->camera_menu, caslon, &game_3D->camera);
 
     // Game
     game->mode = MAIN_MENU;
