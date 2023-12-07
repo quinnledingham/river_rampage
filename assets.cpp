@@ -498,8 +498,10 @@ load_font_char_bitmap(Font *font, u32 codepoint, f32 scale)
     bitmap->font_char = load_font_char(font, codepoint);
     bitmap->scale = scale;
 
-    bitmap->bitmap.memory = stbtt_GetGlyphBitmap(info, 0, bitmap->scale, bitmap->font_char->glyph_index, &bitmap->bitmap.dim.width, &bitmap->bitmap.dim.height, 0, 0);
+    bitmap->bitmap.memory = stbtt_GetGlyphBitmapSubpixel(info, 0, bitmap->scale, 0, 0, bitmap->font_char->glyph_index, &bitmap->bitmap.dim.width, &bitmap->bitmap.dim.height, 0, 0);
     bitmap->bitmap.channels = 1;
+
+    stbtt_GetGlyphBitmapBox(info, bitmap->font_char->glyph_index, 0, bitmap->scale, &bitmap->bb_0.x, &bitmap->bb_0.y, &bitmap->bb_1.x, &bitmap->bb_1.y);
 
     init_bitmap_handle(&bitmap->bitmap, TEXTURE_PARAMETERS_CHAR);
 

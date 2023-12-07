@@ -35,6 +35,7 @@ WATER,  bitmaps/under_water.png
 
 FONTS:
 CASLON, fonts/LibreCaslonCondensed-Regular.ttf
+ROBOTO, fonts/Roboto-Regular.ttf
 
 MODELS:
 BOAT2, objs/boat/boat2.obj

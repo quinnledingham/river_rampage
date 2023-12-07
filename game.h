@@ -145,7 +145,7 @@ struct Game // What both 2D and 3D uses
     u32 mode;
     s32 active;
 
-    f32 test_pixel_height = 36;
+    f32 test_pixel_height = 36.0f;
 };
 
 struct Dev_Tools

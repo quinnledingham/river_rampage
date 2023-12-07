@@ -154,6 +154,9 @@ struct Font_Char_Bitmap
     Font_Char *font_char;
     f32 scale;
     Bitmap bitmap;
+
+    v2s bb_0; // bounding box coord 0
+    v2s bb_1; // bounding box coord 1
 };
 
 struct Font_String

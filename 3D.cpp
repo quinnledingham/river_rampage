@@ -173,7 +173,7 @@ init_boat_3D(Boat3D *boat, Font *font) {
     boat->easy.boxs[index++] = f32_textbox("Acc Mag", &boat->acceleration_magnitude);
     boat->easy.boxs[index++] = v3_textbox("Velocity", &boat->velocity);
     boat->easy.boxs[index++] = v3_textbox("Direction", &boat->direction);
-    boat->easy.num_of_boxs = 0;
+    boat->easy.num_of_boxs = 5;
     boat->easy.draw = default_draw_textbox;
     boat->easy.draw.font = font;
     set_easy_textboxs_longest_tag(&boat->easy);

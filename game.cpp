@@ -35,7 +35,7 @@ draw_main_menu(Game *game, Matrices *matrices, Assets *assets, Input *input, v2s
     window_rect.dim    = cv2(window_dim);
 
     Menu main_menu = {};
-    main_menu.font = find_font(assets, "CASLON");
+    main_menu.font = find_font(assets, "ROBOTO");
     main_menu.rect = get_centered_rect(window_rect, 0.5f, 0.5f);
 
     main_menu.button_style.default_back_color = {  34,  44, 107, 1 };
@@ -65,7 +65,8 @@ draw_main_menu(Game *game, Matrices *matrices, Assets *assets, Input *input, v2s
         game->test_pixel_height--;
 
     const char *test_string = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    draw_string2(main_menu.font, test_string, { 0, 75 }, game->test_pixel_height, { 255, 255, 255, 1} );
+    draw_string(main_menu.font, test_string, { 0, 75 }, game->test_pixel_height, { 255, 255, 255, 1} );
+    draw_string(main_menu.font, ftos(game->test_pixel_height), { 0, 200 }, game->test_pixel_height, { 255, 255, 255, 1 });
 
     return false;
 }
