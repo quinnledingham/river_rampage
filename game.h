@@ -138,11 +138,11 @@ struct Uniform_Buffer_Objects {
 struct Game // What both 2D and 3D uses
 {
     b8 paused;
-    r32 run_time_s;
+    r32 run_time_s = 0.0f;
     Uniform_Buffer_Objects ubos;
 
     // Menus
-    u32 mode;
+    u32 mode = IN_GAME_3D;
     s32 active;
 
     f32 test_pixel_height = 36.0f;
@@ -206,13 +206,8 @@ struct Game_3D
     u32 camera_mode;
 
     Mesh triangle_mesh;
-    Mesh water;
-    Mesh cube;
-
-    //u32 num_of_waves;
-    //Wave waves[20]; // this is what gets passed to the shaders
-    //u32 wave_ubo; // wave uniform buffer object
     
+    Mesh water;
     Waves_Data waves_data;
 
     Boat3D boat3D;

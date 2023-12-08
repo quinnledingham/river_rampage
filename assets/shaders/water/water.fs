@@ -139,6 +139,11 @@ void main() {
     vec2 window_coords = get_window_coords(gl_FragCoord.xy);
 	vec3 normal = -normalize(frag_normal);
 
+    float depth = linearize_depth(gl_FragCoord.z);
+    float previous_depth = texture2D(depth_buffer, window_coords).x;
+    previous_depth = linearize_depth(previous_depth);
+    float depth_diff = previous_depth - depth;
+
     vec3 normal_m = texture(normal_map, uv_coords * 50).xyz;
     // have to convert it from 0 to 1 range to -1 to 1 range
     normal_m = normalize(vec3(normal_m.r * 2.0 - 1.0, normal_m.b, normal_m.g * 2.0 - 1.0));
@@ -170,10 +175,31 @@ void main() {
 
     vec3 water_color = (ambient + diffuse + specular) * color.xyz;
 
-    float refraction = 0.01;
-    vec4 back = texture(color_buffer, window_coords + (refraction * normal.xz));
+    //
+    // Refraction
+    //
 
+    float refraction = 0.01;
+    vec2 back_coords =  window_coords;
+
+    back_coords += (refraction * normal.xz);
+    back_coords = clamp(back_coords, 0.001, 0.999); // turn off refraction at the edges of the screen
+
+    float back_previous_depth = texture2D(depth_buffer, back_coords).x;
+    back_previous_depth = linearize_depth(back_previous_depth);
+
+    if (back_previous_depth <= depth) {
+        //back_coords = window_coords;
+    }
+
+    vec4 back = texture(color_buffer, back_coords);
+
+    // Final color before foam
     vec4 result = vec4(mix(back.xyz, water_color, color.w), 1.0);
+    
+    //
+    // Foam
+    //
 
     //
     // Very helpful tutorial
@@ -186,13 +212,7 @@ void main() {
     float mask = (channel_a + channel_b) * 0.95;
     mask = pow(mask, 2);
     mask = clamp(mask, 0.0, 1.0);
-
-    float depth = linearize_depth(gl_FragCoord.z);
-
-    float previous_depth = texture2D(depth_buffer, window_coords).x;
-    previous_depth = linearize_depth(previous_depth);
     
-    float depth_diff = previous_depth - depth;
     float falloff_distance = 0.0015;
     float leading_edge_fallout = 0.2;
     float edge_falloff_bias = 0.5;
@@ -209,6 +229,10 @@ void main() {
     vec3 edge = edge_falloff_color.rgb * falloff * edge_falloff_color.a;
     result.rgb = mix(result.rgb, vec3(1), clamp(a, 0.0, 0.5));
     //result.rgb += clamp(edge - vec3(mask), 0.0, 1.0);
+
+    //
+    // Output
+    //
 
     //result = texture(color_buffer, uv_coords);
 	FragColor = result;

@@ -18,7 +18,7 @@
 
 // srand at beginning of main_loop()
 function s32
-random(s32 lower, s32 upper)
+random(s32 lower, s32 upper) 
 {
     return lower + (rand() % (upper - lower));
 }
@@ -35,7 +35,7 @@ draw_main_menu(Game *game, Matrices *matrices, Assets *assets, Input *input, v2s
     window_rect.dim    = cv2(window_dim);
 
     Menu main_menu = {};
-    main_menu.font = find_font(assets, "ROBOTO");
+    main_menu.font = find_font(assets, "CASLON");
     main_menu.rect = get_centered_rect(window_rect, 0.5f, 0.5f);
 
     main_menu.button_style.default_back_color = {  34,  44, 107, 1 };
@@ -176,10 +176,6 @@ void* init_data(Assets *assets)
 
     init_camera_menu(&tools->camera_menu, caslon, &game_3D->camera);
 
-    // Game
-    game->mode = MAIN_MENU;
-    game->run_time_s = 0.0f;
-
     // 3D
     game_3D->camera.position = { 5, 40, 0 };
     game_3D->camera.target   = { 0, 0, -2 };
@@ -194,6 +190,7 @@ void* init_data(Assets *assets)
     game_3D->light.specular = { 0.5f, 0.5f, 0.5f };
     game_3D->light.color    = { 1.0f, 1.0f, 1.0f, 1.0f };
 
+    // init light ubo
     {
         u32 target = gl_get_buffer_target(UNIFORM_BUFFER);
         u32 offset = 0;
@@ -204,7 +201,6 @@ void* init_data(Assets *assets)
         unbind_buffer(target);
     }
     
-    game_3D->cube = get_cube_mesh();
     game_3D->triangle_mesh = create_square_mesh(100, 100, true);
     init_mesh(&game_3D->triangle_mesh);
 

@@ -147,16 +147,18 @@ struct Font_Char
 
     v2s bb_0; // bounding box coord 0
     v2s bb_1; // bounding box coord 1
+    // WARNING: Scale this up at draw time does not look good. ax and lsb have to be scaled then though.
 };
 
 struct Font_Char_Bitmap
 {
     Font_Char *font_char;
-    f32 scale;
+    f32 scale; // scale factor
     Bitmap bitmap;
 
-    v2s bb_0; // bounding box coord 0
+    v2s bb_0; // bounding box coord 0 
     v2s bb_1; // bounding box coord 1
+    // WARNING: inverted from Font_Char bounding box (because of stb_truetype). bb_0 is top left and bb_1 is bottom right in this case.
 };
 
 struct Font_String
