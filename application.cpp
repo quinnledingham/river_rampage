@@ -28,8 +28,6 @@
 #include "shapes.cpp"
 #include "particles.cpp"
 
-#if WINDOWS
-
 // Enabling Dedicated Graphics on Laptops
 // https://www.reddit.com/r/gamedev/comments/bk7xbe/psa_for_anyone_developing_a_gameengine_in_c/
 //
@@ -41,6 +39,8 @@ extern "C"
     __declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001; // Nvidia
     __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;   // AMD
 }
+
+#if WINDOWS
 
 #define WIN32_LEAN_AND_MEAN
 #define WIN32_EXTRA_LEAN
@@ -58,7 +58,9 @@ extern "C"
 
 #include "win32_application.cpp"
 
-#endif // WINDOWS
+#elif SDL
+
+#endif // WINDOWS/SDL
 
 // function that are defined in the game code
 b8 update(void *application);
@@ -233,30 +235,40 @@ process_input(Window *window, Input *input)
     return false;
 }
 
-function f32
-get_seconds(u64 start, u64 end)
-{
-    u64 diff = end - start;
-    return (f32)diff / 1000.0f;
+internal u64
+sdl_get_ticks() {
+    return SDL_GetPerformanceCounter();
 }
 
-function void
-update_time(Time *time)
-{
-    r32 last_run_time_ms = time->run_time_ms;
-    
-    time->run_time_ms = (r32)SDL_GetTicks64();
-    time->run_time_s = (f32)time->run_time_ms / 1000.0f;
-    time->frame_time_ms = time->run_time_ms - last_run_time_ms;
-    time->frame_time_s = (f32)time->frame_time_ms / 1000.0f;
+internal u64
+sdl_performance_frequency() {
+    return SDL_GetPerformanceFrequency();
+}
 
-    if (time->frame_time_ms == 0) 
-        time->frame_time_s = 0.001f;
-    
-    // get fps
-    time->frames_per_s = 1000.0f;
-    if (time->frame_time_s > 0.0f) 
-        time->frames_per_s = 1.0f / time->frame_time_s;
+internal r64
+get_seconds_elapsed(s64 start, s64 end) {
+    r64 result = ((r64)(end - start) / (r64)global_perf_count_frequency);
+    return result;
+}
+
+internal void
+sdl_update_time(Time *time) {
+    s64 ticks = sdl_get_ticks();
+
+    // s
+    local_persist s64 last_ticks = time->start; // time of last frame
+    time->frame_time_s = (r32)get_seconds_elapsed(last_ticks, ticks);
+    last_ticks = ticks; // set last ticks for next frame
+
+    // time->start has to be initialized before
+    time->run_time_s = (r32)get_seconds_elapsed(time->start, ticks);
+
+    // ms
+    time->frame_time_ms = time->frame_time_s * 1000.0f;
+    time->run_time_ms   = time->run_time_s   * 1000.0f;
+
+    // fps
+    time->frames_per_s = (r32)(1.0 / time->frame_time_s);
 }
 
 function void
@@ -286,7 +298,7 @@ main_loop(Application *app, SDL_Window *sdl_window)
     {
         if (process_input(&app->window, &app->input)) return 0; // quit if process_input returns false
 
-        win32_update_time(&app->time);
+        sdl_update_time(&app->time);
 
         if (update(app)) return 0;
 
@@ -354,7 +366,7 @@ init_opengl(SDL_Window *sdl_window)
 // update_matrices is a pointer to the bool that controls if the matrices should be updated
 // to be used when the window changes size.
 function SDL_Window*
-init_window(Window *window, b32 *update_matrices)
+sdl_init_window(Window *window, b32 *update_matrices)
 {
     u32 sdl_init_flags = 
         SDL_INIT_VIDEO          | 
@@ -382,13 +394,13 @@ init_window(Window *window, b32 *update_matrices)
 int main(int argc, char *argv[])  
 { 
     Application app = {};
-    SDL_Window *sdl_window = init_window(&app.window, &app.matrices.update);
+    SDL_Window *sdl_window = sdl_init_window(&app.window, &app.matrices.update);
 
-    global_perf_count_frequency = win32_performance_frequency();
-    app.time.start = win32_get_ticks();
+    global_perf_count_frequency = sdl_performance_frequency();
+    app.time.start = sdl_get_ticks();
 
     // Loading assets
-    u64 assets_loading_time_started = SDL_GetTicks64();
+    u64 assets_loading_time_started = sdl_get_ticks();
 
     if (equal(argv[1], "load_assets")) {
         if (load_assets(&app.assets, "../assets.ethan")) 
@@ -403,7 +415,8 @@ int main(int argc, char *argv[])
 
     // Setting up app and data
     app.data = (void*)init_data(&app.assets);
-    log("time loading assets: %f", get_seconds(assets_loading_time_started, SDL_GetTicks64()));
+    u64 assets_loading_time_finished = sdl_get_ticks();
+    log("time loading assets: %f", get_seconds_elapsed(assets_loading_time_started, assets_loading_time_finished));
 
     init_controllers(&app.input);
     app.input.relative_mouse_mode.set(false);

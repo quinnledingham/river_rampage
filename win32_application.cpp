@@ -1,5 +1,3 @@
-global s64 global_perf_count_frequency;
-
 //
 // https://learn.microsoft.com/en-us/windows/win32/seccrypto/retrieving-error-messages
 //

@@ -627,7 +627,7 @@ init_audio_player(Audio_Player *player)
     desired.format = AUDIO_S16;
     desired.callback = 0;
     
-#if WINDOWS
+#if SDL
     SDL_AudioSpec spec;
     char *device_name = 0;
     SDL_GetDefaultAudioInfo(&device_name, &spec, 0);

@@ -22,6 +22,7 @@ struct Time
 
     r32 frames_per_s;
 };
+global s64 global_perf_count_frequency;
 
 struct Flag
 {
