@@ -10,4 +10,6 @@ set LFs= -incremental:no -opt:ref shell32.lib opengl32.lib ..\sdl-vc\lib\x64\SDL
 
 cl %CFs% ../game.cpp ../application.cpp /link %LFs% /out:river.exe
 
+cl %CFs% ../assets_builder.cpp /link %LFs% /out:builder.exe
+
 IF NOT EXIST SDL2.dll copy ..\sdl-vc\lib\x64\SDL2.dll build

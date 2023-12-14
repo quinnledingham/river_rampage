@@ -391,8 +391,9 @@ sdl_init_window(Window *window, b32 *update_matrices)
     return sdl_window;
 }
 
-int main(int argc, char *argv[])  
-{ 
+#include "exe_offset.h"
+
+int main(int argc, char *argv[]) { 
     Application app = {};
     SDL_Window *sdl_window = sdl_init_window(&app.window, &app.matrices.update);
 
@@ -405,10 +406,15 @@ int main(int argc, char *argv[])
     if (equal(argv[1], "load_assets")) {
         if (load_assets(&app.assets, "../assets.ethan")) 
             return 1;
-        save_assets(&app.assets, "assets.save");
+        FILE *file = fopen("assets.save", "wb");
+        save_assets(&app.assets, file);
+        fclose(file);
     } else {
-        if (load_saved_assets(&app.assets, "assets.save")) 
-            return 1;
+        //if (load_saved_assets(&app.assets, "assets.save", 0)) 
+        //    return 1;
+
+        load_saved_assets(&app.assets, "river.exe", exe_offset);
+        //load_assets_from_exe(&app.assets, "river.exe");
     }
 
     init_assets(&app.assets);

@@ -164,10 +164,24 @@ chtos(int n, ...)
     return s;
 }
 
+inline const char*
+u32_to_char_array(u32 in) {
+    u32 size = 10;
+    char *buffer = (char*)platform_malloc(size);
+    memset(buffer, 0, size);
+    u32 ret = snprintf(buffer, size, "%d", in);
+    if (ret < 0) {
+        error(0, "u32_to_char_array(): failed");
+        return 0;
+    }
+    if (ret >= size) warning(0, "ftos(): result was truncated");
+    return buffer;
+}
+
 inline char*
 ftos(f32 f)
 {
-    u32 size = 64;
+    u32 size = 10;
     char *buffer = (char*)platform_malloc(size);
     memset(buffer, 0, size);
     u32 ret = snprintf(buffer, size, "%f", f);

@@ -1591,10 +1591,11 @@ load_mesh(FILE *file)
 }
 
 function void
-save_assets(Assets *assets, const char *filename)
+save_assets(Assets *assets, FILE *file)
 {
     u32 i = 0;
-    FILE *file = fopen(filename, "wb");
+    //FILE *file = fopen(filename, "wb");
+    //fseek(file, offset, SEEK_SET);
     fwrite(assets, sizeof(Assets), 1, file);
     fwrite(assets->data, sizeof(Asset), assets->num_of_assets, file);
     
@@ -1628,10 +1629,14 @@ save_assets(Assets *assets, const char *filename)
 }
 
 function u32
-load_saved_assets(Assets *assets, const char *filename) // returns 0 on success
+load_saved_assets(Assets *assets, const char *filename, u32 offset) // returns 0 on success
 {
     FILE *file = fopen(filename, "rb");
-    if (file == 0) { error("load_saved_assets(): could not open file %s", filename); return 1; }
+    if (file == 0) { 
+        error("load_saved_assets(): could not open file %s", filename); 
+        return 1; 
+    }
+    fseek(file, offset, SEEK_SET);
     fread(assets, sizeof(Assets), 1, file);
     assets->data = ARRAY_MALLOC(Asset, assets->num_of_assets);
     fread(assets->data, sizeof(Asset), assets->num_of_assets, file);
@@ -1683,4 +1688,28 @@ load_saved_assets(Assets *assets, const char *filename) // returns 0 on success
     fclose(file);
     
     return 0;
+}
+
+internal u32
+save_assets_to_exe(const char *exe_filepath, Assets *assets) {
+    FILE *exe = fopen(exe_filepath, "rb+");
+    if (!exe) {
+        error(0, "save_assets_to_exe(): Could not open file");
+        return false;
+    }
+
+    fseek(exe, 0, SEEK_END);
+    u32 exe_offset = ftell(exe);
+
+    save_assets(assets, exe);
+
+    fclose(exe);
+
+    const char *first = char_array_concat("global u32 exe_offset = ", u32_to_char_array(exe_offset));
+    const char *second = char_array_concat(first, ";");
+
+    FILE *exe_length_file = fopen("../exe_offset.h", "w");
+    fwrite(second, get_length(second), 1, exe_length_file);
+
+    return true;
 }
