@@ -178,32 +178,6 @@ u32_to_char_array(u32 in) {
     return buffer;
 }
 
-inline char*
-ftos(f32 f)
-{
-    u32 size = 10;
-    char *buffer = (char*)platform_malloc(size);
-    memset(buffer, 0, size);
-    u32 ret = snprintf(buffer, size, "%f", f);
-    if (ret < 0)
-    {
-        error(0, "ftos(): failed");
-        return 0;
-    }
-    if (ret >= size) warning(0, "ftos(): result was truncated");
-    return buffer;
-}
-
-inline void
-ftos(f32 f, char *buffer, u32 buffer_size) {
-    u32 ret = snprintf(buffer, buffer_size, "%f", f);
-    if (ret < 0) {
-        error(0, "ftos(): failed");
-        return;
-    }
-    if (ret >= buffer_size) warning(0, "ftos(): result was truncated");
-}
-
 // ptr must point to first char of int
 inline const char*
 char_array_to_s32(const char *ptr, s32 *result)
@@ -230,6 +204,30 @@ char_array_to_u32(const char *ptr, u32 *result)
     ptr = char_array_to_s32(ptr, &num);
     *result = (u32)num;
     return ptr;
+}
+
+inline const char *
+float_to_char_array(f32 f) {
+    u32 size = 64;
+    char *buffer = (char*)platform_malloc(size);
+    memset(buffer, 0, size);
+    u32 ret = snprintf(buffer, size, "%f", f);
+    if (ret < 0) {
+        error(0, "ftos(): failed");
+        return 0;
+    }
+    if (ret >= size) warning(0, "ftos(): result was truncated");
+    return buffer;
+}
+
+inline void
+float_to_char_array(f32 f, char *buffer, u32 buffer_size) {
+    u32 ret = snprintf(buffer, buffer_size, "%f", f);
+    if (ret < 0) {
+        error(0, "ftos(): failed");
+        return;
+    }
+    if (ret >= buffer_size) warning(0, "ftos(): result was truncated");
 }
 
 // char_array_to_float

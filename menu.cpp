@@ -500,7 +500,7 @@ float_textbox_load_src_values(Float_Textbox *box) {
     for (u32 i = 0; i < box->src_elements; i++) {
         // copy temp to box memory
         f32 *src = float_textbox_get_element(box, i);
-        const char *temp = ftos((f32)*src);
+        const char *temp = float_to_char_array((f32)*src);
         for (u32 j = 0; j < float_digit_size - 1; j++) {
             box->memory[i][j] = temp[j];
         }
@@ -585,7 +585,7 @@ draw_easy_textboxs(Easy_Textboxs *easy, Button mouse_left, v2s mouse_coords, Inp
             if (active_changed) {
                 // if there is a new box that is active load value into edit buffer
                 f32 *src = float_textbox_get_element(&easy->boxs[i], easy->boxs[i].active);
-                const char *temp = ftos((f32)*src);
+                const char *temp = float_to_char_array((f32)*src);
                 for (u32 j = 0; j < float_digit_size - 1; j++) {
                     easy->edit.buffer[j] = temp[j];
                 }

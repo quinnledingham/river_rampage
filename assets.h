@@ -38,7 +38,7 @@ Cubemap load_cubemap();
 
 enum shader_types
 {
-    VERTEX_SHADER,                  // 0
+    VERTEX_SHADER,                  // 0 (shader files array index)
     TESSELLATION_CONTROL_SHADER,    // 1
     TESSELLATION_EVALUATION_SHADER, // 2
     GEOMETRY_SHADER,                // 3
@@ -60,6 +60,12 @@ u32 use_shader(Shader *shader); // returns the handle of a shader
 void load_shader(Shader *shader);
 void compile_shader(Shader *shader);
 
+struct Color_Vertex
+{
+    v3 position;
+    v4 color;
+};
+
 struct Vertex
 {
     v3 position;
@@ -69,7 +75,7 @@ struct Vertex
 
 struct Material
 {
-    v3 ambient;            // Ka
+    v3 ambient;            // Ka (in .obj files)
     v3 diffuse;            // Kd
     v3 specular;           // Ks
     f32 specular_exponent; // Ns

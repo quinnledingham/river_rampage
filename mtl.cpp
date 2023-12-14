@@ -56,7 +56,7 @@ is_valid_mtl_char(s32 ch)
 function MTL_Token*
 create_mtl_token(MTL_Token token)
 {
-    MTL_Token *mtl = (MTL_Token*)SDL_malloc(sizeof(MTL_Token));
+    MTL_Token *mtl = (MTL_Token*)platform_malloc(sizeof(MTL_Token));
     (*mtl) = token;
     return mtl;
 }

@@ -4,6 +4,12 @@
 
 #include "log.h"
 #include "types.h"
+
+void *platform_malloc(u32 size) { return SDL_malloc(size); }
+void platform_free(void *ptr)   { SDL_free(ptr); }
+void platform_memory_copy(void *dest, void *src, u32 num_of_bytes) { SDL_memcpy(dest, src, num_of_bytes); }
+void platform_memory_set(void *dest, s32 value, u32 num_of_bytes) { SDL_memset(dest, value, num_of_bytes); }
+
 #include "types_math.h"
 #include "char_array.h"
 #include "assets.h"
@@ -11,7 +17,7 @@
 #include "data_structures.h"
 #include "shapes.h"
 #include "particles.h"
-#include "application.h"
+#include "platform.h"
 
 #include "log.cpp"
 #include "data_structures.cpp"
@@ -28,6 +34,8 @@
 #include "shapes.cpp"
 #include "particles.cpp"
 
+#if WINDOWS
+
 // Enabling Dedicated Graphics on Laptops
 // https://www.reddit.com/r/gamedev/comments/bk7xbe/psa_for_anyone_developing_a_gameengine_in_c/
 //
@@ -40,39 +48,11 @@ extern "C"
     __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;   // AMD
 }
 
-#if WINDOWS
-
-#define WIN32_LEAN_AND_MEAN
-#define WIN32_EXTRA_LEAN
-#include <windows.h>
-
-#pragma comment(lib, "user32.lib")
-#pragma comment(lib, "gdi32.lib")
-#pragma comment(lib, "winmm.lib")
-#pragma comment(lib, "shell32.lib")
-
-#include <mmsystem.h>
-#include <dsound.h>
-#include <intrin.h>
-#include <xinput.h>
-
-#include "win32_application.cpp"
-
-#elif SDL
-
-#endif // WINDOWS/SDL
+#endif // WINDOWS
 
 // function that are defined in the game code
 b8 update(void *application);
 void* init_data(Assets *assets);
-
-void *platform_malloc(u32 size) {
-    return SDL_malloc(size);
-}
-
-void platform_free(void *ptr) {
-    SDL_free(ptr);
-}
 
 function void
 update_window(Window *window)
@@ -307,8 +287,8 @@ main_loop(Application *app, SDL_Window *sdl_window)
         swap_window(sdl_window);
 
         u32 gl_clear_flags = 
-            GL_COLOR_BUFFER_BIT | 
-            GL_DEPTH_BUFFER_BIT | 
+            GL_COLOR_BUFFER_BIT  | 
+            GL_DEPTH_BUFFER_BIT  | 
             GL_STENCIL_BUFFER_BIT;
     
         glClear(gl_clear_flags);
@@ -403,18 +383,22 @@ int main(int argc, char *argv[]) {
     // Loading assets
     u64 assets_loading_time_started = sdl_get_ticks();
 
+    // load assets without using the asset builder application
     if (equal(argv[1], "load_assets")) {
-        if (load_assets(&app.assets, "../assets.ethan")) 
-            return 1;
+        if (load_assets(&app.assets, "../assets.ethan")) return 1;
         FILE *file = fopen("assets.save", "wb");
         save_assets(&app.assets, file);
         fclose(file);
     } else {
-        //if (load_saved_assets(&app.assets, "assets.save", 0)) 
-        //    return 1;
+        const char *filepath = "assets.save";
+        u32 offset = 0;
 
-        load_saved_assets(&app.assets, "river.exe", exe_offset);
-        //load_assets_from_exe(&app.assets, "river.exe");
+        // have to compile then run the asset builder application to put the assets in the exe
+        //const char *filepath = "river.exe";
+        //u32 offset = exe_offset;
+
+        if (load_saved_assets(&app.assets, filepath, offset))
+            return 1;
     }
 
     init_assets(&app.assets);

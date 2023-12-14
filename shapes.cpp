@@ -6,7 +6,7 @@
 #include "renderer.h"
 #include "data_structures.h"
 #include "shapes.h"
-#include "application.h"
+#include "platform.h"
 
 enum Shape_Types
 {

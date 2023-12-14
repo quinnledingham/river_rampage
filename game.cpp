@@ -7,7 +7,7 @@
 #include "data_structures.h"
 #include "shapes.h"
 #include "particles.h"
-#include "application.h"
+#include "platform.h"
 
 #include "gui.h"
 #include "game.h"
@@ -66,7 +66,7 @@ draw_main_menu(Game *game, Matrices *matrices, Assets *assets, Input *input, v2s
 
     const char *test_string = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     draw_string(main_menu.font, test_string, { 0, 75 }, game->test_pixel_height, { 255, 255, 255, 1} );
-    draw_string(main_menu.font, ftos(game->test_pixel_height), { 0, 200 }, game->test_pixel_height, { 255, 255, 255, 1 });
+    draw_string(main_menu.font, float_to_char_array(game->test_pixel_height), { 0, 200 }, game->test_pixel_height, { 255, 255, 255, 1 });
 
     return false;
 }

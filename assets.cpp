@@ -14,7 +14,7 @@ read_file(const char *filename)
         result.size = ftell(in);
         fseek(in, 0, SEEK_SET);
         
-        result.memory = SDL_malloc(result.size);
+        result.memory = platform_malloc(result.size);
         fread(result.memory, result.size, 1, in);
         fclose(in);
     }
@@ -34,7 +34,7 @@ read_file_terminated(const char *filename) {
     result.size = file.size + 1;
     result.path = filename;
     result.memory = platform_malloc(result.size);
-    SDL_memcpy(result.memory, file.memory, file.size);
+    platform_memory_copy(result.memory, file.memory, file.size);
 
     char *r = (char*)result.memory;
     r[file.size] = 0; // last byte in result.memory
@@ -82,8 +82,8 @@ reset_get_char(File *file)
 function const char*
 copy_last_num_of_chars(File *file, u32 length)
 {
-    char *string = (char*)SDL_malloc(length + 1);
-    SDL_memset(string, 0, length + 1);
+    char *string = (char*)platform_malloc(length + 1);
+    platform_memory_set(string, 0, length + 1);
     
     const char *ptr = file->ch - length;
     for (u32 i = 0; i < length; i++)
@@ -103,7 +103,7 @@ copy_last_num_of_chars(File *file, u32 length)
 function void
 free_file(File *file)
 {
-    if (file->memory != 0) SDL_free(file->memory);
+    if (file->memory != 0) platform_free(file->memory);
     *file = {}; // sets file-memory to 0
 }
 
@@ -153,6 +153,8 @@ enum Texture_Parameters
     TEXTURE_PARAMETERS_DEFAULT,
     TEXTURE_PARAMETERS_CHAR,
 };
+
+#if OPENGL
 
 function void
 init_bitmap_handle(Bitmap *bitmap, u32 texture_parameters)
@@ -211,14 +213,11 @@ init_bitmap_handle(Bitmap *bitmap, u32 texture_parameters)
     glBindTexture(target, 0);
 }
 
-function void init_bitmap_handle(Bitmap *bitmap) { init_bitmap_handle(bitmap, TEXTURE_PARAMETERS_DEFAULT); }
 
-function Bitmap
-load_and_init_bitmap(const char *filename)
-{
-    Bitmap bitmap = load_bitmap(filename);
-    init_bitmap_handle(&bitmap);
-    return bitmap;
+
+internal void
+free_bitmap_handle(Bitmap *bitmap) {
+    glDeleteTextures(1, &bitmap->handle);
 }
 
 /*
@@ -409,6 +408,82 @@ void draw_mesh_instanced(Mesh *mesh)
 }
 
 //
+// Model
+//
+
+void draw_model(Model *model, Camera camera, v3 position, quat rotation)
+{
+    u32 shader_enabled = 0; // 0 no shader, 1 shader, 2 tex_shader
+    u32 handle = 0;
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    for (u32 i = 0; i < model->meshes_count; i++) {
+        if (shader_enabled != 1 && model->meshes[i].material.diffuse_map.memory == 0) {
+            shader_enabled = 1;
+            handle = use_shader(model->color_shader);
+        } else if (shader_enabled != 2 && model->meshes[i].material.diffuse_map.memory != 0) {
+            shader_enabled = 2;
+            handle = use_shader(model->texture_shader);
+        }
+
+        m4x4 model_matrix = create_transform_m4x4(position, rotation, {1, 1, 1});
+        glUniformMatrix4fv(glGetUniformLocation(handle, "model"), (GLsizei)1, false, (float*)&model_matrix);
+        glUniform3fv(glGetUniformLocation(handle, "viewPos"), (GLsizei)1, (float*)&camera.position);   
+
+        glUniform3fv(glGetUniformLocation(handle, "material.ambient"),  (GLsizei)1, (float*)&model->meshes[i].material.ambient);
+        glUniform3fv(glGetUniformLocation(handle, "material.diffuse"),  (GLsizei)1, (float*)&model->meshes[i].material.diffuse);
+        glUniform3fv(glGetUniformLocation(handle, "material.specular"), (GLsizei)1, (float*)&model->meshes[i].material.specular);
+        glUniform1f (glGetUniformLocation(handle, "material.shininess"), model->meshes[i].material.specular_exponent);
+
+        if (model->meshes[i].material.diffuse_map.memory != 0)
+        {
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, model->meshes[i].material.diffuse_map.handle);
+        }
+        
+        draw_mesh(&model->meshes[i]);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+}
+#endif // OPENGL
+
+#if DX12
+
+function void
+init_bitmap_handle(Bitmap *bitmap, u32 texture_parameters) {
+
+}
+
+function void
+free_bitmap_handle(Bitmap *bitmap) {
+
+}
+
+#endif // DX12
+
+function void init_bitmap_handle(Bitmap *bitmap) { init_bitmap_handle(bitmap, TEXTURE_PARAMETERS_DEFAULT); }
+
+function Bitmap
+load_and_init_bitmap(const char *filename)
+{
+    Bitmap bitmap = load_bitmap(filename);
+    init_bitmap_handle(&bitmap);
+    return bitmap;
+}
+
+internal void
+init_model(Model *model) {
+    for (u32 mesh_index = 0; mesh_index < model->meshes_count; mesh_index++) {
+        Mesh *mesh = &model->meshes[mesh_index];
+        init_mesh(mesh);
+        init_bitmap_handle(&mesh->material.diffuse_map);
+    }
+}
+
+
+//
 // Font
 //
 
@@ -416,8 +491,8 @@ function Font
 load_font(const char *filename)
 {
     Font font = {};
-    SDL_memset(font.font_chars, 0, sizeof(Font_Char)        * ARRAY_COUNT(font.font_chars));
-    SDL_memset(font.bitmaps,    0, sizeof(Font_Char_Bitmap) * ARRAY_COUNT(font.bitmaps));
+    platform_memory_set(font.font_chars, 0, sizeof(Font_Char)        * ARRAY_COUNT(font.font_chars));
+    platform_memory_set(font.bitmaps,    0, sizeof(Font_Char_Bitmap) * ARRAY_COUNT(font.bitmaps));
     font.file = read_file(filename);
     
     return font;
@@ -426,7 +501,7 @@ load_font(const char *filename)
 function void
 init_font(Font *font)
 {
-    font->info = SDL_malloc(sizeof(stbtt_fontinfo));
+    font->info = platform_malloc(sizeof(stbtt_fontinfo));
     stbtt_fontinfo *info = (stbtt_fontinfo*)font->info;
     *info = {};
     
@@ -452,7 +527,7 @@ load_font_char(Font *font, u32 codepoint)
     if (font->font_chars_cached >= ARRAY_COUNT(font->font_chars)) 
         font->font_chars_cached = 0;
 
-    memset(font_char, 0, sizeof(Font_Char));
+    platform_memory_set(font_char, 0, sizeof(Font_Char));
     font_char->codepoint = codepoint;
     font_char->glyph_index = stbtt_FindGlyphIndex(info, font_char->codepoint);
     
@@ -490,7 +565,8 @@ load_font_char_bitmap(Font *font, u32 codepoint, f32 scale)
     // free bitmap if one is being overwritten
     if (bitmap->scale != 0) { 
         stbtt_FreeBitmap(bitmap->bitmap.memory, info->userdata);
-        glDeleteTextures(1, &bitmap->bitmap.handle);
+        //glDeleteTextures(1, &bitmap->bitmap.handle);
+        free_bitmap_handle(&bitmap->bitmap);
         bitmap->bitmap.memory = 0;
     }
 
@@ -584,6 +660,8 @@ s32 get_codepoint_kern_advance(void *info, s32 ch1, s32 ch2) {
 // Audio
 //
 
+#if SDL
+
 function void
 print_audio_spec(SDL_AudioSpec *audio_spec)
 {
@@ -645,7 +723,7 @@ init_audio_player(Audio_Player *player)
     print_audio_spec(&obtained);
     
     player->max_length = 10000;
-    player->buffer = (u8*)SDL_malloc(player->max_length);
+    player->buffer = (u8*)platform_malloc(player->max_length);
     SDL_memset(player->buffer, 0, player->max_length);
     
     player->audios_count = 10;
@@ -734,56 +812,14 @@ mix_audio(Audio_Player *player, r32 frame_time_s)
     }
 }
 
-//
-// Model
-//
+#elif WINDOWS
 
-void draw_model(Model *model, Camera camera, v3 position, quat rotation)
-{
-    u32 shader_enabled = 0; // 0 no shader, 1 shader, 2 tex_shader
-    u32 handle = 0;
+function Audio
+load_audio(const char *filename) {
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    for (u32 i = 0; i < model->meshes_count; i++) {
-        if (shader_enabled != 1 && model->meshes[i].material.diffuse_map.memory == 0) {
-            shader_enabled = 1;
-            handle = use_shader(model->color_shader);
-        } else if (shader_enabled != 2 && model->meshes[i].material.diffuse_map.memory != 0) {
-            shader_enabled = 2;
-            handle = use_shader(model->texture_shader);
-        }
-
-        m4x4 model_matrix = create_transform_m4x4(position, rotation, {1, 1, 1});
-        glUniformMatrix4fv(glGetUniformLocation(handle, "model"), (GLsizei)1, false, (float*)&model_matrix);
-        glUniform3fv(glGetUniformLocation(handle, "viewPos"), (GLsizei)1, (float*)&camera.position);   
-
-        glUniform3fv(glGetUniformLocation(handle, "material.ambient"),  (GLsizei)1, (float*)&model->meshes[i].material.ambient);
-        glUniform3fv(glGetUniformLocation(handle, "material.diffuse"),  (GLsizei)1, (float*)&model->meshes[i].material.diffuse);
-        glUniform3fv(glGetUniformLocation(handle, "material.specular"), (GLsizei)1, (float*)&model->meshes[i].material.specular);
-        glUniform1f (glGetUniformLocation(handle, "material.shininess"), model->meshes[i].material.specular_exponent);
-
-        if (model->meshes[i].material.diffuse_map.memory != 0)
-        {
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, model->meshes[i].material.diffuse_map.handle);
-        }
-        
-        draw_mesh(&model->meshes[i]);
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
 }
 
-internal void
-init_model(Model *model) {
-    for (u32 mesh_index = 0; mesh_index < model->meshes_count; mesh_index++) {
-        Mesh *mesh = &model->meshes[mesh_index];
-        init_mesh(mesh);
-        init_bitmap_handle(&mesh->material.diffuse_map);
-    }
-}
-
+#endif // SDL
 
 // OBJ
 
@@ -1561,7 +1597,7 @@ internal void
 load_bitmap_memory(Bitmap *bitmap, FILE *file)
 {
     u32 size = bitmap->dim.x * bitmap->dim.y * bitmap->channels;
-    bitmap->memory = (u8*)SDL_malloc(size);
+    bitmap->memory = (u8*)platform_malloc(size);
     fread(bitmap->memory, size, 1, file);
 }
 
@@ -1647,12 +1683,12 @@ load_saved_assets(Assets *assets, const char *filename, u32 offset) // returns 0
     {
         Asset *asset = &assets->data[i];
 
-        asset->tag = (const char*)SDL_malloc(asset->tag_length + 1);
+        asset->tag = (const char*)platform_malloc(asset->tag_length + 1);
         fread((void*)asset->tag, asset->tag_length + 1, 1, file);
         
         switch(asset->type) {
             case ASSET_TYPE_FONT: {
-                asset->font.file.memory = SDL_malloc(asset->font.file.size);
+                asset->font.file.memory = platform_malloc(asset->font.file.size);
                 fread(asset->font.file.memory, asset->font.file.size, 1, file);
             } break;
 
@@ -1661,7 +1697,7 @@ load_saved_assets(Assets *assets, const char *filename, u32 offset) // returns 0
             case ASSET_TYPE_SHADER: {
                 for (u32 i = 0; i < SHADER_TYPE_AMOUNT; i++) {
                     if (asset->shader.files[i].size) {
-                        asset->shader.files[i].memory = SDL_malloc(asset->shader.files[i].size);
+                        asset->shader.files[i].memory = platform_malloc(asset->shader.files[i].size);
                         fread((void*)asset->shader.files[i].memory, asset->shader.files[i].size, 1, file);
                     }
                     asset->shader.files[i].path = 0;
@@ -1671,12 +1707,12 @@ load_saved_assets(Assets *assets, const char *filename, u32 offset) // returns 0
             } break;
             
             case ASSET_TYPE_AUDIO: {
-                asset->audio.buffer = (u8*)SDL_malloc(asset->audio.length);
+                asset->audio.buffer = (u8*)platform_malloc(asset->audio.length);
                 fread(asset->audio.buffer, asset->audio.length, 1, file);
             } break;
 
             case ASSET_TYPE_MODEL: {
-                asset->model.meshes = (Mesh*)SDL_malloc(asset->model.meshes_count * sizeof(Mesh));
+                asset->model.meshes = (Mesh*)platform_malloc(asset->model.meshes_count * sizeof(Mesh));
 
                 for (u32 i = 0; i < asset->model.meshes_count; i++) { 
                     asset->model.meshes[i] = load_mesh(file);

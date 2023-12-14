@@ -591,7 +591,7 @@ draw_game_3D(Game *game,
     
     if (tools->show_fps) {
         Font *caslon = find_font(assets, "CASLON");
-        draw_string(caslon, ftos(time.frames_per_s), { 100, 100 }, 50, { 255, 150, 0, 1 });
+        draw_string(caslon, float_to_char_array(time.frames_per_s), { 100, 100 }, 50, { 255, 150, 0, 1 });
     }
 
     if (tools->show_console) {
