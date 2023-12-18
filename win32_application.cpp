@@ -157,7 +157,7 @@ LRESULT CALLBACK main_window_callback(HWND window_handle, UINT message, WPARAM w
 }
 
 int CALLBACK WinMain(HINSTANCE h_instance, HINSTANCE h_prev_instance, LPSTR ld_cmdZ_line, int n_show_cmd) {
-WNDCLASS window_class = {};
+	WNDCLASS window_class = {};
 	window_class.lpfnWndProc = main_window_callback;
 	window_class.hInstance = h_instance;
 	window_class.lpszClassName = "RiverRampageWindowClass";
