@@ -326,7 +326,7 @@ void dx_load_assets(dx_hello_triangle *input) {
         CD3DX12_RANGE readRange(0, 0);        // We do not intend to read from this resource on the CPU.
         result = input->m_vertex_buffer->Map(0, &readRange, reinterpret_cast<void**>(&p_vertex_data_begin));
         if (FAILED(result)) output("load_assets(): Map() failed");
-        memcpy(p_vertex_data_begin, triangle_vertices, sizeof(triangle_vertices));
+        memcpy(p_vertex_data_begin, triangle_vertices, vertex_buffer_size);
         input->m_vertex_buffer->Unmap(0, nullptr);
 
         // Initialize the vertex buffer view.

@@ -320,7 +320,7 @@ const u32 file_types[5] = {
 // compiles the files
 void compile_shader(Shader *shader)
 {
-    shader->uniform_buffer_objects_generated = false;
+    //shader->uniform_buffer_objects_generated = false;
     shader->compiled = false;
     if (shader->handle != 0) glDeleteProgram(shader->handle);
     shader->handle = glCreateProgram();

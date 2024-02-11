@@ -52,7 +52,7 @@ struct Shader
     File files[SHADER_TYPE_AMOUNT];
 
     b32 compiled;
-    b32 uniform_buffer_objects_generated;
+    //b32 uniform_buffer_objects_generated;
     u32 handle;
 };
 

@@ -15,8 +15,8 @@ REM set CFs2= -nologo -O2 -Oi /Isdl-vc\include /Iglad /Istb /DWINDOWS
 set LF_WINDOWS_SDL_OPENGL= -incremental:no -opt:ref shell32.lib opengl32.lib ..\sdl-vc\lib\x64\SDL2main.lib ..\sdl-vc\lib\x64\SDL2.lib /subsystem:windows
 set LF_WINDOWS_DX12= -incremental:no -opt:ref shell32.lib user32.lib gdi32.lib D3d12.lib D3DCompiler.lib dxgi.lib /subsystem:windows
 
-REM cl %CF_WINDOWS_SDL_OPENGL% ../game.cpp ../sdl_application.cpp /link %LF_WINDOWS_SDL_OPENGL% /out:river.exe
-cl %CF_WINDOWS_DX12% /DDX12 ../win32_application.cpp /link %LF_WINDOWS_DX12% /out:river.exe
+cl %CF_WINDOWS_SDL_OPENGL% ../game.cpp ../sdl_application.cpp /link %LF_WINDOWS_SDL_OPENGL% /out:river.exe
+REM cl %CF_WINDOWS_DX12% /DDX12 ../win32_application.cpp /link %LF_WINDOWS_DX12% /out:river.exe
 
 REM cl %CFs% ../assets_builder.cpp /link %LFs% /out:builder.exe
 
